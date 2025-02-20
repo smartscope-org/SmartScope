@@ -1,5 +1,5 @@
 name: AI hole finder
-method: find_holes
+method: find_holes_from_square
 module: Smartscope.lib.Finders.AIFinder.wrapper
 kwargs: 
   imgsz: 1280

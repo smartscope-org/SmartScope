@@ -7,7 +7,7 @@ sys.path.append(os.path.join(os.path.dirname(os.path.abspath(__file__)), 'detect
 
 from .detectors.detect_squares import detect
 from .detectors.detect_holes import detect_holes, detect_and_classify_holes
-# from ..basic_finders import find_square_center
+from ..basic_finders import mask_square
 import logging
 import torch
 
@@ -64,6 +64,10 @@ def find_holes_from_image(image, class_map:Dict=None, success_threshold:int=10, 
 
 def find_holes(montage:Montage, class_map:Dict=None, success_threshold:int=10,  **kwargs):
     return find_holes_from_image(montage.image, class_map, success_threshold, **kwargs)
+
+def find_holes_from_square(square:Montage, class_map:Dict=None, success_threshold:int=10,  **kwargs):
+    image = mask_square(square.image)
+    return find_holes_from_image(image, class_map, success_threshold, **kwargs)
 
 def find_holes_with_lattice(montage, hole_spacing:float, lattice_radius:float, class_map:Dict=None, success_threshold:int=2, **kwargs):
     """

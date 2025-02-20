@@ -105,6 +105,15 @@ def find_square(image):
     cY = int(M["m01"] / M["m00"])
     return contour, np.array([cX, cY]), hist
 
+def mask_square(image):
+    thresh = np.mean(image)
+    hist = plot_hist_gauss(image, thresh, size=image.shape[0])
+    contours, _ = find_contours(image, thresh)
+    contour = max(contours, key=cv2.contourArea)
+    mask = np.zeros(image.shape, dtype="uint8")
+    cv2.drawContours(mask, [contour], -1, 1, cv2.FILLED)
+    return mask*image
+
 def check_aspect(rect, ratio=1.4):
     x, y, w, h = rect
     if max(w, h) / min(w, h) < ratio:
