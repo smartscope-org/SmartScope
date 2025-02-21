@@ -1101,7 +1101,7 @@ function updateArcPath(x1, y1, x2, y2) {
     let angle = calculateAngleAnticlockwise(x1, y1, x2, y2); // 
 
     // Extend horizontal axis dynamically to match drawn line length
-    let hAxisLength = Math.abs(x2 - x1) + 150;
+    let hAxisLength = Math.abs(x2 - x1);
     document.getElementById("horizontalAxis").setAttribute("x2", x1 + hAxisLength);
 
     // define arcs start and end coordinates
