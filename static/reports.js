@@ -942,3 +942,191 @@ function updateData(data) {
         console.log(data)
     }
 }
+
+/**
+ * This code allows to draw a line over the "Square_im" element
+ * inside the "square_div" container. It calculates and displays 
+ * the angle of the drawn line relative to the horizontal axis.
+ 
+ Step 1: Capture mouse events on "square_im"
+ Step 2: Draw a line dynamically and a horizontal reference axis
+ Step 3: Compute the angle of rotation
+ Step 4: Display angle and arc remove the line after 1 second
+*/
+
+let lineStartX, lineStartY, lineEndX, lineEndY;
+let isDrawing = false;
+let isDrawingEnabled = false;
+let timeoutId = null;
+
+// this code allows to draw over click of angleMeasure 
+$(document).on("click", "#angleMeasure", function () {
+    isDrawingEnabled = !isDrawingEnabled;
+    console.log("Drawing Mode:", isDrawingEnabled);
+
+    // Clear existing lines & angles when reactivating
+    if (isDrawingEnabled) {
+        clearExistingLines();
+    }
+});
+
+// this code captures the starting coordinates on mouse down 
+$('#main').on("mousedown", '#Square_div svg', function (event) {
+    if (!isDrawingEnabled) return;
+
+    let svg = event.target.closest("svg");
+    let coords = getLineCoords(event);
+
+    lineStartX = coords.x;
+    lineStartY = coords.y;
+    isDrawing = true;
+
+    clearExistingLines();
+
+    // initiates angular line over mouse movement
+    let line = document.createElementNS("http://www.w3.org/2000/svg", 'line');
+    line.setAttribute("id", "drawnLine");
+    line.setAttribute("x1", lineStartX);
+    line.setAttribute("y1", lineStartY);
+    line.setAttribute("x2", lineStartX);
+    line.setAttribute("y2", lineStartY);
+    line.setAttribute("stroke", "red");
+    line.setAttribute("stroke-width", "10");
+    svg.appendChild(line);
+
+    // initiates horizontal reference line 
+    let hAxis = document.createElementNS("http://www.w3.org/2000/svg", 'line');
+    hAxis.setAttribute("id", "horizontalAxis");
+    hAxis.setAttribute("x1", lineStartX);
+    hAxis.setAttribute("y1", lineStartY);
+    hAxis.setAttribute("x2", lineStartX + 150); // ✅ Extends to the right
+    hAxis.setAttribute("y2", lineStartY);
+    hAxis.setAttribute("stroke", "red");
+    hAxis.setAttribute("stroke-width", "10");
+    svg.appendChild(hAxis);
+
+    // initiates angle Text
+    let text = document.createElementNS("http://www.w3.org/2000/svg", 'text');
+    text.setAttribute("id", "angleText");
+    text.setAttribute("x", lineStartX + 20);
+    text.setAttribute("y", lineStartY - 20);
+    text.setAttribute("fill", "red");
+    text.setAttribute("font-size", "200px");
+    text.setAttribute("font-weight", "bold");
+    text.textContent = "0°";
+    svg.appendChild(text);
+
+    // initiates arc between horizontal and drawn line
+    let arc = document.createElementNS("http://www.w3.org/2000/svg", 'path');
+    arc.setAttribute("id", "angleArc");
+    arc.setAttribute("fill", "none");
+    arc.setAttribute("stroke", "red");
+    arc.setAttribute("stroke-width", "10");
+    svg.appendChild(arc);
+});
+
+// Update line, arc & angle on mouse movement
+$('#main').on("mousemove", '#Square_div svg', function (event) {
+    if (!isDrawing || !isDrawingEnabled) return;
+
+    let coords = getLineCoords(event);
+    lineEndX = coords.x;
+    lineEndY = coords.y;
+
+    let line = document.getElementById("drawnLine");
+    let text = document.getElementById("angleText");
+    let arc = document.getElementById("angleArc");
+
+    if (line) {
+        line.setAttribute("x2", lineEndX);
+        line.setAttribute("y2", lineEndY);
+    }
+
+    if (text) {
+        let angle = calculateAngleAnticlockwise(lineStartX, lineStartY, lineEndX, lineEndY);
+        text.textContent = `${angle.toFixed(2)}°`;
+
+        //Position text in the middle of the arc
+        let textX = lineStartX + 40;
+        let textY = lineStartY - 30;
+        text.setAttribute("x", textX);
+        text.setAttribute("y", textY);
+    }
+
+    if (arc) {
+        updateArcPath(lineStartX, lineStartY, lineEndX, lineEndY);
+    }
+});
+
+//Finalize drawing on mouse up
+$('#main').on("mouseup", '#Square_div svg', function (event) {
+    if (!isDrawing || !isDrawingEnabled) return;
+
+    isDrawing = false;
+    let coords = getLineCoords(event);
+    lineEndX = coords.x;
+    lineEndY = coords.y;
+
+    let angle = calculateAngleAnticlockwise(lineStartX, lineStartY, lineEndX, lineEndY);
+    console.log(`Final Angle: ${angle.toFixed(2)}°`);
+
+    isDrawingEnabled = false;
+    timeoutId = setTimeout(clearExistingLines, 2000);
+});
+
+// Convert mouse event to SVG coordinates
+function getLineCoords(evt) {
+    let svg = evt.target.closest("svg");
+    let pt = svg.createSVGPoint();
+    pt.x = evt.clientX;
+    pt.y = evt.clientY;
+    let cursorpt = pt.matrixTransform(svg.getScreenCTM().inverse());
+    return { x: cursorpt.x, y: cursorpt.y };
+}
+
+// Calculate angle
+function calculateAngleAnticlockwise(x1, y1, x2, y2) {
+    let angle = Math.atan2(y1 - y2, x2 - x1) * (180 / Math.PI);
+
+    if (angle < 0) {
+        angle += 360;
+    }
+
+    return angle;
+}
+
+// function to update arc, horizontal axis grows same as drawn line
+function updateArcPath(x1, y1, x2, y2) {
+    let radius = 150; // Offset arc 150px away from center
+    let angle = calculateAngleAnticlockwise(x1, y1, x2, y2); // 
+
+    // Extend horizontal axis dynamically to match drawn line length
+    let hAxisLength = Math.abs(x2 - x1) + 150;
+    document.getElementById("horizontalAxis").setAttribute("x2", x1 + hAxisLength);
+
+    // define arcs start and end coordinates
+    let arcStartX = x1 + radius;
+    let arcStartY = y1;
+    let arcEndX = x1 + radius * Math.cos(angle * (Math.PI / 180));
+    let arcEndY = y1 - radius * Math.sin(angle * (Math.PI / 180));
+
+    let largeArcFlag = angle > 180 ? 1 : 0;
+    let sweepFlag = 0;
+
+    let arcPath = `M ${arcStartX} ${arcStartY} A ${radius} ${radius} 0 ${largeArcFlag} ${sweepFlag} ${arcEndX} ${arcEndY}`;
+    document.getElementById("angleArc").setAttribute("d", arcPath);
+}
+
+
+// this function to remove existing lines, angle arc
+function clearExistingLines() {
+    $('#drawnLine').remove();
+    $('#horizontalAxis').remove();
+    $('#angleText').remove();
+    $('#angleArc').remove();
+    if (timeoutId) {
+        clearTimeout(timeoutId);
+        timeoutId = null;
+    }
+}
+
