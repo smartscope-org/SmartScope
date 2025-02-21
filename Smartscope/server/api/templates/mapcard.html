@@ -41,6 +41,16 @@
                         data-bs-toggle="tooltip" data-bs-placement="top" title="Clear Selection"><i
                             class="bi bi-x-square"></i></a>
                 </li>
+                <!--Ruler icon in the square_div -->
+                {% if instance.targets_prefix == 'hole' %}
+                <li class="nav-item d-flex align-items-center">
+                    <a id="angleMeasure" class="nav-link"
+                       data-bs-toggle="tooltip" data-bs-placement="top"
+                       title="Measure square rotation angle">
+                        <i class="bi bi-rulers"></i>
+                    </a>
+                </li>
+                {% endif %}
             </ul>
         </div>
     </nav>
