@@ -999,7 +999,7 @@ $('#main').on("mousedown", '#Square_div svg', function (event) {
     hAxis.setAttribute("id", "horizontalAxis");
     hAxis.setAttribute("x1", lineStartX);
     hAxis.setAttribute("y1", lineStartY);
-    hAxis.setAttribute("x2", lineStartX + 150); // ✅ Extends to the right
+    hAxis.setAttribute("x2", lineStartX + 150); //
     hAxis.setAttribute("y2", lineStartY);
     hAxis.setAttribute("stroke", "red");
     hAxis.setAttribute("stroke-width", "10");
