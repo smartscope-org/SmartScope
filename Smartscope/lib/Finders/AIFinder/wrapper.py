@@ -86,7 +86,7 @@ def find_holes_with_lattice(montage, hole_spacing:float, lattice_radius:float, c
         return [], success, dict()
     targets = Targets.create_targets_from_box(targets, montage, force_mdoc=False) ###REPLACE WITH THE ENV VARIABLE
     expected_spacing = hole_spacing / montage.pixel_size_micron
-    lattice_radius_in_pixels = lattice_radius / montage.pixel_size_micron * 1.2
+    lattice_radius_in_pixels = lattice_radius / montage.pixel_size_micron * 1.5
     rotation, spacing = get_mesh_rotation_spacing(np.array([target.coords for target in targets]), expected_spacing)
     logger.debug(f'Calculated hole geometry for grid {montage} with {len(targets)} holes and mesh spacing: {spacing} um. Pixel size of {montage}: {montage.pixel_size} A.\n Calculated rotation: {rotation}\n Calculated spacing: {spacing}')
     lattice = generic_lattice_extension([t.coords for t in targets], np.array([lattice_radius_in_pixels,lattice_radius_in_pixels]), rotation, spacing, offset=montage.center)

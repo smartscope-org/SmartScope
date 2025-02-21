@@ -244,6 +244,13 @@ def refineOpticsForHighMag(scope,params,instance, content:Dict, *args, **kwargs)
         scope.recenter_beam(interval_in_minutes=0)
         scope.refineZLP(zerolossDelay=0)
 
+def rollDefocus(scope,params,instance, content:Dict, *args, **kwargs):
+    scope.roll_defocus(
+        params.target_defocus_min,
+        params.target_defocus_max,
+        params.step_defocus,
+    )  
+
 
 protocolCommandsFactory = dict(
     setAtlasOptics=setAtlasOptics,
@@ -275,5 +282,6 @@ protocolCommandsFactory = dict(
     autoFocus=autoFocus,
     autoFocusAfterDistance=autoFocusAfterDistance,
     waitDrift=waitDrift,
-    zeroImageShift=zeroImageShift
+    zeroImageShift=zeroImageShift,
+    rollDefocus=rollDefocus,
 )

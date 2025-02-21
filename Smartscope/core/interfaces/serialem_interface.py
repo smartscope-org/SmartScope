@@ -313,11 +313,35 @@ class SerialemInterface(MicroscopeInterface):
             sem.SetEucentricFocus()
             self.state.eucentricDefocus = sem.ReportDefocus()
 
+    def roll_defocus(self, def1, def2, step):
+        self.save_eucentric_focus()
+        self._rollDefocus(def1, def2, step)
+        sem.SetTargetDefocus(self.state.defocusTarget)
+
+    def autofocus_by_z(self, def1, def2, step):
+        sem.GoToLowDoseArea('Record')
+        defocus = 99999
+        iteration = 0
+        total_movement = 0
+        while True:
+            iteration += 1
+            self.logger.info(f'Starting iteration {iteration}.')
+            sem.AutoFocus(-1)
+            defocus, error_code = sem.ReportAutoFocus()
+            movement = (defocus - self.state.defocusTarget)*-1
+            if abs(defocus-self.state.defocusTarget) < 3:
+                sem.ChangeFocus(movement)
+                break
+            if error_code != 0:
+                self.logger.info('Autofocus seems to have failed')
+            self.logger.info(f'Defocus measured at {defocus:.2f} um, moving stage by {movement:.2f}')
+            sem.MoveStage(0,0, movement)
+            total_movement += movement
+        self.logger.info(f'Autofocus by Z finished after {iteration} iterations and a total movement of {total_movement:.2f}')
+ 
+
     def autofocus(self, def1, def2, step):
         sem.GoToLowDoseArea('Record')
-        self.save_eucentric_focus()
-        self.rollDefocus(def1, def2, step)
-        sem.SetTargetDefocus(self.state.defocusTarget)
         sem.AutoFocus()
         defocus, error_code = sem.ReportAutoFocus()
         self.state.add_to_last_five_defocus(defocus)

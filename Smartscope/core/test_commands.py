@@ -171,6 +171,7 @@ def run_microscope_command(microscope_id, detector_id, command, *args):
                               detector= micModels.Detector.model_validate(detector),
                               atlas_settings= micModels.AtlasSettings.model_validate(detector),
                               additional_settings=additional_settings) as scope:
+        args = [eval(arg) for arg in args]
         getattr(scope, command)(*args)
 
 

@@ -55,7 +55,7 @@ def create_hole_ref_from_image(image, pixel_size, hole_size):
     stack = None
     for target in targets:
 
-        crop, _, _, _, overLimits = extract_from_image(image,target.coords,pixel_size*10,box_size=hole_size*1.5)
+        crop, _, _, _, overLimits = extract_from_image(image,target.coords,pixel_size*10,box_size=hole_size*1.7)
         crop = crop.reshape((crop.shape + (1,)))
         print(f'Crop {crop.shape} is overlimits: {overLimits}. Stack created: {stack is not None}')
         if overLimits:
