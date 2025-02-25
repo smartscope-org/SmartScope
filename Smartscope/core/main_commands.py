@@ -440,7 +440,7 @@ def highmag_processing(grid_id: str, *args, **kwargs):
     from .preprocessing_pipelines import highmag_processing
     highmag_processing(grid_id, *args, **kwargs)
 
-def autoscreen(session_id:str):
+def autoscreen(session_id:str, atlas_mode:bool):
     from .autoscreen import autoscreen
     autoscreen(session_id=session_id)
 
