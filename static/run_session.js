@@ -165,7 +165,10 @@ $(document).ready(async function () {
 $(document).ready(function () {
     $(".screening-type").on("click", async function () {
         let startButton = document.getElementById("start-button");
-
+        if (!startButton) {
+            console.error("Start button not found!");
+            return;
+        }
         // set the button value to start
         let isStarting = startButton.getAttribute("value") === "start";
         console.log("Session Mode:", isStarting ? "Start" : "Stop");
