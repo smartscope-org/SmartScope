@@ -440,9 +440,9 @@ def highmag_processing(grid_id: str, *args, **kwargs):
     from .preprocessing_pipelines import highmag_processing
     highmag_processing(grid_id, *args, **kwargs)
 
-def autoscreen(session_id:str, atlas_mode:bool):
+def autoscreen(session_id:str, screening_mode:bool):
     from .autoscreen import autoscreen
-    autoscreen(session_id=session_id)
+    autoscreen(session_id=session_id, screening_mode=screening_mode)
 
 def reload_plugins():
     from Smartscope.core.settings.worker import PLUGINS_FACTORY
