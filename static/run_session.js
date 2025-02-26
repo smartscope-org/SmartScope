@@ -26,7 +26,7 @@ async function loadlogs() {
     setPause(data)
 }
 
-/ start or stop the session
+// start or stop the session
 async function startSession(start = true, screeningMode = false) {
     let url = `/api/sessions/${session_id}/run_session/`;
     var str = start ? 'start' : 'stop';
@@ -60,7 +60,6 @@ async function startSession(start = true, screeningMode = false) {
         console.log("Cancelled by user");
     }
 }
-
 
 async function togglePause() {
     console.log('toggling pause')
@@ -125,7 +124,9 @@ function autoRefresh(enable = true) {
     clearInterval(interval);
 };
 
-/checkIsRunning tracks staus of the session and changes the UI part of start-button
+
+//checkIsRunning tracks staus of the session and changes the button from start to stop and vice versa
+
 async function checkIsRunning(element, response = null) {
     const url = `/api/sessions/${session_id}/check_is_running/`;
     if (!response) {
@@ -143,8 +144,7 @@ async function checkIsRunning(element, response = null) {
     // Force an attribute update to ensure it registers correctly
     element.setAttribute("value", isRunning ? "stop" : "start");
 
-    // if button updated to stop, hide the dropmenu
-    let dropdown = document.querySelector(".dropdown-menu");    
+    let dropdown = document.querySelector(".dropdown-menu");
     if (element.value=="stop"){
             dropdown.style.display = "none";
     }
@@ -157,11 +157,6 @@ $(document).ready(async function () {
     loadlogs(); run_status = await checkIsRunning(document.getElementById('start-button')); console.log(run_status)
 });
 
-// session-start class is used as a selector to handle session start actions
-// It tracks which button was clicked (e.g., "Atlas Only" or "Atlas-Hole"
-// calls startSession and checkIsRunning to start or stop the session
-// Calls checkIsRunning checks whether session is running or stop mode
-
 $(document).ready(function () {
     $(".screening-type").on("click", async function () {
         let startButton = document.getElementById("start-button");
@@ -169,13 +164,20 @@ $(document).ready(function () {
             console.error("Start button not found!");
             return;
         }
+
         // set the button value to start
         let isStarting = startButton.getAttribute("value") === "start";
         console.log("Session Mode:", isStarting ? "Start" : "Stop");
 
-        // select the screening mode
+        // select the screenig mode
         let screeningMode = isStarting ? $(this).data("mode") === true : null;
         console.log(`Screening Mode: ${screeningMode ? "Atlas Only" : "Full Screening"}`);
+
+        let dropdown = document.querySelector(".dropdown-menu");
+        if (!dropdown) {
+            console.error("Dropdown menu not found!");
+            return;
+        }
 
         try {
             // Call the startSession function
@@ -190,7 +192,13 @@ $(document).ready(function () {
     });
     $(".session-toggle").on("click", async function () {
         let startButton = document.getElementById("start-button");
+        if (!startButton) {
+            console.error("Start button not found!");
+            return;
+        }
+
         let isStarting = startButton.getAttribute("value") === "start";
+        console.log("Button Clicked - Mode:", isStarting ? "Start" : "Stop");
         if (isStarting) {
             return;
         }
