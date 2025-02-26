@@ -33,7 +33,7 @@ logger = logging.getLogger(__name__)
 
 def run_grid(
         grid:AutoloaderGrid,
-        scope:MicroscopeInterface
+        scope:MicroscopeInterface,
         screening_mode: bool = False
     ): 
     """Main logic for the SmartScope process
