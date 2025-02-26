@@ -1,0 +1,68 @@
+{% extends "general/right_sidebar.html" %}
+{% block title %}History/Queue{% endblock %}
+
+
+
+{% block sidebar_content %}
+
+<style>
+    .alert-completed {
+        color: rgb(89, 105, 89);
+        background-color: rgb(171, 232, 171);
+        border-color: green;
+    }
+    .alert-current {
+        color: rgb(113, 111, 99);
+        background-color: rgb(248, 233, 147);
+        border-color: gold;
+    }
+    .alert-next {
+        color: rgb(122, 113, 99);
+        background-color: rgb(248, 203, 120);
+        border-color: orange;
+    }
+</style>
+<div>
+    <p>Latest targets are shown in green, current target in yellow, and next targets in orange. </p>
+    <p>Results are sorted from older (top) to newer (bottom).</p>
+    <p class="fst-italic">This list does not current automatically refresh. Please close this menu for reload in the meatime</p>
+
+</div>
+<div class="col justify-content-center">
+    {% for target in target_history.past_targets %}
+    <div class="alert alert-completed p-1 m-0">
+        {{target.name}} 
+        <a class="alert-link" onclick="navigateTo({% if target.prefix_lower == 'hole' %}'{{target.square_id.pk}}','{{target.hole_id}}'{% elif target.prefix_lower == 'square' %}'{{target.square_id}}',null{% endif %})">
+            <i class="bi bi-box-arrow-up-right"></i>
+        </a>
+    </div>
+    {% endfor %}
+    {% if target_history.current_target is not None %}
+    <div class="alert alert-current p-1 m-0">
+        {{target_history.current_target.name}}
+        <a class="alert-link" onclick="navigateTo({% if target_history.current_target.prefix_lower == 'hole' %}'{{target_history.current_target.square_id.pk}}',{% if target_history.current_target.status == 'processed' %}'{{target_history.current_target.hole_id}}'{% else %}null{% endif %}{% elif target_history.current_target.prefix_lower == 'square' %}'{{target_history.current_target.square_id}}',null{% endif %})">
+            <i class="bi bi-box-arrow-up-right"></i>
+        </a>
+    </div>
+    {% endif %}
+    {% for target in target_history.next_targets %}
+    <div class="alert alert-next p-1 m-0">
+        {{target.name}}
+    </div>
+    {% endfor %}
+    
+</div>
+
+
+<script>
+    $("img[id$='_help']").tooltip();
+    
+    function navigateTo(square_id, hole_id){
+        
+        loadSquare(square_id);
+        if (hole_id != null){
+            loadHole(hole_id);
+        }
+    }
+</script>
+{% endblock %}

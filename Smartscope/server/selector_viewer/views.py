@@ -1,12 +1,11 @@
-from datetime import datetime
 
 import logging
-import plotly.graph_objs as go
 import plotly.express as px
 
 from django.http import HttpResponse, HttpRequest
-from django.http import HttpRequest
 from django.template.response import TemplateResponse
+from rest_framework.decorators import api_view
+from rest_framework.response import Response
 
 from Smartscope.core.models import AutoloaderGrid, HoleModel, SquareModel, AtlasModel
 from Smartscope.core.selector_sorter import SelectorSorter, initialize_selector, save_selector_data, save_to_session_directory
@@ -73,22 +72,43 @@ def selector_view(request, grid_id, selector, maglevel='square'):
 
 
 
-def save_selector_limits(request:HttpRequest, grid_id, selector):
-    logger.debug(f'Request received: {request.__dict__}')
+def extract_selector_limits(data:HttpRequest):
     kwargs = dict()
-    if request.method != 'POST':
-        return HttpResponse('Method not allowed', status=405)
-    low_limit = request.POST.get('low_limit', None)
-    high_limit = request.POST.get('high_limit', None)
-    apply_to = request.POST.get('apply_to', 'grid')
+    low_limit = data.get('low_limit', None)
+    high_limit = data.get('high_limit', None)
+    apply_to = data.get('apply_to', 'grid')
     if apply_to == 'session':
         kwargs = {'save_to':save_to_session_directory}
+    return low_limit, high_limit, kwargs
+
+def save_selector_limits(request:HttpRequest, grid_id, selector):
+    logger.debug(f'Request received: {request.__dict__}')
+    if request.method != 'POST':
+        return HttpResponse('Method not allowed', status=405)
+    low_limit, high_limit, kwargs = extract_selector_limits(request.POST)
     if high_limit is None:
         return HttpResponse('High Limit cannot be none', status=400)
-    selector_data = save_selector_data(grid_id=grid_id,selector_name=selector, data=dict(low_limit=low_limit, high_limit=high_limit), **kwargs)
-
+    save_selector_data(grid_id=grid_id,selector_name=selector, data=dict(low_limit=low_limit, high_limit=high_limit), **kwargs)
     return TemplateResponse(request, 'update_all_button.html', {'grid_id': grid_id}, status=200)
 
+
+@api_view(['POST'])
+def save_selector_limits_json(request, grid_id, selector):
+    logger.debug(f'Request received: {request.__dict__}')
+    if request.method != 'POST':
+        return Response({'error':'Method not allowed'}, status=405)
+    low_limit, high_limit, kwargs = extract_selector_limits(request.data)
+    if high_limit is None:
+        return Response({'error': 'High Limit cannot be none'}, status=400)
+    save_selector_data(grid_id=grid_id,selector_name=selector, data=dict(low_limit=low_limit, high_limit=high_limit), **kwargs)
+    return Response({'success': True}, status=200)
+
+@api_view(['GET'])
+def get_selector_limits(request, grid_id, selector):
+    logger.debug(f'Request received: {request.__dict__}')
+    grid_id = AutoloaderGrid.objects.get(grid_id=grid_id)
+    selector_sorter = initialize_selector(grid_id, selector)
+    return Response({'low_limit': selector_sorter.limits[0], 'high_limit': selector_sorter.limits[1]}, status=200)
 
 # class CollectionStatsView(TemplateView):
 #     template_name = "autoscreenViewer/collection_stats.html"

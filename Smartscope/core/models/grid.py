@@ -57,6 +57,7 @@ class AutoloaderGrid(BaseModel):
         on_delete=models.SET_NULL,
         to_field='params_id'
     )
+    collection_mode = models.CharField(max_length=30, null=True, default=None)
     # project_tags = GenericRelation(ProjectTag, related_query_name='grid_id')
     # sample_tags = GenericRelation(SampleTag, related_query_name='grid_id')
     # sample_type_tags = GenericRelation(TagGrid, related_query_name='grid_id')
@@ -81,8 +82,7 @@ class AutoloaderGrid(BaseModel):
         self.session_id = parent
     # endaliases
 
-    @property
-    def collection_mode(self):
+    def set_collection_mode(self):
         if self.params_id.holes_per_square <= 0:
             return 'collection'
         return 'screening'
@@ -159,8 +159,11 @@ class AutoloaderGrid(BaseModel):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
+        if self.grid_id and self.collection_mode is None:
+            self.collection_mode = self.set_collection_mode()
         if not self.grid_id and self.position is not None and self.name is not None:
             self.grid_id = generate_unique_id(extra_inputs=[str(self.position), self.name])
+
 
     def save(self, export=False, *args, **kwargs):
         if self.status != 'complete':

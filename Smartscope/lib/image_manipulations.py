@@ -238,6 +238,12 @@ def auto_canny(image, limits=None, sigma=0.33, dilation=5):
         erosion = cv2.erode(dilated, kernel, iterations=1)
         return erosion, lower, upper
 
+def encode_image(image:np.ndarray):
+    
+    _, buffer = cv2.imencode('.png', to_8bits(image))
+    return base64.b64encode(buffer).decode('utf-8')
+
+
 def embed_image(path):
     mimeType = 'image/png'
     with open(path, 'rb') as f:

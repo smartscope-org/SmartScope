@@ -5,17 +5,16 @@ from django.contrib.auth import login, logout
 from django.shortcuts import resolve_url
 from django.shortcuts import redirect
 
-from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework.views import APIView
 from rest_framework.response import Response
-from rest_framework import authentication, permissions
+from rest_framework import permissions
 from rest_framework.renderers import TemplateHTMLRenderer
 
 from Smartscope.lib.image.smartscope_storage import SmartscopeStorage
 from Smartscope.server.frontend.forms import *
 from Smartscope.server.lib.worker_jobs import send_to_worker
-from Smartscope.core.db_manipulations import update, update_target_selection, update_target_label, update_target_status
-from Smartscope.core.main_commands import list_plugins, reload_plugins
+from Smartscope.core.db_manipulations import update_target_selection, update_target_label, update_target_status
+from Smartscope.core.main_commands import list_plugins, reload_plugins, list_protocols, reload_protocols
 from Smartscope.core.models import *
 from .serializers import *
 
@@ -171,7 +170,8 @@ class SidePanel(APIView):
         if group is not None and (user.is_staff or user.groups.filter(pk=group).exists()):
             # if group is not None:
             group = Group.objects.get(pk=group)
-            items = list(ScreeningSession.objects.filter(group=group).order_by('-date'))
+            items = list(ScreeningSession.objects.filter(group=group))
+            items.sort(key=lambda x: x.creation_time, reverse=True)
             nextsection = 'sidebarGrids'
             field = 'session_id'
 
@@ -244,3 +244,17 @@ class PluginView(APIView):
         logger.debug('Reloading plugins')
         reload_plugins()
         return Response('Plugins reloaded')
+    
+class ProtocolView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get(self, request, additional_message=''):
+        logger.debug('PluginView')
+        protocols = list_protocols()
+        logger.debug(protocols)
+        return Response([additional_message] + list(protocols.keys()))
+
+    def post(self, request):
+        logger.debug('Reloading plugins')
+        reload_protocols()
+        return self.get(request, 'Protocols reloaded')

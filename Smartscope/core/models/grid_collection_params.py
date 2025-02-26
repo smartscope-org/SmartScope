@@ -14,6 +14,7 @@ class GridCollectionParams(BaseModel):
     square_y = models.IntegerField(default=1)
     squares_num = models.IntegerField(default=3)
     holes_per_square = models.IntegerField(default=3)  # If -1 means all
+    max_exposures_for_grid = models.IntegerField(default=-1, verbose_name='Max Exposures For Grid', help_text='Move on to the next grid when this number of exposures were acquired.')  # If -1 means inactive
     bis_max_distance = models.FloatField(default=3)  # 0 means not BIS
     min_bis_group_size = models.IntegerField(default=1)
     afis = models.BooleanField(default=False, verbose_name='AFIS')

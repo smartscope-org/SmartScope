@@ -174,7 +174,11 @@ class MicroscopeInterface(ABC):
         pass
 
     @abstractmethod
-    def image_shift_by_microns(self,isX,isY,tiltAngle, afis:bool=False):
+    def image_shift_by_microns(self,isX,isY,tiltAngle, afis:bool=False, goToRecord=True):
+        pass
+
+    @abstractmethod
+    def set_focus_for_bis_tilt(self,isY,tiltAngle):
         pass
 
     @abstractmethod
@@ -212,6 +216,9 @@ class MicroscopeInterface(ABC):
         pass
     
     def reset_AFIS_image_shift(self, afis:bool=False):
+        pass
+
+    def save_eucentric_focus(self):
         pass
 
     @abstractmethod

@@ -32,12 +32,14 @@ def call(scope:MicroscopeInterface,params,instance, content:Dict, *args, **kwarg
     script = content.get('script', None)
     assert script is not None, 'No script was specified'
     scope.call(script=script)
+    return instance
 
 def callFunction(scope:MicroscopeInterface,params,instance, content:Dict, *args, **kwargs) -> None:
     """Calls any function that is saved in the SerialEM scripts."""
     function = content.get('function', None)
     assert function is not None, 'No function was specified'
     scope.call_function(function=function, *args)
+    return instance
 
 def atlas(scope:MicroscopeInterface,params,instance, content:Dict, *args, **kwargs)  -> None:
     """Collects and atlas of X by Y tiles from the collection parameters using the Montage command"""
@@ -63,7 +65,7 @@ def moveStage(scope:MicroscopeInterface,params,instance, content:Dict, *args, **
     """Moves the stage to the instance position"""
     finder = instance.finders.first()
     stage_x, stage_y, stage_z = finder.stage_x, finder.stage_y, finder.stage_z
-    scope.moveStage(stage_x,stage_y,stage_z)
+    scope.moveStage(stage_x,stage_y,stage_z=stage_z)
 
 def moveStageWithAtlasToSearchOffset(scope:MicroscopeInterface,params,instance, content:Dict, *args, **kwargs)  -> None:
     """Moves the stage to the instance position with an offset"""
@@ -100,6 +102,10 @@ def eucentricMediumMag(scope:MicroscopeInterface,params,instance, content:Dict, 
     """Calculates eucentricity using the View preset. Equivalent to Eucentric Rough."""
     scope.eucentricity()
 
+def eucentricByBeamTilt(scope:MicroscopeInterface,params,instance, content:Dict, *args, **kwargs) :
+    """Calculates eucentricity using the View preset using beam tilt instead of stage tilt. Equivalent to Eucentric Rough."""
+    scope.eucentricity_by_focus()
+
 def mediumMagHole(scope:MicroscopeInterface,params,instance, content:Dict, *args, **kwargs) :
     """Acquires the hole at the View preset."""
     scope.medium_mag_hole(file=instance.raw)
@@ -113,14 +119,16 @@ def alignToHoleRef(scope:MicroscopeInterface,params,instance, content:Dict, *arg
     iteration = 0
     while iteration < max_iterations:
         iteration +=1
+        if iteration > 1:
+            scope.image_shift_by_microns(0.2,0, tiltAngle=params.tilt_angle, goToRecord=False)
         shift = scope.align_to_hole_ref()
-        if np.sqrt(np.sum(np.array(shift)**2)) < 500:
+        if np.sqrt(np.sum(np.array(shift[:5])**2)) < 500:
             return
         scope.reset_image_shift()
     logger.warning(f'It seems like the hole realignment did not converge after {max_iterations} iterations.')
 
 def zeroImageShift(scope:MicroscopeInterface,params,instance, content:Dict, *args, **kwargs):
-    return scope.zero_image_shift()
+    scope.zero_image_shift()
 
 def loadHoleRef(scope:MicroscopeInterface,params,instance, content:Dict, *args, **kwargs) :
     """Loads the references/holeref.mrc image into buffer T to be used as hole template for the alignToHoleRef command."""
@@ -143,9 +151,11 @@ def highMag(scope:MicroscopeInterface, params,instance, content:Dict, *args, **k
     offset = 0
     if params.offset_targeting and not params.multishot_per_hole and (grid.collection_mode == 'screening' or params.offset_distance != -1) and grid_type.hole_size is not None:
         offset = add_IS_offset(grid_type.hole_size, grid_mesh.name, offset_in_um=params.offset_distance)
-    isX, isY = stage_x - finder.stage_x + offset, (stage_y - finder.stage_y) * cos(radians(params.tilt_angle))
+    isX, isY = stage_x - finder.stage_x + offset, (stage_y - finder.stage_y) #* cos(radians(params.tilt_angle))
     logger.debug(f'The tilt angle is {params.tilt_angle}, Y axis image-shift corrected from {stage_y - finder.stage_y:.2f} to {isY:.2f}')
     scope.image_shift_by_microns(isX,isY,params.tilt_angle, afis=params.afis)
+    logger.debug(f'Image shift is {isX},{isY}.')
+    scope.set_focus_for_bis_tilt(isY,tiltAngle=params.tilt_angle)
     frames = scope.highmag(file=instance.raw, 
                            frames=params.save_frames, 
                            earlyReturn=any([params.force_process_from_average, params.save_frames is False, 'Falcon' in grid.session_id.detector_id.detector_model]))
@@ -218,6 +228,22 @@ def set_apertures_for_highmag(scope:MicroscopeInterface,params,instance, content
 def set_apertures_for_lowmag(scope:MicroscopeInterface,params,instance, content:Dict, *args, **kwargs) :
     scope.set_apertures_for_lowmag()
 
+def createHoleRef(scope,params,instance, content:Dict, *args, **kwargs):
+    from Smartscope.core.grid.finders import create_hole_ref_from_image
+    if scope.has_hole_ref:
+        return
+    scope.acquire_medium_mag()
+    image, _, _, _, _, pixel_size = scope.buffer_to_numpy()
+    average = create_hole_ref_from_image(image, pixel_size, instance.grid_id.holeType.hole_size)
+    scope.numpy_to_buffer(average)
+    scope.hole_crop_size = average.shape[0]
+    scope.has_hole_ref = True
+
+def refineOpticsForHighMag(scope,params,instance, content:Dict, *args, **kwargs):
+    if scope.state.current_mag in ['atlas','square']:
+        scope.recenter_beam(interval_in_minutes=0)
+        scope.refineZLP(zerolossDelay=0)
+
 
 protocolCommandsFactory = dict(
     setAtlasOptics=setAtlasOptics,
@@ -235,6 +261,8 @@ protocolCommandsFactory = dict(
     moveStageWithAtlasToSearchOffset=moveStageWithAtlasToSearchOffset,
     eucentricSearch=eucentricSearch,
     eucentricMediumMag=eucentricMediumMag,
+    createHoleRef=createHoleRef,
+    eucentricByBeamTilt=eucentricByBeamTilt,
     mediumMagHole=mediumMagHole,
     tiltToAngle=tiltToAngle,
     alignToHoleRef=alignToHoleRef,
@@ -243,6 +271,7 @@ protocolCommandsFactory = dict(
     setFocusPosition=setFocusPosition,
     setAperturesForHighMag=set_apertures_for_highmag,
     setAperturesForLowMag=set_apertures_for_lowmag,
+    refineOpticsForHighMag=refineOpticsForHighMag,
     autoFocus=autoFocus,
     autoFocusAfterDistance=autoFocusAfterDistance,
     waitDrift=waitDrift,

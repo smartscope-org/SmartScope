@@ -2,7 +2,7 @@ from functools import partial
 import logging
 import Smartscope.bin.smartscope
 
-from Smartscope.core.data_manipulations import get_target_methods,filter_targets, prepare_filtered_set, select_n_areas, count_filtered, filter_targets, filter_out_of_range, randomized_choice, choose_get_index
+from Smartscope.core.data_manipulations import get_target_methods,filter_targets, prepare_filtered_set, select_n_areas, count_filtered, filter_targets, filter_out_of_range, randomized_choice, choose_get_index, apply_filter
 from Smartscope.core.models import SquareModel, HoleModel, AtlasModel
 
 logger = logging.getLogger(__name__)
@@ -72,9 +72,21 @@ def test_choose_get_index():
 
 def test_select_n_areas():
     logger.info('Testing select_n_areas')
-    parent = AtlasModel.objects.get(pk='testgrid_1_atlasDXdHqPR3RhyJm9')
+    parent = AtlasModel.objects.get(pk='grid_1_atlasi78lW0CQ7ChXMxwJe7')
     selection = select_n_areas(parent,3,False)
+    assert len(selection) == 3
     selection = select_n_areas(parent,0,False)
+    assert len(selection) == 9
+    selection = select_n_areas(parent,9,False)
+    assert len(selection) == 9
+    selection = select_n_areas(parent,20,False)
+    assert len(selection) == 9
+    
+
+def test_apply_filter():
+    parent = SquareModel.objects.get(pk='grid_1_square40fjFQq2WYFchz4Ql')
+    selection = select_n_areas(parent,0,True)
+    assert len(selection) == 3
 
 
 # def test_select_random_areas():

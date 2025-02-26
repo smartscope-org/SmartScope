@@ -84,7 +84,7 @@ class FakeScopeInterface(MicroscopeInterface):
     def align():
         pass
 
-    def image_shift_by_microns(self, isX, isY, tiltAngle, afis=False):
+    def image_shift_by_microns(self, isX, isY, tiltAngle, afis=False, goToRecord=True):
         return super().image_shift_by_microns(isX, isY, tiltAngle)
 
     def reset_image_shift(self):
@@ -196,4 +196,7 @@ class FakeScopeInterface(MicroscopeInterface):
         pass
 
     def set_apertures_for_lowmag(self):
+        pass
+
+    def set_focus_for_bis_tilt(self,isY,tiltAngle):
         pass

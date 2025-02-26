@@ -24,16 +24,16 @@ classes:
   fraction:
     value: -1
     name: Partial
-    color: MediumAquaMarine        
+    color: Silver     
   dry:
     value: -1
     name: Dry
-    color: blueviolet
+    color: Gray
   cracked:
     value: -1
     name: Cracked
-    color: purple
+    color: DarkGrey
   contaminated:
     value: -1
     name: Contaminated
-    color: CornflowerBlue
+    color: LightGrey

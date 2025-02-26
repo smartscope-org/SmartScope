@@ -27,12 +27,14 @@ from .protocols import get_or_set_protocol
 from .preprocessing_pipelines import load_preprocessing_pipeline
 from .db_manipulations import update, queue_atlas, add_targets
 from .data_manipulations import select_n_areas
+from .stats import count_completed
 
 logger = logging.getLogger(__name__)
 
 def run_grid(
         grid:AutoloaderGrid,
-        scope:MicroscopeInterface
+        scope:MicroscopeInterface,
+        screening_mode: bool = False
     ): 
     """Main logic for the SmartScope process
     Args:
@@ -153,6 +155,12 @@ def run_grid(
             del montage
         del atlas
     logger.info('Atlas analysis is complete')
+    screening_mode = bool(str(screening_mode).strip().lower() in ['true', '1'])
+
+    if screening_mode:
+        logger.info('Screening mode: Atlas only - stopping execution after atlas analysis.')
+        update(grid, status=GridStatus.COMPLETED)
+        return 'finished'
 
 
     running = True
@@ -161,13 +169,15 @@ def run_grid(
         check_stop_flag(session_id)
         grid = update(grid, refresh_from_db=True, last_update=None)
         params = grid.params_id
+        if params.max_exposures_for_grid > 0 and count_completed(grid) >= params.max_exposures_for_grid:
+            running = False
+            continue
         if grid.status == GridStatus.ABORTING:
-            preprocessing.stop(grid)
-            break
-        else:
-            square, hole = get_queue(grid)
-            priority = get_target_priority(grid, (square, hole))
-            logger.debug(f'Priority: {priority}')
+            running = False
+            continue
+        square, hole = get_queue(grid)
+        priority = get_target_priority(grid, (square, hole))
+        logger.debug(f'Priority: {priority}')
 
         logger.info(f'Queued => Square: {square}, Hole: {hole}')
         logger.info(f'Targets done: {is_done}')
@@ -235,7 +245,7 @@ def run_grid(
         elif is_done:
             microscope_id = microscope.pk
             tmp_file = os.path.join(settings.TEMPDIR, f'.pause_{microscope_id}')
-            if os.path.isfile(tmp_file):
+            if os.path.isfile(tmp_file) or scope.microscope.loaderSize == 1:
                 paused = os.path.join(settings.TEMPDIR, f'paused_{microscope_id}')
                 open(paused, 'w').close()
                 update(grid, status=GridStatus.PAUSED)
@@ -316,9 +326,9 @@ def parse_method(method):
         return method, {}, [], {}
     args = []
     kwargs = dict()
-    method_name, content = method.popitem()
-    kwargs = content.pop('kwargs', {})
-    args = content.pop('args', [])
+    method_name, content = next(iter(method.items()))
+    kwargs = content.get('kwargs', {})
+    args = content.get('args', [])
 
     logger.info(f'Running protocol method: {method_name}, {content} with args={args} and kwargs={kwargs}')
     return method_name, content, args, kwargs
@@ -333,4 +343,6 @@ def runAcquisition(
     for method in methods:
         method, content, args, kwargs = parse_method(method)
         output = PROTOCOL_COMMANDS_FACTORY[method](scope,params,instance, content, *args, **kwargs)
+        if output is not None:
+            instance = output
     return output

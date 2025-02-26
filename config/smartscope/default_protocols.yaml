@@ -9,10 +9,14 @@
     - [params_id.bis_max_distance, 0]
     - [params_id.tilt_angle, '!__0']
   mode: any
-  protocol: SPA
+  protocol: SPA MM Finder
+- conditions:
+    - [holeType.name, 'HexAUFoil']
+  mode: all
+  protocol: SPA-hex
 - conditions:
     - [holeType.hole_size, '!__None']
     - [params_id.bis_max_distance, '!__0']
     - [params_id.tilt_angle, 0]
   mode: all
-  protocol: SPA-Ptolemy
+  protocol: SPA MM-lattice Finder

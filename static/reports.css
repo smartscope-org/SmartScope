@@ -414,3 +414,51 @@
     flex-wrap: nowrap;
     overflow-x: auto;
 }
+
+/* Submenu container styling */
+.dropdown-submenu {
+    position: relative;
+}
+
+/* Submenu toggle link with right arrow */
+.dropdown-submenu .dropdown-toggle {
+    position: relative;
+    padding-right: 10px; /* Space for the arrow */
+}
+
+/* Remove Bootstrap's default dropdown arrow */
+.dropdown-submenu .dropdown-toggle::after {
+    display: none; /* Hides the default Bootstrap arrow */
+}
+
+/* Custom right arrow for submenu */
+.dropdown-submenu .custom-arrow {
+    position: absolute;
+    right: 8px;
+    top: 50%;
+    transform: translateY(-50%);
+    font-size: 6px;
+    pointer-events: none; /* Prevent arrow from interfering with clicks */
+}
+
+/* Submenu dropdown positioning */
+.dropdown-submenu .dropdown-menu {
+    position: absolute;
+    top: 0;
+    left: 100%; /* Align submenu to the right of the parent menu */
+    margin-top: -1px;
+    display: none; /* Hidden by default */
+    z-index: 1000;
+}
+
+/* Show submenu on hover */
+.dropdown-submenu:hover .dropdown-menu {
+    display: block; /* Display submenu on hover */
+}
+
+/* Debug CSS to ensure inputs are not blocked */
+.modal-body input,
+.modal-body select {
+    pointer-events: auto;
+    z-index: 1000;
+}

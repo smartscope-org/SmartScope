@@ -1,4 +1,4 @@
-from typing import Optional, Dict
+from typing import Optional, Dict, Literal
 from dataclasses import dataclass, field
 from pydantic import BaseModel, Field
 import numpy as np
@@ -9,6 +9,8 @@ import time
 class MicroscopeState:
     defocusTarget: float = 0
     currentDefocus: float = 0
+    eucentricDefocus: float = None
+    lastFiveDefocus: list = field(default_factory=list)
     imageShiftX: float = 0
     imageShiftY: float = 0
     stageX: float = 0
@@ -21,6 +23,7 @@ class MicroscopeState:
     preAFISimageShiftY: float = 0
     apertureState: Dict = field(default_factory=dict)
     last_autocenter_time: int= -1
+    current_mag: Optional[Literal['atlas','square', 'hole']] = None
 
     def setStage(self,stageX,stageY,stageZ=None):
         self.stageX = stageX
@@ -39,6 +42,14 @@ class MicroscopeState:
     def getStage(self):
         return self.stageX, self.stageY, self.stageZ
     
+    def add_to_last_five_defocus(self, defocus):
+        self.lastFiveDefocus.append(defocus)
+        if len(self.lastFiveDefocus) > 5:
+            self.lastFiveDefocus.pop(0)
+    
+    def last_five_defocus_ok(self) -> bool:
+        return set(self.lastFiveDefocus) != set([0.0])
+    
     @property
     def time_since_last_autocenter(self):
         return time.time() - self.last_autocenter_time
@@ -52,6 +63,9 @@ class MicroscopeState:
     
     def set_aperature_state(self, aperture:int, value:float):
         self.apertureState[aperture] = value
+
+    def is_run_away_focus(self, focus_limit_microns:float=20) -> bool:
+        return abs(self.currentDefocus - self.eucentricDefocus) > focus_limit_microns
 
 class AtlasSettings(BaseModel):
     mag:int = Field(alias='atlas_mag')
@@ -80,6 +94,7 @@ class Microscope(BaseModel):
     directory:str= Field(alias='windows_path')
     scopePath:str = Field(alias='scope_path')
     apertureControl:bool = Field(alias='aperture_control', default=False)
+    temperatureControl:bool = Field(alias='temperature_control', default=True)
     coldFEG:bool = Field(alias='cold_FEG', default=False)
 
     class Config:

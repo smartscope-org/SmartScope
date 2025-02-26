@@ -1,4 +1,5 @@
 from .base_model import *
+import math
 
 
          
@@ -94,6 +95,10 @@ class SquareModel(Target, ExtraPropertyMixin):
     @property
     def parent_stage_z(self):
         return self.parent.stage_z
+    
+    @property
+    def radius(self):
+        return math.sqrt(self.area) // 2
 
     @property
     def targets(self):

@@ -15,6 +15,7 @@ class Targets:
             targets: List,
             montage: BaseImage,
             target_type: str = 'square',
+            convert_to_stage: bool = True,
             force_mdoc=False
         ):
         output_targets = []
@@ -24,7 +25,8 @@ class Targets:
             labels = [None] * len(targets)
         for target, label in zip(targets, labels):
             t = Target(target, quality=label)
-            t.convert_image_coords_to_stage(montage, force_legacy=force_mdoc)
+            if convert_to_stage:
+                t.convert_image_coords_to_stage(montage, force_legacy=force_mdoc)
             t.set_area_radius(target_type)
             output_targets.append(t)
 
@@ -32,12 +34,14 @@ class Targets:
         return output_targets
 
     @staticmethod
-    def create_targets_from_center(targets: List, montage: BaseImage, force_mdoc=False):
+    def create_targets_from_center(targets: List, montage: BaseImage, force_mdoc=False, convert_to_stage: bool=True):
         output_targets = []
         for target in targets:
             t = Target(target,from_center=True)
-            t.convert_image_coords_to_stage(montage, force_legacy=force_mdoc)
+            if convert_to_stage:
+                t.convert_image_coords_to_stage(montage, force_legacy=force_mdoc)
             output_targets.append(t)
 
         output_targets.sort(key=lambda x: (x.stage_x, x.stage_y))
         return output_targets
+        

@@ -12,10 +12,8 @@ from django.contrib.contenttypes.models import ContentType
 from channels.layers import get_channel_layer
 from asgiref.sync import async_to_sync
 
-
 from Smartscope.server.api.serializers import update_to_fullmeta
 
-# from django.db import models
 from . import models
 from .data_manipulations import filter_targets, apply_filter
 
@@ -129,7 +127,7 @@ def viewer_only(user):
     return False
 
 
-def group_holes_for_BIS(hole_models:List[models.HoleModel], max_radius=4, min_group_size=1, iterations=500, stop_iter=100, score_weight=2):
+def group_holes_for_BIS_old(hole_models:List[models.HoleModel], max_radius=4, min_group_size=1, iterations=500, stop_iter=100, score_weight=2):
     if len(hole_models) == 0:
         return  hole_models
     logger.debug(
@@ -148,7 +146,12 @@ def group_holes_for_BIS(hole_models:List[models.HoleModel], max_radius=4, min_gr
 
     # Find lines with the most hits as max group size
     max_group_size = np.max(np.sum(filter_start, axis=0))
-    logger.debug(f'Max group size: {max_group_size}')
+    additional_msg = ''
+    if max_group_size > 20 and min_group_size < max_group_size/2:
+        min_group_size = int(max_group_size//2)
+        additional_msg = f' Adjusted min group size to {min_group_size}.'
+
+    logger.debug(f'Max group size: {max_group_size}.{additional_msg}')
     best = (-1000, 0, 0, [])
     score_no_change = 0
     # Start iterations
@@ -158,18 +161,18 @@ def group_holes_for_BIS(hole_models:List[models.HoleModel], max_radius=4, min_gr
         n_holes = 0
         rd_idx_list = idx_list.copy()
         # Shuffle the index list for random looping
-        filter = filter_start.copy()
+        filter_copy = filter_start.copy()
         random.shuffle(rd_idx_list)
         group_size = max_group_size
         # Group from max size to min_group_size
         while group_size >= min_group_size:
             # logger.debug(f'Doing iteration: {iter}, group_size: {group_size}')
             for i in rd_idx_list:
-                where = np.where(filter[i] == 1)[0]
+                where = np.where(filter_copy[i] == 1)[0]
                 if len(where) >= group_size:
                     # Reseve the holes by changing the values to 2
-                    filter[:, where] = 2
-                    filter[where, :] = 2
+                    filter_copy[:, where] = 2
+                    filter_copy[where, :] = 2
                     # Add group, where i is the "center hole" and "where" are the index of the holes in the group
                     groups.append((i, where))
                     n_holes += len(where)
@@ -188,6 +191,8 @@ def group_holes_for_BIS(hole_models:List[models.HoleModel], max_radius=4, min_gr
             if score_no_change == stop_iter:
                 logger.debug(f'No changes for {stop_iter} iterations, stopping')
                 break
+        
+
 
     logger.info(f'Best hole grouping: Coverage= {best[1]}, num_groups={best[2]}, score= {best[0]}')
 
@@ -202,6 +207,99 @@ def group_holes_for_BIS(hole_models:List[models.HoleModel], max_radius=4, min_gr
             i.bis_type = 'is_area'
 
     return hole_models
+
+def group_holes_for_BIS(hole_models:List[models.HoleModel], max_radius=4, min_group_size=1, iterations=250, stop_iter=100, score_weight=1.5):
+    if len(hole_models) == 0:
+        return  hole_models
+    logger.debug(
+        f'grouping params, max radius = {max_radius}, min group size = {min_group_size}, max iterations = {iterations}, score_weight = {score_weight}')
+    # Extract coordinated for the holes
+    prefetch_related_objects(hole_models, 'finders')
+    coords = []
+    coords = np.array([h.stage_coords for h in hole_models])
+    input_number = len(hole_models)
+    # Generate distance matrix
+    cd = cdist(coords, coords)
+    # Fiter for distance withing max radius and get index
+    filter_start = np.where(cd > max_radius, 0, 1)
+
+    idx_list = list(range(0, input_number))
+
+    # Find lines with the most hits as max group size
+    max_group_size = np.max(np.sum(filter_start, axis=0))
+    additional_msg = ''
+    if max_group_size > 20 and min_group_size < max_group_size/2:
+        min_group_size = int(max_group_size//2)
+        additional_msg = f' Adjusted min group size to {min_group_size}.'
+
+    logger.debug(f'Max group size: {max_group_size}.{additional_msg}')
+    best = (-1000, 0, 0, [])
+    score_no_change = 0
+    # Start iterations
+    for iter in range(1, iterations + 1):
+
+        groups = []
+        n_holes = 0
+
+        # Shuffle the index list for random looping
+        filter_copy = filter_start.copy()
+        group_size = max_group_size
+        # Group from max size to min_group_size
+        while group_size >= min_group_size:
+            filter_sums = np.sum(filter_copy, axis=1)
+            # logger.debug(f'rd_idx_list_num: {rd_idx_list_num}')
+            idx_with_group_size = np.where(filter_sums == group_size)[0].tolist()
+            if np.where(filter_sums == group_size)[0].size == 0:
+                # logger.debug(f'Doing iteration: {iter}, group_size: {group_size} depleted. Reducing group size')
+                group_size -= 1
+                continue
+            # logger.debug(f'idx_with_group_size: {idx_with_group_size}')
+            random.shuffle(idx_with_group_size)
+            i = idx_with_group_size.pop(0)
+            
+            # for i in rd_idx_list:
+            where = np.where(filter_copy[i] == 1)[0]
+
+                # Reseve the holes by changing the values to 2
+            filter_copy[:, where] = 0
+            filter_copy[where, :] = 0
+            # Add group, where i is the "center hole" and "where" are the index of the holes in the group
+            groups.append((i, where))
+            n_holes += len(where)
+
+            # group_size -= 1
+        coverage = n_holes / input_number
+        num_groups = len(groups)
+        # score based on coverage and number of groups
+        score = (coverage * 100) - (num_groups * score_weight)
+        # see if iteration was better than last
+        if score > best[0] or iter == 1:
+            logger.debug(f'Iteration {iter}: Coverage= {coverage}, num_groups={num_groups}, score= {score}')
+            best = (score, coverage, num_groups, groups)
+            score_no_change = 0
+        else:
+            score_no_change += 1
+            if score_no_change == stop_iter:
+                logger.debug(f'No changes for {stop_iter} iterations, stopping')
+                break
+        
+
+
+    logger.info(f'Best hole grouping: Coverage= {best[1]}, num_groups={best[2]}, score= {best[0]}')
+
+    for i, g in best[3]:
+        center = hole_models[i]
+        group_name = center.generate_bis_group_name()
+
+        bis = g[g != i]
+        for item in bis:
+            i = hole_models[item]
+            i.bis_group = group_name
+            i.bis_type = 'is_area'
+
+    return hole_models
+
+
 
 def group_holes_from_square_for_BIS(square:models.SquareModel, max_radius=4, min_group_size=1, iterations=500, score_weight=2):
     

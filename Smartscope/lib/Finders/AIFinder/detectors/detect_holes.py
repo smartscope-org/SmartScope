@@ -227,6 +227,7 @@ def detect_holes_yolo(square, imgsz = 1280, augment = False, conf_thres = 0.7, i
     #input needs to be a numpy array
     all_hole_coords = []
     all_contam_coords = []
+    all_targets = []
     dim_square = len(square.shape)
     device = select_device(device)
     half = device.type != 'cpu'
@@ -284,14 +285,18 @@ def detect_holes_yolo(square, imgsz = 1280, augment = False, conf_thres = 0.7, i
             det[:, :4] = scale_coords(img_s.shape[2:], det[:, :4], sp).round()
             for *xyxy, conf, cls in reversed(det):  # detections per image
                 xywh = (xyxy2xywh(torch.tensor(xyxy).view(1, 4)) / gn).view(-1).tolist()
-                c = int(cls)
+                c = str(int(cls))
+                x,y,w,h = xywh[0],xywh[1],xywh[2],xywh[3]
+                l,t,r,b = convert_yolo_to_cv(x,y,w,h, sp[0], sp[1])
+                all_targets.append([l,t,r,b,c])
+                continue
                 # print(xywh)
                 # print('c', c)
                 if c == 0:
                     x,y,w,h = xywh[0],xywh[1],xywh[2],xywh[3]
                     l,t,r,b = convert_yolo_to_cv(x,y,w,h, sp[0], sp[1])
                     if l==r or t==b :
-                            if_sq = False
+                        if_sq = False
                     else:
                         if_sq = check_if_square(l,t,r,b, 1.2, 0.8)
                     if if_sq:
@@ -301,6 +306,7 @@ def detect_holes_yolo(square, imgsz = 1280, augment = False, conf_thres = 0.7, i
                     l,t,r,b = convert_yolo_to_cv(x,y,w,h, sp[0], sp[1])
                     all_contam_coords.append([l,t,r,b])
     torch.cuda.empty_cache()
+    return all_targets
     return all_hole_coords, all_contam_coords
 
 

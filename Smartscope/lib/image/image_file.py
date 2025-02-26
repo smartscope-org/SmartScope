@@ -28,7 +28,7 @@ def parse_mdoc(mdocFile: str, movie: bool = False) -> pd.DataFrame:
         mdocValues = re.findall(pattern, '\n\n'.join([mdocFile[0], stack]))
         mdoc = pd.DataFrame()
         for key, val in mdocValues:
-            print(key,"=", val)
+            # print(key,"=", val)
             try:
                 mdoc[key] = [[int(i) for i in val.split(' ')] if len(val.split(' ')) > 1 else int(val)]
             except:

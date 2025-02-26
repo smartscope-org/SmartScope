@@ -23,6 +23,7 @@ urlpatterns = [
     path('preprocessing/<grid_id>/start',views.PreprocessingPipeline().start,name='startPreprocessingPipeline'),
     path('preprocessing/<grid_id>/stop',views.PreprocessingPipeline().stop,name='stopPreprocessingPipeline'),
     path('collectionstats/<grid_id>/',views.CollectionStatsView.as_view(),name='collectionStats'),
+    path('targethistory/<grid_id>/',views.targetHistory,name='targetHistory'),
     path('tags/<grid_id>/',tags.tag_manager,name='tagsManager'),
     path('tags/addsampletypetag/<grid_id>/',tags.add_sample_type_tag,name='addSampleTypeTag'),
     path('tags/searchtags/<tag_type>/',tags.search_tags,name='searchTags'),

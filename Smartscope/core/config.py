@@ -136,3 +136,72 @@ class PluginFactory:
     
     def reload_plugins(self):
         self.load_plugins()
+
+class ProtocolsFactory:
+    _protocols_directories: List[Path] = []
+    _external_protocols_directory: Optional[Path] = None
+    _external_protocols_list_file: Optional[Path] = None
+    _protocols_list: List[Path] = []
+    _protocols_data: Dict[str, Dict] = {}
+    _factory: Dict[str, BaseFeatureAnalyzer] = {}
+
+    def __init__(self, *protocols_directory: Union[str,Path], external_plugins_list_file: Optional[Union[str,Path]]=None, external_plugins_directory: Optional[Union[str,Path]]=None) -> None:
+        for directory in protocols_directory:
+            self._protocols_directories.append(Path(directory))
+        if all([external_plugins_list_file is not None, external_plugins_directory is not None]):
+            self._external_plugins_list_file = Path(external_plugins_list_file)
+            self._external_plugins_directory = Path(external_plugins_directory)
+            
+    def parse_protocols_directories(self) -> None:
+        for directory in self._protocols_directories:
+            self._protocols_list += list(directory.glob('*.yaml'))
+        if self._external_plugins_directory is not None:
+            external_plugins = get_active_plugins_list(self._external_plugins_directory, self._external_plugins_list_file)
+            for plugin in external_plugins:
+                self._protocols_list += list((plugin/'smartscope_plugin'/'protocols').glob('*.yaml'))
+
+    def read_plugin_file(self, file) -> None:
+        logger.debug(f'Reading plugin {file}')
+        with open(file) as f:
+            data = yaml.safe_load(f)
+        self._protocols_data[data['name']] = data
+
+    def read_protocols_files(self) -> None:
+        for file in self._protocols_list:
+            self.read_plugin_file(file)
+
+
+    def register_protocol(self, name:str) -> None:
+        data = self._protocols_data[name]
+        logger.debug(f'Registering protocol {name}')
+        self._factory[name] = BaseProtocol.model_validate(data)        
+
+    def register_protocols(self):
+        for name in self._protocols_data.keys():
+            self.register_protocol(name)
+
+    def get_protocol(self, name) -> BaseFeatureAnalyzer:
+        if self._factory == {}:
+            # logger.debug('No plugins registered, loading plugins now.')
+            self.load_protocols()
+        if (protocol := self._factory.get(name)) is not None:
+            # logger.debug(f'Getting plugin {name}')
+            return protocol
+        raise PluginDoesnNotExistError(name, self._factory)
+
+    def get_protocols(self):
+        if self._factory == {}:
+            logger.debug('No protocols registered, loading protocols now.')
+            self.load_protocols()
+        return self._factory
+    
+    def load_protocols(self):
+        self._protocols_list = []
+        self._protocols_data = {}
+        self._factory = {}
+        self.parse_protocols_directories()
+        self.read_protocols_files()
+        self.register_protocols()
+    
+    def reload_protocols(self):
+        self.load_protocols()

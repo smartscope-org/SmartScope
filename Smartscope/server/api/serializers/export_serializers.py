@@ -134,8 +134,13 @@ class DetailedFullHoleSerializer(TargetSerializer):
         parent_id_alias:str = 'square_id'
 
 class ScipionPluginHoleSerializer(DetailedHoleSerializer):
+    targets_in_hole = drf_serializers.ReadOnlyField()
+
     class Meta(DetailedHoleSerializer.Meta):
         exclude = []
+    #     fields = ['__all__','targets_in_hole']
+    #     exclude = ['targets']
+
 
 
 class DetailedSquareSerializer(TargetSerializer):

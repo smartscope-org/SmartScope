@@ -2,8 +2,10 @@ import os
 import sys
 from pathlib import Path
 from Smartscope.core.config import register_protocols, \
-    register_external_protocols, get_active_plugins_list, get_protocol_commands, PluginFactory
+    register_external_protocols, get_active_plugins_list, get_protocol_commands, PluginFactory, ProtocolsFactory
 # from Smartscope.core.ctf.ctf_fit_viewer import CTFFitViewer
+
+PROTOCOLS_MINIMAL_VERSION = '0.1'
 
 SMARTSCOPE_CUSTOM_CONFIG = Path(os.getenv('CONFIG'))
 SMARTSCOPE_DEFAULT_CONFIG = Path(__file__).parents[3] / 'config' / 'smartscope'
@@ -23,10 +25,10 @@ SMARTSCOPE_DEFAULT_PROTOCOLS = SMARTSCOPE_DEFAULT_CONFIG / 'protocols'
 
 ##Register plugins
 PLUGINS_FACTORY = PluginFactory(SMARTSCOPE_DEFAULT_PLUGINS, SMARTSCOPE_CUSTOM_PLUGINS,external_plugins_list_file=EXTERNAL_PLUGINS_LIST_FILE ,external_plugins_directory=EXTERNAL_PLUGINS_DIRECTORY)
-PROTOCOLS_FACTORY = dict()
+PROTOCOLS_FACTORY = ProtocolsFactory(SMARTSCOPE_DEFAULT_PROTOCOLS, SMARTSCOPE_CUSTOM_PROTOCOLS, external_plugins_list_file=EXTERNAL_PLUGINS_LIST_FILE, external_plugins_directory=EXTERNAL_PLUGINS_DIRECTORY)
 
-register_protocols([SMARTSCOPE_DEFAULT_PROTOCOLS, SMARTSCOPE_CUSTOM_PROTOCOLS], PROTOCOLS_FACTORY)
-register_external_protocols( EXTERNAL_PLUGINS_LIST, protocols_factory=PROTOCOLS_FACTORY )
+# register_protocols([SMARTSCOPE_DEFAULT_PROTOCOLS, SMARTSCOPE_CUSTOM_PROTOCOLS], PROTOCOLS_FACTORY)
+# register_external_protocols( EXTERNAL_PLUGINS_LIST, protocols_factory=PROTOCOLS_FACTORY )
 
 ##Register available protocol commands
 PROTOCOL_COMMANDS_FACTORY = get_protocol_commands(EXTERNAL_PLUGINS_LIST)

@@ -43,3 +43,9 @@ class ProcessImage:
         x = np.sum(coord * transform_vector[:2]) + transform_vector[-2]
         y = np.sum(coord * transform_vector[2:4]) + transform_vector[-1]
         return np.array([x, y])
+    
+    @staticmethod
+    def pixel_spacing_from_vectors(transform_vector:str):
+        spacing_x = np.sqrt(np.sum(np.power(transform_vector[:2],2)))
+        spacing_y = np.sqrt(np.sum(np.power(transform_vector[2:4],2)))
+        return np.mean([spacing_x,spacing_y]) * 10_000

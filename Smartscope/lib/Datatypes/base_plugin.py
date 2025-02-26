@@ -2,11 +2,19 @@
 import importlib
 from enum import Enum
 from abc import ABC
-from typing import Any, Optional, Protocol, List, Dict, Union, Callable
+from typing import Any, Optional, Protocol, List, Dict, Union, Callable,Literal
 from pydantic import BaseModel, Field
 from Smartscope.lib.image.montage import Montage
 from Smartscope.lib.image.targets import Targets
+import logging
 import sys
+
+logger = logging.getLogger(__name__)
+
+TARGET_CREATION_METHODS = {
+    'box': Targets.create_targets_from_box,
+    'center': Targets.create_targets_from_center
+}
 
 class TargetClass(Enum):
     FINDER = 'Finder'
@@ -32,8 +40,11 @@ class BaseFeatureAnalyzer(BaseModel, ABC):
     reference: Optional[str]= ''
     method: Optional[str] = ''
     module: Optional[str] = ''
+    classes: Optional[Dict[(str, classLabel)]] = None
     draw_method: Optional[str] = None
+    create_targets_method:Literal['box','center']='box'
     kwargs: Optional[Dict[str, Any]] = Field(default_factory=dict)
+    grid_related_kwargs: Optional[Dict[str, Any]] = Field(default_factory=dict)
     importPaths: Union[str,List] = Field(default_factory=list)
 
     @property
@@ -47,14 +58,16 @@ class BaseFeatureAnalyzer(BaseModel, ABC):
 
     def run(self,
             montage:Montage,
-            create_targets_method:Callable=Targets.create_targets_from_box,
             force_mdoc:bool=False,
+            convert_to_stage:bool=True,
             *args, **kwargs):
         """Where the main logic for the algorithm is"""
         module = importlib.import_module(self.module)
         function = getattr(module, self.method)
+        logger.debug(f'Running {self.name} with args: {args} and kwargs: {kwargs} and self.kwargs: {self.kwargs}')
         output = function(montage,*args, **kwargs, **self.kwargs)
-        targets = create_targets_method(output[0],montage, force_mdoc=force_mdoc)
+        create_targets_method:Callable=TARGET_CREATION_METHODS[self.create_targets_method]
+        targets = create_targets_method(output[0],montage, force_mdoc=force_mdoc, convert_to_stage=convert_to_stage)
 
         return targets, output[1],output[2]
 

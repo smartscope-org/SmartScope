@@ -31,7 +31,7 @@ class ScreeningSessionForm(forms.ModelForm):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.fields['session'].widget.attrs.update({
-            "pattern": "^[a-zA-Z0-9-_]+$"
+            "pattern": "^[a-zA-Z0-9_\-]+$"
         })
         self.fields['group'].widget.attrs.update({
             "hx-get": reverse('getUsersInGroup'),
@@ -56,7 +56,7 @@ def read_config(filename = 'default_collection_params.yaml'):
     return collections_params
 
 class AutoloaderGridForm(forms.ModelForm):
-    protocol = forms.ChoiceField(choices=[('auto','auto')] + [(protocol,protocol) for protocol in PROTOCOLS_FACTORY.keys()])
+    protocol = forms.ChoiceField(choices=[('auto','auto')] + [(protocol,protocol) for protocol in PROTOCOLS_FACTORY.get_protocols()])
 
     class Meta:
         from Smartscope.core.models.grid import AutoloaderGrid
@@ -80,7 +80,7 @@ class AutoloaderGridForm(forms.ModelForm):
 
         self.fields['name'].widget.attrs.update({'class': 'form-control',
                                                 'placeholder': self.fields['name'].label, 'aria-label': "...",
-                                                 "pattern": "^[a-zA-Z0-9-_]+$"})
+                                                 "pattern": "^[a-zA-Z0-9_\-]+$"})
         self.fields['name'].label = ''
 
         # visible.field.widget.attrs['placeholder'] = visible.field.label
@@ -151,11 +151,11 @@ class GridCollectionParamsForm(forms.ModelForm):
         super().__init__(*args, **kwargs)
         self.fields['target_defocus_min'].widget.attrs.update({
             "max": 0,
-            "step": 0.1
+            "step": 0.05
         })
         self.fields['target_defocus_max'].widget.attrs.update({
             "max": 0,
-            "step": 0.1
+            "step": 0.05
         })
         self.fields['step_defocus'].widget.attrs.update({
             "min": 0,
@@ -232,7 +232,7 @@ class SetMultiShotForm(forms.Form):
 
 
 class SelectProtocolForm(forms.Form):
-    protocol = forms.ChoiceField(choices=[(protocol,protocol) for protocol in PROTOCOLS_FACTORY.keys()],
+    protocol = forms.ChoiceField(choices=[(protocol,protocol) for protocol in PROTOCOLS_FACTORY.get_protocols()],
                                  label="Protocol",
                                  help_text='Select a different protocol. The session will need to be restarted to take effect')
 

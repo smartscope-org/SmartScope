@@ -106,25 +106,25 @@ def filter_targets(parent, targets, stage_radius_limit:int = 975, offset_x:float
     return filtered
 
 def apply_filter(targets, filtered):
-    for target, filt in zip(targets, filtered):
-        if '0' in filt:
-            continue
-        yield target
-    # return [target for target, filt in zip(targets, filtered) if '0' not in filt]
+    # for target, filt in zip(targets, filtered):
+    #     if '0' in filt:
+    #         continue
+    #     yield target
+    return [target for target, filt in zip(targets, filtered) if '0' not in filt]
 
 def prepare_filtered_set(filters)-> set:
     filtered_set = set(filters)
     return {s for s in filtered_set if '0' not in s}
 
 
-def select_random_areas(targets, filtered, n):
+def select_random_areas(targets, filtered, n, output=None):
     filtered_set = prepare_filtered_set(filtered)
     if len(filtered_set) == 0:
-        return filtered_set
+        return filtered_set if output is None else output
+    output = [] if output is None else output
     logger.debug(f'Selecting from {len(filtered_set)} subsets.')
     choices = randomized_choice(filtered_set, n)
     logger.debug(f'Randomized choices: {choices}')
-    output = []
     for choice in choices:
         assert len(targets) == len(filtered), f'Length of targets {len(targets)} and filtered {len(filtered)} do not match.'
         ind = choose_get_index(filtered, choice)
@@ -135,18 +135,35 @@ def select_random_areas(targets, filtered, n):
         del filtered[ind]
         del targets[ind]
         output.append(selection)
+    if len(output) < n:
+        logger.debug(f'Not enough valid targets from {filtered_set}, {len(output)} selected, {n} required. Selecting more.')
+        n = n - len(output)
+        return select_random_areas(targets, filtered, n, output)
     return output
+
+def prune_targets(targets, filtered, **extra_filters):
+    def filter_func(target, filt):
+        for key, value in extra_filters.items():
+            if getattr(target, key) != value:
+                return '_0'
+        return '_1'
+
+    for ind, target in enumerate(targets):
+        filtered[ind] += filter_func(target, filtered[ind])
+    return targets, filtered
 
 def select_n_areas(parent, n, is_bis=False):
     additional_filters = dict()
     if is_bis:
         additional_filters['bis_type'] = 'center'
-    additional_filters['status__isnull'] = True
-    targets = list(parent.targets.filter(**additional_filters))
+    additional_filters['status'] = None
+    targets = list(parent.targets.all())
     filtered= filter_targets(parent, targets)
+    targets,filtered = prune_targets(targets, filtered, **additional_filters)
+    logger.debug(f'Filtered targets: {len(filtered)}, {filtered}')
     assert len(targets) == len(filtered), f'Length of targets {len(targets)} and filtered {len(filtered)} do not match.'
     if n <=0:
-        return list(apply_filter(targets, filtered))
+        return apply_filter(targets, filtered)
     return select_random_areas(targets, filtered, n)
 
 def set_or_update_refined_finder(instance, stage_x, stage_y, stage_z):

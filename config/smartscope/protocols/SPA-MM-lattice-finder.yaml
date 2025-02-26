@@ -1,0 +1,42 @@
+name: SPA MM-lattice Finder 
+atlas:
+  acquisition:
+      - setAtlasOptics
+      - setAperturesForLowMag
+      - resetStage
+      - removeSlit
+      - atlas
+  targets:
+    finders:
+      - AI square finder
+    selectors:
+      - Size selector
+square:
+  acquisition:
+    - setAperturesForLowMag
+    - moveStageWithAtlasToSearchOffset
+    - realignToSquare
+    - eucentricSearch
+    - square
+  targets:
+    finders:
+      - AI hole finder
+      - Regular pattern
+    selectors:
+      - Graylevel selector
+      - Distance from center selector
+mediumMag:
+  acquisition:
+    - setAperturesForHighMag
+    - setFocusPosition
+    - tiltToAngle
+    - moveStage
+    - mediumMagHole
+    - autoFocusAfterDistance
+    - waitDrift
+  targets:
+    finders:
+      - MM AI hole finder with lattice
+highMag:
+  acquisition:
+    - highMag

@@ -13,3 +13,12 @@ targetClass:
 description: |
   Hole finder that uses the YOLO architecture to identify the holes.
   Has a built-in classifier to sort out the dark contamination spots that are often labeled as holes on carbon mesh grids.
+classes:
+  "1":
+    value: -1
+    name: Contamination
+    color: LightGrey
+  "0":
+    value: 1
+    name: Hole
+    color: blue

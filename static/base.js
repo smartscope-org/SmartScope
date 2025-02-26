@@ -123,6 +123,7 @@ async function apifetchAsync(url, dict, method, message='alert!') {
             'Content-Type': 'application/json',
             'mode': 'same-origin'
         },
+        signal: AbortSignal.timeout(120000)
     }
     let id = createLoadingMessage(message)
     if (dict != null) {

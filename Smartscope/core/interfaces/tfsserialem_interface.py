@@ -22,6 +22,8 @@ class TFSSerialemInterface(SerialemInterface):
         self.apertures = TFSApertures
 
     def checkDewars(self, wait=30):
+        if not self.microscope.temperatureControl:
+            return
         while True:
             if sem.AreDewarsFilling() == 0:
                 return

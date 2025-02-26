@@ -1,0 +1,29 @@
+name: Medium Mag AI hole finder
+method: find_holes
+module: Smartscope.lib.Finders.AIFinder.wrapper
+kwargs: 
+  imgsz: 1280
+  thresh: 0.2
+  iou: 0.2
+  device: '0'
+  weights_circle: circle_weights/20241122_view_mag_weight.pt
+  method: yolo
+  success_threshold: 1
+targetClass:
+  - Finder
+description: |
+  Hole finder that uses the YOLO architecture to identify the holes at the medium mag (View).
+  Has a built-in classifier to sort out the dark contamination and partial holes that are often labeled as holes on carbon mesh grids.
+classes:
+  "0":
+    value: -1
+    name: Contamination
+    color: LightGrey
+  "1":
+    value: 1
+    name: Hole
+    color: blue
+  "2":
+    value: -1
+    name: Partial
+    color: Silver
