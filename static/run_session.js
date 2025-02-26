@@ -26,23 +26,40 @@ async function loadlogs() {
     setPause(data)
 }
 
-async function startSession(start = true) {
-    let url = `/api/sessions/${session_id}/run_session/`
-    var str = 'stop'
-    if (start === true) {
-        str = 'start'
-    }
+// start or stop the session
+async function startSession(start = true, screeningMode = false) {
+    let url = `/api/sessions/${session_id}/run_session/`;
+    var str = start ? 'start' : 'stop';
     var r = confirm(`Do you want to ${str} this session?`);
+
     if (r == true) {
-        console.log("starting")
-        response = await apifetchAsync(url, { 'start': start }, 'POST', 'Starting session');
-        return response
+        try {
+            let requestData = { 'start': start, 'screening_mode': screeningMode };
+            const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]')?.value || "";
+            const response = await fetch(url, {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                    "X-CSRFToken": csrfToken
+                },
+                body: JSON.stringify(requestData)
+            });
+
+            if (!response.ok) {
+                throw new Error(`Server error: ${response.status} ${response.statusText}`);
+            }
+
+            console.log("API Response:", response);
+            return response; // Returns the Response object directly
+
+        } catch (error) {
+            console.error("API Error:", error);
+            return { error: error.message };
+        }
     } else {
-        console.log("Cancel")
+        console.log("Cancelled by user");
     }
-
 }
-
 
 async function togglePause() {
     console.log('toggling pause')
@@ -107,36 +124,97 @@ function autoRefresh(enable = true) {
     clearInterval(interval);
 };
 
+
+//checkIsRunning tracks staus of the session and changes the button from start to stop and vice versa
+
 async function checkIsRunning(element, response = null) {
-    let url = `/api/sessions/${session_id}/check_is_running/`
-    if (response === null) {
-        response = await apifetchAsync(url, null, 'GET', 'Checking is session is running')
+    const url = `/api/sessions/${session_id}/check_is_running/`;
+    if (!response) {
+        response = await apifetchAsync(url, null, 'GET', 'Checking if session is running');
     }
-    if (response.status === 'running') {
-        element.className = 'btn btn-outline-danger'
-        element.value = 'stop'
-        element.innerHTML = 'Stop'
-        autoRefresh()
-        return response
+
+    const isRunning = response.status === 'running';
+
+    // Toggle button styles and update value/text
+    element.classList.toggle('btn-outline-danger', isRunning);
+    element.classList.toggle('btn-outline-primary', !isRunning);
+    element.value = isRunning ? 'stop' : 'start';
+    element.innerHTML = isRunning ? 'Stop' : 'Start';
+
+    // Force an attribute update to ensure it registers correctly
+    element.setAttribute("value", isRunning ? "stop" : "start");
+
+    let dropdown = document.querySelector(".dropdown-menu");
+    if (element.value=="stop"){
+            dropdown.style.display = "none";
     }
-    element.className = 'btn btn-outline-primary'
-    element.value = 'start'
-    element.innerHTML = 'Start'
-    autoRefresh(enable = false)
-    return response
-};
+
+    autoRefresh(isRunning);
+    return response;
+}
 
 $(document).ready(async function () {
     loadlogs(); run_status = await checkIsRunning(document.getElementById('start-button')); console.log(run_status)
 });
 
-$('#start-button').on('click', async function () {
-    console.log(this)
-    let val = (this.value === "start");
-    run_status = await startSession(val);
-    await checkIsRunning(this, response = run_status);
-    console.log(run_status)
-})
+$(document).ready(function () {
+    $(".screening-type").on("click", async function () {
+        let startButton = document.getElementById("start-button");
+        if (!startButton) {
+            console.error("Start button not found!");
+            return;
+        }
+
+        // set the button value to start
+        let isStarting = startButton.getAttribute("value") === "start";
+        console.log("Session Mode:", isStarting ? "Start" : "Stop");
+
+        // select the screenig mode
+        let screeningMode = isStarting ? $(this).data("mode") === true : null;
+        console.log(`Screening Mode: ${screeningMode ? "Atlas Only" : "Full Screening"}`);
+
+        let dropdown = document.querySelector(".dropdown-menu");
+        if (!dropdown) {
+            console.error("Dropdown menu not found!");
+            return;
+        }
+
+        try {
+            // Call the startSession function
+            let run_status = await startSession(isStarting, screeningMode);
+            console.log("Session Status:", run_status);
+
+            // Call checkisRunning to check session and update UI
+            await checkIsRunning(startButton, run_status);
+        } catch (error) {
+            console.error("Error in session start/stop:", error);
+        }
+    });
+    $(".session-toggle").on("click", async function () {
+        let startButton = document.getElementById("start-button");
+        if (!startButton) {
+            console.error("Start button not found!");
+            return;
+        }
+
+        let isStarting = startButton.getAttribute("value") === "start";
+        console.log("Button Clicked - Mode:", isStarting ? "Start" : "Stop");
+        if (isStarting) {
+            return;
+        }
+
+        try {
+            // Call the startSession 
+            let run_status = await startSession(isStarting, null);
+            console.log("Run Status:", run_status);
+
+            // Call checkisRunning to check session and update UI
+            await checkIsRunning(startButton, run_status);
+        } catch (error) {
+            console.error("Error in session start/stop:", error);
+        }
+    });
+});
 
 $('#force-start-button').on('click', async function () {
     console.log(this)

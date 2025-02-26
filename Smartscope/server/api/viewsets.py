@@ -299,6 +299,7 @@ class ScreeningSessionsViewSet(viewsets.ModelViewSet, GeneralActionsMixin,):
     def run_session(self, request, **kwargs):
         self.object = self.get_object()
         data = request.data
+        screening_mode = str(data.get('screening_mode', 'false')).lower() in ['true', '1']
 
         if 'start' in data.keys() and not viewer_only(request.user):
             process_init = process = self.object.process_set.first()
@@ -307,7 +308,7 @@ class ScreeningSessionsViewSet(viewsets.ModelViewSet, GeneralActionsMixin,):
                 send_to_worker(
                     self.object.microscope_id.worker_hostname,
                     self.object.microscope_id.executable,
-                    arguments=['autoscreen', self.object.session_id],
+                    arguments=['autoscreen', self.object.session_id, screening_mode],
                 )
             else:
                 logger.info('stopping')

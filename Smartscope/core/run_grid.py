@@ -33,7 +33,8 @@ logger = logging.getLogger(__name__)
 
 def run_grid(
         grid:AutoloaderGrid,
-        scope:MicroscopeInterface
+        scope:MicroscopeInterface,
+        screening_mode: bool = False
     ): 
     """Main logic for the SmartScope process
     Args:
@@ -154,6 +155,12 @@ def run_grid(
             del montage
         del atlas
     logger.info('Atlas analysis is complete')
+    screening_mode = bool(str(screening_mode).strip().lower() in ['true', '1'])
+
+    if screening_mode:
+        logger.info('Screening mode: Atlas only - stopping execution after atlas analysis.')
+        update(grid, status=GridStatus.COMPLETED)
+        return 'finished'
 
 
     running = True

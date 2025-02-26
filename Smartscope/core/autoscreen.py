@@ -15,7 +15,7 @@ from .run_grid import run_grid, clear_stop_file
 
 from Smartscope.lib.logger import add_log_handlers
 
-def autoscreen(session_id:str):
+def autoscreen(session_id:str, screening_mode: bool):
     '''
     major procedure: autoscreen
     '''
@@ -56,7 +56,7 @@ def autoscreen(session_id:str):
             logger.debug(scope.microscope.__dict__)
             # RUN grid
             for grid in grids:
-                status = run_grid(grid, scope) #processing_queue,
+                status = run_grid(grid, scope, screening_mode=screening_mode) #processing_queue,
             status = 'complete'
     except Exception as e:
         logger.exception(e)
