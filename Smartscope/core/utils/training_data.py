@@ -26,10 +26,10 @@ class YoloFormat:
     def convert(self):
         for bounding_box, label in zip(self.bounding_boxes, self.labels):
             x, y, x1, y1 = bounding_box
-            x_center = ((x + x1) / 2) / self.shape_x
-            y_center = ((y + y1) / 2) / self.shape_y
-            width = (x1 - x) / self.shape_x
-            height = (y1 - y) / self.shape_y
+            x_center = ((x + x1) / 2) / self.shape_y
+            y_center = ((y + y1) / 2) / self.shape_x
+            width = (x1 - x) / self.shape_y
+            height = (y1 - y) / self.shape_x
 
             self.yolo_formatted.append([label, x_center, y_center, width, height])
 
