@@ -24,6 +24,7 @@ class TargetClass(Enum):
 
 
 class classLabel(BaseModel):
+    label_training: Optional[str] = None
     value: int
     name: str
     color: str
