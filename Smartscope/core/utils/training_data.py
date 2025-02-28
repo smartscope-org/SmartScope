@@ -1,6 +1,7 @@
 import shutil
 import logging
 from Smartscope.core.models import AtlasModel, SquareModel
+from Smartscope.core.settings.worker import PLUGINS_FACTORY
 from pathlib import Path
 
 logger = logging.getLogger(__name__)
@@ -61,15 +62,20 @@ def generate_training_data(instance, export_type: str = 'yolo'):
         finder = target.finders.first()
         x, y = finder.x, finder.y
 
+        method = finder.method_name
         label = target.classifiers.filter(method_name=finder.method_name).values_list('label', flat=True)
         if len(label) == 0:
-            label = target.classifiers.filter(method_name='Micrographs curation').values_list('label', flat=True)
+            method = 'Micrographs curation'
+            label = target.classifiers.filter(method_name=method).values_list('label', flat=True)
+        
+        if len(label) > 0:
+            label = PLUGINS_FACTORY.get_plugin(name=method).classes.get(label[0]).label_training
 
         radius = target.radius
 
         coordinates = get_bounding_box(x, y, radius)
 
-        training_data.append(bounding_box=coordinates, label=label[0] if len(label) > 0 else 0)
+        training_data.append(bounding_box=coordinates, label=label if len(label) > 0 else 0)
     
     training_data.convert()
     return training_data
