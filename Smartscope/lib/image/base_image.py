@@ -145,10 +145,11 @@ class BaseImage(ABC):
 
     @property
     def pixel_size(self):
-        if 'ImageToStageMatrix' in self.metadata.iloc[-1].keys():
-            pixel_size = ProcessImage.pixel_spacing_from_vectors(self.metadata.iloc[-1].ImageToStageMatrix)
-            logger.info(f'Calculated ImageToStageMatrix to calculate pixel size. Calculated Pixel size: {pixel_size}. Metadata Pixel size: {self.metadata.iloc[0].PixelSpacing}')
-            return ProcessImage.pixel_spacing_from_vectors(self.metadata.iloc[-1].ImageToStageMatrix)
+        #REMOVED THIS FOR NOW. IT SEEMS BUGGY
+        # if 'ImageToStageMatrix' in self.metadata.iloc[-1].keys():
+        #     pixel_size = ProcessImage.pixel_spacing_from_vectors(self.metadata.iloc[-1].ImageToStageMatrix)
+        #     logger.info(f'Calculated ImageToStageMatrix to calculate pixel size. Calculated Pixel size: {pixel_size}. Metadata Pixel size: {self.metadata.iloc[0].PixelSpacing}')
+        #     return ProcessImage.pixel_spacing_from_vectors(self.metadata.iloc[-1].ImageToStageMatrix)
         return self.metadata.iloc[0].PixelSpacing
     
     @property
