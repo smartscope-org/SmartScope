@@ -242,7 +242,8 @@ def createHoleRef(scope,params,instance, content:Dict, *args, **kwargs):
 def refineOpticsForHighMag(scope,params,instance, content:Dict, *args, **kwargs):
     if scope.state.current_mag in ['atlas','square']:
         scope.recenter_beam(interval_in_minutes=0)
-        scope.refineZLP(zerolossDelay=0)
+        if params.zeroloss_delay != -1:
+            scope.refineZLP(zerolossDelay=0)
 
 
 protocolCommandsFactory = dict(
