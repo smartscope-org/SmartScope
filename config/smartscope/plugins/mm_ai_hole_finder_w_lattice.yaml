@@ -1,6 +1,6 @@
 name: MM AI hole finder with lattice
 method: find_holes_with_lattice
-module: Smartscope.lib.Finders.AIFinder.wrapper
+module: Smartscope.tasks.base_tasks
 create_targets_method: center
 kwargs: 
   imgsz: 1280

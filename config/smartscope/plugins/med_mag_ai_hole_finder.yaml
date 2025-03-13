@@ -1,6 +1,6 @@
 name: Medium Mag AI hole finder
-method: find_holes
-module: Smartscope.lib.Finders.AIFinder.wrapper
+method: send_find_holes_from_montage
+module: Smartscope.tasks.base_tasks
 kwargs: 
   imgsz: 1280
   thresh: 0.2

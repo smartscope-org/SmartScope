@@ -48,6 +48,9 @@ class Target:
             self._x = int(value[0] + (value[2] - value[0]) // 2)
             return 
         if value is None:
+            print(self.shape)
+            if isinstance(self.shape, list):
+                self.shape = np.array(self.shape)
             self._x = int(self.shape[0] + (self.shape[2] - self.shape[0]) // 2)
             return
         self._x = value    
