@@ -17,6 +17,7 @@ class MicroscopeLogger:
     prefix = 'MicroscopeInterface'
     debug_prefix = 'DEBUG:'
     info_prefix = 'INFO:'
+    error_prefix = 'ERROR'
 
     def _create_message(self, message:str, *prefix:str):
         return ' '.join(prefix) + message
@@ -28,6 +29,10 @@ class MicroscopeLogger:
     def debug(self, message:str):
         msg = self._create_message(message, self.prefix, self.debug_prefix)
         logger.debug(msg)
+    
+    def error(self, message:str):
+        msg = self._create_message(message, self.prefix, self.debug_prefix)
+        logger.error(msg)
 
 @dataclass
 class MicroscopeInterface(ABC):
