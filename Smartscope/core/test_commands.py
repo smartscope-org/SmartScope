@@ -189,7 +189,7 @@ def run_microscope_command(microscope_id, detector_id, command, *args):
 
 def list_plugins():
     from Smartscope.core.settings.worker import PLUGINS_FACTORY
-    [print(f"{'#'*60}\n{name}:\n\n\t{plugin}\n{'#'*60}\n") for name,plugin in PLUGINS_FACTORY.items()]
+    [print(f"{'#'*60}\n{name}:\n\n\t{plugin}\n{'#'*60}\n") for name,plugin in PLUGINS_FACTORY.get_plugins().items()]
 
 
 def list_protocols():
