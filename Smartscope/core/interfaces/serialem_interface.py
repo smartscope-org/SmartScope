@@ -23,6 +23,11 @@ class SerialEMLogger(MicroscopeLogger):
         msg = self._create_message(message, self.prefix, self.debug_prefix)
         logger.debug(msg)
         sem.Echo(msg)
+    
+    def error(self, message: str):
+        msg = self._create_message(message, self.prefix, self.error_prefix)
+        logger.debug(msg)
+        sem.Echo(msg)
 
 class SerialemInterface(MicroscopeInterface):
     logger = SerialEMLogger()
