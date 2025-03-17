@@ -3,6 +3,7 @@ import json
 from typing import Dict
 import logging
 import numpy as np
+from pydantic import BaseModel
 
 from Smartscope.tasks.app import app
 from Smartscope.lib.image.montage import Montage
@@ -25,20 +26,34 @@ TEST_NOTIFICATION = """
 }
 """
 
-def send_find_squares_from_montage(montage, class_map:Dict=None, **kwargs):
+def send_find_squares_from_montage(montage, class_map:Dict[str,BaseModel], **kwargs):
+    def class_map_to_yolo(class_map):
+        yolo_class_map = dict()
+        for k,v in class_map.items():
+            class_name = v.label_training
+            yolo_class_map[class_name] = k
+        return yolo_class_map
+
     encoded = encode_image(montage.image)
     data = { 'image': encoded }
+    data['kwargs'] = kwargs
+    data['kwargs']['class_mapping'] = {k:v.model_dump() for k,v in class_map.items()}
     
     result = app.send_task('SmartscopeAI.interfaces.celery.tasks.find_squares', args=[json.dumps(data)], queue='celery')
     task_id = result.id
     res = AsyncResult(task_id, app=app)
-    final_result = res.get(interval=1, timeout=120)
-    print(final_result)
-    return final_result, True, dict()
+    coords, labels = res.get(interval=1, timeout=120)
+    yolo_class_map = class_map_to_yolo(class_map=class_map)
+    labels_converted =  [yolo_class_map[item] for item in labels]
+    print(coords, labels_converted)
+    return (coords,labels_converted), True, dict()
 
-def send_find_holes_from_montage(montage:Montage, class_map:Dict=None, success_threshold:int=10,  **kwargs):
+def send_find_holes_from_montage(montage:Montage, class_map:Dict[str,BaseModel], success_threshold:int=10,  **kwargs):
     encoded = encode_image(montage.image)
     data = { 'image': encoded }
+    data['kwargs'] = kwargs
+    
+    data['kwargs']['class_mapping'] = {k:v.model_dump() for k,v in class_map.items()}
     
     result = app.send_task('SmartscopeAI.interfaces.celery.tasks.find_holes', args=[json.dumps(data)], queue='celery')
     task_id = result.id
