@@ -233,7 +233,13 @@ class SerialemInterface(MicroscopeInterface):
     def buffer_to_numpy(self, buffer:str='A') -> Tuple[np.array, int, int, int, float, float]:
         sem.Delay(1)
         shape_x, shape_y, binning, exposure, pixel_size, _ = sem.ImageProperties(buffer)
-        buffer = sem.bufferImage(buffer)
+        while True:
+            try:
+                buffer = sem.bufferImage(buffer)
+                break
+            except sem.SEMerror:
+                self.logger.error(f"Error getting the buffer image. Trying again.")
+        self.logger.info(f"Downloaded the buffer image successfully.")
         return np.asarray(buffer), shape_x, shape_y, binning, exposure, pixel_size
 
     def numpy_to_buffer(self,image,buffer='T'):
@@ -319,12 +325,13 @@ class SerialemInterface(MicroscopeInterface):
             self.state.eucentricDefocus = sem.ReportDefocus()
 
     def roll_defocus(self, def1, def2, step):
+        sem.GoToLowDoseArea('Record')
         self.save_eucentric_focus()
         self._rollDefocus(def1, def2, step)
         sem.SetTargetDefocus(self.state.defocusTarget)
 
-    def autofocus_by_z(self, def1, def2, step):
-        sem.GoToLowDoseArea('Record')
+    def autofocus_by_z(self):
+        sem.SetDefocus(self.state.eucentricDefocus)
         defocus = 99999
         iteration = 0
         total_movement = 0
@@ -334,11 +341,11 @@ class SerialemInterface(MicroscopeInterface):
             sem.AutoFocus(-1)
             defocus, error_code = sem.ReportAutoFocus()
             movement = (defocus - self.state.defocusTarget)*-1
-            if abs(defocus-self.state.defocusTarget) < 3:
-                sem.ChangeFocus(movement)
-                break
             if error_code != 0:
                 self.logger.info('Autofocus seems to have failed')
+            if abs(defocus-self.state.defocusTarget) < 0.5:
+                sem.ChangeFocus(movement)
+                break
             self.logger.info(f'Defocus measured at {defocus:.2f} um, moving stage by {movement:.2f}')
             sem.MoveStage(0,0, movement)
             total_movement += movement
@@ -346,7 +353,6 @@ class SerialemInterface(MicroscopeInterface):
  
 
     def autofocus(self, def1, def2, step):
-        sem.GoToLowDoseArea('Record')
         sem.AutoFocus()
         defocus, error_code = sem.ReportAutoFocus()
         self.state.add_to_last_five_defocus(defocus)
@@ -389,6 +395,7 @@ class SerialemInterface(MicroscopeInterface):
 
         sem.KeepCameraSetChanges('P')
         sem.SetLowDoseMode(1)
+        sem.SetBufferImageTimeout(5)
 
     def refineZLP(self, zerolossDelay:float):
         if self.detector.energyFilter and zerolossDelay >= 0:

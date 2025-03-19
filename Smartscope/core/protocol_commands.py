@@ -250,7 +250,10 @@ def rollDefocus(scope,params,instance, content:Dict, *args, **kwargs):
         params.target_defocus_min,
         params.target_defocus_max,
         params.step_defocus,
-    )  
+    )
+
+def autofocusByZ(scope,params,instance, content:Dict, *args, **kwargs):
+    scope.autofocus_by_z()
 
 
 protocolCommandsFactory = dict(
@@ -285,4 +288,5 @@ protocolCommandsFactory = dict(
     waitDrift=waitDrift,
     zeroImageShift=zeroImageShift,
     rollDefocus=rollDefocus,
+    autofocusByZ=autofocusByZ,
 )

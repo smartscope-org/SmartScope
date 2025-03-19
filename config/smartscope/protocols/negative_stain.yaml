@@ -5,7 +5,6 @@ atlas:
       - setAperturesForLowMag
       - resetStage
       - removeSlit
-      # - eucentricSearch
       - atlas
   targets:
     finders:
@@ -31,6 +30,7 @@ mediumMag:
     - tiltToAngle
     - moveStage
     - mediumMagHole
+    - rollDefocus
     - autoFocus
     - waitDrift
 highMag:

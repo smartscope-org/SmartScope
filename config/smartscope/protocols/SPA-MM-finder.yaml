@@ -32,6 +32,7 @@ mediumMag:
     - tiltToAngle
     - moveStage
     - mediumMagHole
+    - rollDefocus
     - autoFocusAfterDistance
     - waitDrift
   targets:
