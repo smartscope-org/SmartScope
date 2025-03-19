@@ -34,6 +34,7 @@ mediumMag:
     - loadHoleRef
     - alignToHoleRef
     - mediumMagHole
+    - rollDefocus
     - autoFocusAfterDistance
     - waitDrift
     - zeroImageShift

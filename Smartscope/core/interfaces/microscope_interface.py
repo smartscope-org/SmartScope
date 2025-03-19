@@ -92,7 +92,7 @@ class MicroscopeInterface(ABC):
     def recenter_beam(self, interval_in_minutes:int=5):
         pass
 
-    def rollDefocus(self, def1, def2, step):
+    def _rollDefocus(self, def1, def2, step):
         mindef = max([def1, def2])
         maxdef = min([def1, def2])
         defocusTarget = round(sem.ReportTargetDefocus() - abs(step), 2)
@@ -100,6 +100,9 @@ class MicroscopeInterface(ABC):
             defocusTarget = mindef
         self.state.defocusTarget = defocusTarget
         return defocusTarget
+    
+    def roll_defocus(self, def1, def2, step):
+        pass
 
     def reset_state(self):
         self.has_hole_ref = False
