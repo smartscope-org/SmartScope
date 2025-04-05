@@ -33,29 +33,31 @@ async function startSession(start = true, screeningMode = false) {
     var r = confirm(`Do you want to ${str} this session?`);
 
     if (r == true) {
-        try {
+        // try {
             let requestData = { 'start': start, 'screening_mode': screeningMode };
-            const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]')?.value || "";
-            const response = await fetch(url, {
-                method: "POST",
-                headers: {
-                    "Content-Type": "application/json",
-                    "X-CSRFToken": csrfToken
-                },
-                body: JSON.stringify(requestData)
-            });
+            return apifetchAsync(url, requestData, "POST", message='Starting session')
+        //     const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]')?.value || "";
+        //     const response = await fetch(url, {
+        //         method: "POST",
+        //         headers: {
+        //             "Content-Type": "application/json",
+        //             "X-CSRFToken": csrfToken
+        //         },
+        //         body: JSON.stringify(requestData)
+        //     });
 
-            if (!response.ok) {
-                throw new Error(`Server error: ${response.status} ${response.statusText}`);
-            }
+        //     if (!response.ok) {
+        //         throw new Error(`Server error: ${response.status} ${response.statusText}`);
+        //     }
 
-            console.log("API Response:", response);
-            return response; // Returns the Response object directly
+        //     console.log("API Response:", response);
+        //     return response; // Returns the Response object directly
 
-        } catch (error) {
-            console.error("API Error:", error);
-            return { error: error.message };
-        }
+        // } catch (error) {
+        //     console.error("API Error:", error);
+        //     return { error: error.message };
+        // }
+        
     } else {
         console.log("Cancelled by user");
     }
@@ -110,12 +112,13 @@ function isPaused(paused) {
     }
 }
 
-function autoRefresh(enable = true) {
-    if (enable === true) {
+ function autoRefresh(enable = true) {
+    if (enable === true){
         console.log('Autorefresh enabled')
-        interval = setInterval(function () {
-            console.log("Refreshing!")
-            loadlogs()
+        interval = setInterval(async function () {
+            console.log("Refreshing!");
+            await loadlogs();
+            await checkIsRunning(document.getElementById('start-button'))
         }
             , 10000);
         return
@@ -132,7 +135,7 @@ async function checkIsRunning(element, response = null) {
     if (!response) {
         response = await apifetchAsync(url, null, 'GET', 'Checking if session is running');
     }
-
+    console.log('Response from checkIsRunning: ',response.status )
     const isRunning = response.status === 'running';
 
     // Toggle button styles and update value/text
@@ -148,8 +151,12 @@ async function checkIsRunning(element, response = null) {
     if (element.value=="stop"){
             dropdown.style.display = "none";
     }
-
-    autoRefresh(isRunning);
+    if (isRunning && interval == null) {
+        autoRefresh(isRunning);
+    }
+    if (!isRunning && interval != null) {
+        autoRefresh(isRunning)
+    }
     return response;
 }
 
