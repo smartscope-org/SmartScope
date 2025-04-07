@@ -283,10 +283,13 @@ function hideSVG(el) {
         el.classList.add('active')
     }
     if (el.value == 'Numbers') {
-        $('#atlasText,#squareText').attr('visibility', final);
+        $('#atlasText,#squareText,#holeText').attr('visibility', final);
     }
     if (el.value == 'Labels') {
-        $('#atlasText,#squareText,#atlasShapes,#squareShapes').attr('visibility', final);
+        $('#atlasText,#squareText,#holeText,#atlasShapes,#squareShapes,#holeShapes').attr('visibility', final);
+    }
+    if (el.value == 'Legends') {
+        $('.legend').attr('visibility', final);
     }
 }
 

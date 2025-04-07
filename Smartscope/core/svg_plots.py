@@ -44,7 +44,7 @@ def add_legend(label_list, w, h, prefix):
     startpoint = h * 0.04
     ft_sz = h * 0.03
     step = h * 0.035
-    legend = draw.Group(id='legend')
+    legend = draw.Group(id='legend',class_='legend')
     box = draw.Rectangle(w * 0.01, startpoint - (step + 0.25), w * 0.25, step * (len(label_list) + 1.25),
                          fill='gray', stroke='black', stroke_width=floor(ft_sz / 5), opacity=0.6)
     legend.append(box)
