@@ -34,7 +34,7 @@ def add_scale_bar(pixelsize, w, h, id_type='atlas'):
         final_value += value
         final_lineLenght += lineLenght
     line = draw.Line(startpoint - final_lineLenght, h * 0.98, startpoint, h * 0.98, stroke='white', stroke_width=ft_sz / 2, id=f'line_{id_type}')
-    text = draw.Text(f'{str(final_value)} {unit}', ft_sz, path=line, fill='white', text_anchor='middle', line_offset=-0.5, id=f'text_{id_type}')
+    text = draw.Text(f'{str(final_value)} {unit}', ft_sz, path=line, fill='white', text_anchor='middle', line_offset=-0.5, id=f'text_{id_type}', font_family="Arial, Helvetica, sans-serif")
     scalebarGroup.append(line)
     scalebarGroup.append(text)
     return scalebarGroup
@@ -49,12 +49,12 @@ def add_legend(label_list, w, h, prefix):
                          fill='gray', stroke='black', stroke_width=floor(ft_sz / 5), opacity=0.6)
     legend.append(box)
     t = draw.Text(f"Legend", ft_sz, x=w * 0.02, y=startpoint, paint_order='stroke',
-                  stroke_width=floor(ft_sz / 5), stroke='black', fill="white")
+                  stroke_width=floor(ft_sz / 5), stroke='black', fill="white", font_family="Arial, Helvetica, sans-serif")
     legend.append(t)
     for (color, label, prefix) in sorted(label_list, key=lambda x: x[1] if isinstance(x[1], (int, float)) else 9999):
         startpoint += step
         t = draw.Text(f"{prefix} {label}", ft_sz, x=w * 0.02, y=startpoint, paint_order='stroke',
-                      stroke_width=floor(ft_sz / 5), stroke='black', class_='legend', label=label, fill=color)
+                      stroke_width=floor(ft_sz / 5), stroke='black', class_='legend', label=label, fill=color, font_family="Arial, Helvetica, sans-serif")
         legend.append(t)
     return legend
 
@@ -159,7 +159,7 @@ def drawAtlas(atlas, targets, display_type, method) -> draw.Drawing:
             if i.selected:
                 ft_sz = floor(d.width / 35)
                 t = draw.Text(str(i.number), ft_sz, x=x + sz, y=y, id=f'{i.pk}_text', paint_order='stroke',
-                              stroke_width=floor(ft_sz / 5), stroke=color, fill='white', class_=f'svgtext {i.status}')
+                              stroke_width=floor(ft_sz / 5), stroke=color, fill='white', class_=f'svgtext {i.status}', font_family="Arial, Helvetica, sans-serif")
                 text.append(t)
                 r.args['class'] += f" {i.status}"
                 if i.status == 'completed':
@@ -200,7 +200,7 @@ def drawAtlasNew(atlas, selector_sorter) -> draw.Drawing:
             if i.selected:
                 ft_sz = floor(d.width / 35)
                 t = draw.Text(str(i.number), ft_sz, x=x + sz, y=y, id=f'{i.pk}_text', paint_order='stroke',
-                              stroke_width=floor(ft_sz / 5), stroke=color, fill='white', class_=f'svgtext {i.status}')
+                              stroke_width=floor(ft_sz / 5), stroke=color, fill='white', class_=f'svgtext {i.status}', font_family="Arial, Helvetica, sans-serif")
                 text.append(t)
                 r.args['class'] += f" {i.status}"
                 # if i.status == 'completed':
@@ -246,7 +246,7 @@ def drawSquare(square, targets, display_type, method, skip_targets_num_check=Fal
             if i.selected:
                 ft_sz = floor(d.width / 3000 * 80)
                 t = draw.Text(str(i.number), ft_sz, x=x + i.radius, y=y - i.radius, id=f'{i.pk}_text', paint_order='stroke',
-                              stroke_width=floor(ft_sz / 5), stroke=color, fill='white', class_=f'svgtext {i.status}')  # + qualityClass
+                              stroke_width=floor(ft_sz / 5), stroke=color, fill='white', class_=f'svgtext {i.status}', font_family="Arial, Helvetica, sans-serif")  # + qualityClass
                 text.append(t)
             if i.status is not None:
                 c.args['class'] += f" {i.status}"
@@ -308,7 +308,7 @@ def drawSquareGroups(square, targets, display_type, method) -> draw.Drawing:
         if center.selected:
             ft_sz = floor(d.width / 3000 * 80)
             t = draw.Text(str(center.number), ft_sz, x=x, y=y, id=f'{center.pk}_text', paint_order='stroke',
-                            stroke_width=floor(ft_sz / 5), stroke=color, fill='white', class_=f'svgtext {center.status}')  # + qualityClass
+                            stroke_width=floor(ft_sz / 5), stroke=color, fill='white', class_=f'svgtext {center.status}', font_family="Arial, Helvetica, sans-serif")  # + qualityClass
             text.append(t)
         if center.status is not None:
             p.args['class'] += f" {center.status}"

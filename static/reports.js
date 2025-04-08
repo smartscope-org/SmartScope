@@ -1120,6 +1120,41 @@ function updateArcPath(x1, y1, x2, y2) {
     document.getElementById("angleArc").setAttribute("d", arcPath);
 }
 
+function downloadPNG(element_id,image_name="downloaded-image") {
+    const svg = document.getElementById(element_id);
+    const svgData = new XMLSerializer().serializeToString(svg);
+  
+    const svgBlob = new Blob([svgData], { type: "image/svg+xml;charset=utf-8" });
+    const url = URL.createObjectURL(svgBlob);
+  
+    const img = new Image();
+    img.onload = function () {
+      const canvas = document.createElement("canvas");
+      canvas.width = svg.width.baseVal.value;
+      canvas.height = svg.height.baseVal.value;
+  
+      const ctx = canvas.getContext("2d");
+      ctx.drawImage(img, 0, 0);
+  
+      URL.revokeObjectURL(url); // Clean up
+  
+      // Create a link to download the image
+      const pngUrl = canvas.toDataURL("image/png");
+      const downloadLink = document.createElement("a");
+      downloadLink.href = pngUrl;
+      downloadLink.download = `${image_name}.png`;
+      downloadLink.click();
+    };
+  
+    img.src = url;
+  }
+
+$('#main').on("mousedown",".opt-overlay", function (event) {
+    event.preventDefault();
+    svg_id = $(this).closest('.card').find('svg').attr('id')
+    console.log(`Downloading ${svg_id}`)
+    downloadPNG(svg_id, $(this).attr('name'))
+})
 
 // this function to remove existing lines, angle arc
 function clearExistingLines() {
