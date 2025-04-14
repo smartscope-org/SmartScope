@@ -219,7 +219,7 @@ def drawAtlasNew(atlas, selector_sorter) -> draw.Drawing:
     return d
 
 def drawSquare(square, targets, display_type, method, skip_targets_num_check=False) -> draw.Drawing:
-    if len(targets) > 900 and not skip_targets_num_check:
+    if len(targets) > 1100 and not skip_targets_num_check:
         return drawSquareGroups(square, targets, display_type, method)
     d = draw.Drawing(square.shape_y, square.shape_x, id='square-svg', displayInline=False,  style_='height: 100%; width: 100%')
     d.append(draw.Image(0, 0, d.width, d.height, path=square.png, embed= not square.is_aws))
