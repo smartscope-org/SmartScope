@@ -398,8 +398,20 @@ class SerialemInterface(MicroscopeInterface):
         sem.SetBufferImageTimeout(5)
 
     def refineZLP(self, zerolossDelay:float):
-        if self.detector.energyFilter and zerolossDelay >= 0:
-            sem.RefineZLP(zerolossDelay * 60)
+        if not self.detector.energyFilter:
+            return
+        if zerolossDelay < 0:
+            self.logger.info('Refine ZLP disabled')
+            return
+        if self.state.last_refine_zlp_success:
+            zerolossDelay = 0
+        success = sem.RefineZLP(zerolossDelay * 60, 0, 0, 1)
+        self.state.last_refine_zlp_success = True if success == 0 else False
+        if self.state.last_refine_zlp_success:
+            self.logger.info('Refine ZLP successful')
+            return
+        self.logger.info('Refine ZLP failed. Will try again after the next area')
+            
     
     def collectHardwareDark(self, harwareDarkDelay:int):
         if harwareDarkDelay > 0:

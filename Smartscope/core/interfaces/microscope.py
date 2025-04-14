@@ -23,6 +23,7 @@ class MicroscopeState:
     preAFISimageShiftY: float = 0
     apertureState: Dict = field(default_factory=dict)
     last_autocenter_time: int= -1
+    last_refine_zlp_success: bool = True
     current_mag: Optional[Literal['atlas','square', 'hole']] = None
 
     def setStage(self,stageX,stageY,stageZ=None):
