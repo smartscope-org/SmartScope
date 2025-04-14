@@ -237,10 +237,10 @@ def detect_holes_yolo(square, imgsz = 1280, augment = False, conf_thres = 0.7, i
     stride = int(model.stride.max())  # model stride
     imgsz = check_img_size(imgsz, s=stride)  # check img_size
     if half:
-        model.half() 
+        model.half()    
     if dim_square == 2:
-        square = cv2.normalize(square, None, 0, 255,cv2.NORM_MINMAX)
-        square = auto_contrast(square)
+        # square = cv2.normalize(square, None, 0, 255,cv2.NORM_MINMAX)
+        # square = auto_contrast(square)
         sp = square.shape
         im_re = letterbox(square, imgsz, stride = stride)[0]
         # print('im_re,', im_re.shape)
@@ -248,8 +248,8 @@ def detect_holes_yolo(square, imgsz = 1280, augment = False, conf_thres = 0.7, i
     if dim_square == 3:
         if square.shape[0] == 1 or square.shape[0] == 3:
             sp = square.shape[1:]
-            square = cv2.normalize(square[0], None, 0, 255,cv2.NORM_MINMAX)
-            square = auto_contrast(square)
+            # square = cv2.normalize(square[0], None, 0, 255,cv2.NORM_MINMAX)
+            # square = auto_contrast(square)
             im_re = letterbox(square, imgsz, stride = stride)[0]
             # im_re = cv2.resize(square, (imgsz, imgsz))
     # img_re_multi = np.zeros((sp[0],sp[1],3))

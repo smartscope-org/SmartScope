@@ -12,6 +12,7 @@ import logging
 import torch
 
 from Smartscope.lib.image.montage import Montage
+from Smartscope.lib.image_manipulations import convert_to_png, auto_contrast_sigma, fourier_crop
 from Smartscope.lib.mesh_operations import get_mesh_rotation_spacing, closest_to_center, filter_from_center
 from Smartscope.lib.Finders.lattice_extension import generic_lattice_extension
 from Smartscope.lib.image.targets import Targets
@@ -36,7 +37,7 @@ def find_squares(montage, class_map:Dict=None, **kwargs):
     squares = [i.numpy() for i in squares]
     return (squares, labels), success, dict()
 
-def find_holes_from_image(image, class_map:Dict=None, success_threshold:int=10,  **kwargs):
+def find_holes_from_image(image, class_map:Dict=None, success_threshold:int=10, scaling_factor=1,  **kwargs):
    
     def filter_hole_class(hole):
         return class_map[hole[-1]].name == 'Hole'
@@ -47,9 +48,10 @@ def find_holes_from_image(image, class_map:Dict=None, success_threshold:int=10, 
     kwargs['weights_circle'] = os.path.join(WEIGHT_DIR, kwargs['weights_circle'])
     if not IS_CUDA:
         kwargs['device'] = 'cpu'
-    
+
     all_targets = detect_holes(image, **kwargs)
     holes = list(filter(lambda x: filter_hole_class(x), all_targets))
+    holes = [np.array(hole[0:-1]) * scaling_factor for hole in holes]
 
     logger.info(f'AI hole detection found {len(holes)} holes')
     success = True
@@ -57,17 +59,21 @@ def find_holes_from_image(image, class_map:Dict=None, success_threshold:int=10, 
         success = False
     logger.debug(f'{holes[0]},{type(holes[0])}')
     
-    holes = [(np.array(hole[0:-1])-np.array(list(center)*2)) + np.array(list(center)*2) for hole in holes]
+    holes = [(np.array(hole)-np.array(list(center)*2)) + np.array(list(center)*2) for hole in holes]
     # logger.debug(f'{holes[0]},{type(holes[0])}')
     return holes, success, dict()
 
 
 def find_holes(montage:Montage, class_map:Dict=None, success_threshold:int=10,  **kwargs):
-    return find_holes_from_image(montage.image, class_map, success_threshold, **kwargs)
+    scaling_factor = montage.image.shape[0] / 1024
+    image= convert_to_png(montage.image, height=1024, normalization=auto_contrast_sigma, binning_method=fourier_crop)
+    return find_holes_from_image(image, class_map, success_threshold, scaling_factor=scaling_factor, **kwargs)
 
-def find_holes_from_square(square:Montage, class_map:Dict=None, success_threshold:int=10,  **kwargs):
-    image = mask_square(square.image)
-    return find_holes_from_image(image, class_map, success_threshold, **kwargs)
+def find_holes_from_square(montage:Montage, class_map:Dict=None, success_threshold:int=10,  **kwargs):
+    scaling_factor = montage.image.shape[0] / 1024
+    image= convert_to_png(montage.image, height=1024)
+    image = mask_square(image)
+    return find_holes_from_image(image, class_map, success_threshold, scaling_factor=scaling_factor, **kwargs)
 
 def find_holes_with_lattice(montage, hole_spacing:float, lattice_radius:float, class_map:Dict=None, success_threshold:int=2, **kwargs):
     """
@@ -81,11 +87,13 @@ def find_holes_with_lattice(montage, hole_spacing:float, lattice_radius:float, c
     Returns:
     List[Tuple[int, int]]: A list of coordinates where holes were found.
     """
+
     targets, success, _= find_holes(montage, class_map, success_threshold, **kwargs)
     if not success:
         return [], success, dict()
     targets = Targets.create_targets_from_box(targets, montage, force_mdoc=False) ###REPLACE WITH THE ENV VARIABLE
     expected_spacing = hole_spacing / montage.pixel_size_micron
+    print(f'Expected spacing: {expected_spacing} pixels')
     lattice_radius_in_pixels = lattice_radius / montage.pixel_size_micron * 1.5
     rotation, spacing = get_mesh_rotation_spacing(np.array([target.coords for target in targets]), expected_spacing)
     logger.debug(f'Calculated hole geometry for grid {montage} with {len(targets)} holes and mesh spacing: {spacing} um. Pixel size of {montage}: {montage.pixel_size} A.\n Calculated rotation: {rotation}\n Calculated spacing: {spacing}')

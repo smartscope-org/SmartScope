@@ -110,6 +110,15 @@ def save_image(img, filename, extension='png', resize_to: int = None, destinatio
     cv2.imwrite(file, img)
 
 
+def convert_to_png(
+        image,
+        height=1024,
+        normalization=auto_contrast,
+        binning_method=imutils.resize
+    ) -> Path:
+    return normalization(binning_method(image, height=height))
+
+
 def export_as_png(
         image,
         output,
@@ -117,7 +126,7 @@ def export_as_png(
         normalization=auto_contrast,
         binning_method=imutils.resize
     ) -> Path:
-    resized = normalization(binning_method(image, height=height))
+    resized = convert_to_png(image, height=height, normalization=normalization, binning_method=binning_method)
     cv2.imwrite(str(output), resized)
     return output
 

@@ -105,12 +105,14 @@ def refine_pixel_size_from_targets(instances, spacings) -> Tuple[float, float]:
     return average, std
 
 
-def test_finder(plugin_name: str, raw_image_path: str, output_dir: str, repeats=1):  # output_dir='/mnt/data/testing/'
+def test_finder(plugin_name: str, raw_image_path: str, output_dir: str, repeats=1, kwargs=None):  # output_dir='/mnt/data/testing/'
     from Smartscope.lib.image.montage import Montage
-    from Smartscope.lib.image_manipulations import auto_contrast, save_image
+    from Smartscope.lib.image.image_file import parse_mdoc 
+    from Smartscope.lib.image_manipulations import auto_contrast, save_image, convert_to_png, auto_contrast_sigma, fourier_crop
     from .grid.finders import find_targets
     import cv2
     import math
+    import json
 
     
     output_dir = Path(output_dir)
@@ -127,8 +129,18 @@ def test_finder(plugin_name: str, raw_image_path: str, output_dir: str, repeats=
         logger.debug(f'{image.name}, {image.parent}')
         montage = Montage(image.stem, working_dir=output_dir)
         montage.raw = image
-        montage.load_or_process()
-        output, _ , _ , additional_outputs = find_targets(montage, [plugin_name])
+        montage.metadata = parse_mdoc(montage.mdoc)
+        montage.build_montage()
+        montage.read_image()
+
+        # montage.load_or_process()
+        if kwargs is not None:
+            print(f'kwargs: {kwargs}')
+            kwargs = json.loads(kwargs)
+        else:
+            kwargs = {}
+
+        output, _ , _ , additional_outputs = find_targets(montage, [plugin_name], **kwargs)
         bit8_montage = auto_contrast(montage.image)
         bit8_color = cv2.cvtColor(bit8_montage, cv2.COLOR_GRAY2RGB)
         for i in output:
