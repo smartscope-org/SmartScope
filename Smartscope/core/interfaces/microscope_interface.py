@@ -182,7 +182,7 @@ class MicroscopeInterface(ABC):
         pass
 
     @abstractmethod
-    def image_shift_by_microns(self,isX,isY,tiltAngle, afis:bool=False, goToRecord=True):
+    def image_shift_by_microns(self,isX,isY,tiltAngle, afis:bool=False, goToRecord=True, delay_multiplier=1, additional_delay=0):
         pass
 
     @abstractmethod

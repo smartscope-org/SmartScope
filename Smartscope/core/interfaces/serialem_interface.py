@@ -472,13 +472,16 @@ class SerialemInterface(MicroscopeInterface):
         if afis:
             sem.RestoreBeamTilt()
 
-    def image_shift_by_microns(self,isX,isY,tiltAngle, afis:bool=False, goToRecord=True):
+    def image_shift_by_microns(self,isX,isY,tiltAngle, afis:bool=False, goToRecord=True, delay_multiplier=1, additional_delay=0):
+        self.logger.debug(f'Image shift by microns: {isX}, {isY}, {tiltAngle}, {afis}, {goToRecord}, {delay_multiplier}, {additional_delay}')
         if goToRecord:
             sem.GoToLowDoseArea('Record')
-        sem.ImageShiftByMicrons(isX - self.state.imageShiftX, isY - self.state.imageShiftY, 1, int(afis))
+        sem.ImageShiftByMicrons(isX - self.state.imageShiftX, isY - self.state.imageShiftY, delay_multiplier, int(afis))
         if goToRecord:
             self.state.imageShiftX = isX
             self.state.imageShiftY = isY
+        if additional_delay > 0:
+            time.sleep(additional_delay)
 
     def set_focus_for_bis_tilt(self,isY,tiltAngle):
         if tiltAngle == 0:

@@ -84,8 +84,9 @@ class FakeScopeInterface(MicroscopeInterface):
     def align():
         pass
 
-    def image_shift_by_microns(self, isX, isY, tiltAngle, afis=False, goToRecord=True):
-        return super().image_shift_by_microns(isX, isY, tiltAngle)
+    def image_shift_by_microns(self, isX, isY, tiltAngle, afis=False, goToRecord=True, delay_multiplier=1, additional_delay=0):
+        self.logger.debug(f'Image shift by microns: {isX}, {isY}, {tiltAngle}, {afis}, {goToRecord}, {delay_multiplier}, {additional_delay}')
+        return super().image_shift_by_microns(isX, isY, tiltAngle, afis, goToRecord, delay_multiplier, additional_delay)
 
     def reset_image_shift(self):
         return super().reset_image_shift()

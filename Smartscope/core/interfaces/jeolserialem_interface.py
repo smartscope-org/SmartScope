@@ -119,12 +119,6 @@ class JEOLSerialemInterface(SerialemInterface):
         sem.SetColumnOrGunValve(1)
 
 
-    def image_shift_by_microns(self,isX,isY,tiltAngle, afis:bool=False, goToRecord=True):
-        if goToRecord:
-            sem.GoToLowDoseArea('Record')
+    def image_shift_by_microns(self,isX,isY,tiltAngle, afis:bool=False, goToRecord=True, delay_multiplier=1, additional_delay=0):
         isX *= -1
-        sem.ImageShiftByMicrons((isX - self.state.imageShiftX), isY - self.state.imageShiftY, 1, int(afis))
-        if goToRecord:
-            self.state.imageShiftX = isX
-            self.state.imageShiftY = isY
-        # sem.SetDefocus(self.state.currentDefocus - isY * math.sin(math.radians(tiltAngle)))    
+        super().image_shift_by_microns(isX,isY,tiltAngle, afis, goToRecord, delay_multiplier, additional_delay)
