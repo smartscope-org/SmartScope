@@ -13,7 +13,8 @@ def setAtlasOptics(scope:MicroscopeInterface,params,instance, content:Dict, *arg
 
 def setAtlasOpticsDelay(scope:MicroscopeInterface,params,instance, content:Dict, *args, **kwargs)  -> None:
     """Same as setAtlasOptics with delays between each commands."""
-    scope.set_atlas_optics_delay(delay=1)
+    delay=content.get('delay',1)
+    scope.set_atlas_optics_delay(delay=delay)
 
 def setAtlasOpticsImagingState(scope:MicroscopeInterface,params,instance, content:Dict, *args, **kwargs) :
     """Sets the atlas optics from an Imaging State named "Atlas"."""

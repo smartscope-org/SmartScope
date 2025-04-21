@@ -30,6 +30,13 @@ services:
       - cache
     networks:
       - smartscopenet
+  smartscope_ai:
+    image: smartscope_ai:dev
+    restart: always
+    env_file:
+      - smartscope.conf
+    networks:
+      - smartscopenet      
   db:
     image: mariadb:10.5
     restart: always

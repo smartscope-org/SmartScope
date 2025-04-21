@@ -15,7 +15,7 @@ class ExtraPropertyMixin:
 
     @ property
     def is_aws(self):
-        if os.path.isabs(self.directory):
+        if os.path.isabs(self.directory) or self.directory.startswith('..') or self.directory.startswith('.'):
             return False
         return True
 
