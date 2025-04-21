@@ -14,6 +14,7 @@ class Fake:
     @staticmethod
     def select_random_fake_file(funcname):
         TEST_FILES_ROOT = Path(os.getenv('TEST_FILES'))
+        logger.debug(f'Test files root: {TEST_FILES_ROOT}')
         dirs = dict(atlas=TEST_FILES_ROOT / 'atlas',
                     square=TEST_FILES_ROOT / 'square',
                     lowmagHole=TEST_FILES_ROOT / 'hole',
@@ -29,6 +30,7 @@ class Fake:
     @staticmethod
     def generate_fake_file(file, funcname, sleeptime=15, destination_dir=os.getenv('MOUNTLOC'), **kwargs):
         logger.info(f"Generating fake {file} from {funcname}")
+
         randomfile = Fake.select_random_fake_file(funcname)
         destination = os.path.join(destination_dir, file)
         if 'frames' in funcname:

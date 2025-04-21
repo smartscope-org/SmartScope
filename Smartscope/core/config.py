@@ -35,6 +35,8 @@ def register_plugins(directories, factory):
             factory[data['name']] = out_class.model_validate(data)
 
 def get_active_plugins_list(external_plugins_directory,external_plugins_list) -> List[Path]:
+    if not Path.exists(external_plugins_list):
+        return []
     with open(external_plugins_list,'r') as file:
         return [external_plugins_directory / plugin.strip() for plugin in file.readlines()]
 

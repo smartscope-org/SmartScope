@@ -2,7 +2,7 @@ import os
 import sys
 from pathlib import Path
 from typing import List, Tuple, Literal
-import torch
+# import torch
 import logging
 import time
 from django.conf import settings
@@ -15,8 +15,8 @@ logger = logging.getLogger(__name__)
 # logger.info(settings)
 # logger.info(settings.AUTOSCREENDIR)
 
-def is_gpu_enabled():
-    print('GPU enabled:', torch.cuda.is_available())
+# def is_gpu_enabled():
+#     print('GPU enabled:', torch.cuda.is_available())
 
 
 def test_serialem_connection(ip: str, port: int):
