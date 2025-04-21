@@ -4,6 +4,7 @@ Untitled.ipynb
 .eman2log.txt
 cryolo_models/
 Tomo.egg-info
+*.egg-info/
 .DS_Store
 # Smartscope.egg-info/
 .vscode/
