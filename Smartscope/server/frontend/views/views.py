@@ -466,8 +466,9 @@ class PreprocessingPipeline(TemplateView):
                                             context=dict(form=PreprocessingPipelineIDForm(data=dict(preprocessing_pipeline_id=pipeline_data.cache_id)), 
                                                                                         row=True, 
                                                                                         id='formPreprocess'))
-                grid = AutoloaderGrid.objects.get(pk=grid_id)
-                Path(grid.directory,'preprocessing.json').write_text(pipeline_data.json(exclude={'cache_id'}))
+                context = self.get_grid_context_data(grid_id)
+                pipeline_data.process_pid = context['pipeline_data'].process_pid
+                Path(context['grid'].directory,'preprocessing.json').write_text(pipeline_data.json(exclude={'cache_id'}))
                 logger.info('Updated pipeline for existing grid')
                 return self.get_grid_pipeline(request, grid_id=grid_id)
         except Exception as err:
