@@ -750,7 +750,7 @@ class SquareModelViewSet(viewsets.ModelViewSet, GeneralActionsMixin, ExtraAction
         queryset = obj.holemodel_set.filter(status__isnull=True, selected=False)
         logger.debug(f"Deleting {queryset.count()} holes")
         queryset.delete()
-        return Response(data=dict(success=True),status=rest_status.HTTP_204_NO_CONTENT)
+        return Response(data=dict(success=True))
     
     @ action(detail=True, methods=['get'])
     def extend_lattice(self,request, *args, **kwargs):
