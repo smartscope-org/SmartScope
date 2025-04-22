@@ -169,6 +169,8 @@ class SerialemInterface(MicroscopeInterface):
     def atlas(self, size, file=''):
         self.state.current_mag = 'atlas'
         sem.OpenNewMontage(size[0],size[1], file)
+        sem.SetMontageParams(1)
+        sem.ParamSetToUseForMontage(1)
         self.checkDewars()
         self.checkPump()
         self.logger.info('Starting Atlas acquisition')

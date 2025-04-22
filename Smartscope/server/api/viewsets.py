@@ -19,8 +19,6 @@ import time
 import logging
 from pathlib import Path
 import mrcfile
-import mrcfile.mrcinterpreter
-import mrcfile.mrcfile
 
 from .serializers import *
 from Smartscope.server.api.permissions import HasGroupPermission
@@ -190,7 +188,11 @@ class TargetRouteMixin:
     
     @ action(detail=False, methods=['get'], url_path='scipion_plugin')
     def scipion_plugin(self, request, *args, **kwargs):
-        return self.detailedMany(request=request,*args,serializer=ScipionPluginHoleSerializer ,**kwargs)
+        reset_queries()
+
+        view = self.detailedMany(request=request,*args,serializer=ScipionPluginHoleSerializer ,**kwargs)
+        logger.debug(f'Loading scipion plugin data required {len(connection.queries)} queries')
+        return view
 
     @action(detail=False, methods=['post'])
     def add_targets(self, request, *args, **kwargs):
@@ -773,6 +775,11 @@ class HoleModelViewSet(viewsets.ModelViewSet, GeneralActionsMixin, ExtraActionsM
                         'square_id', 'status', 'bis_group', 'bis_type']
 
     detailed_serializer = DetailedFullHoleSerializer
+
+    @ action(detail=False, methods=['get'], url_path='scipion_plugin')
+    def scipion_plugin(self, request, *args, **kwargs):
+        self.queryset = HoleModel.display.all()
+        return super().scipion_plugin(request, *args, **kwargs)
 
     @ action(detail=True, methods=['get'])
     def load(self, request, **kwargs):
