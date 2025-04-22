@@ -693,14 +693,14 @@ function clickHole(elem) {
     checkSelection('hole')
     currentState.hole = elem.id
     var center = elem
-    if (elem.classList.contains('completed') | elem.classList.contains('processed')) {
-        if (elem.classList.contains('is_area')) {
-            center = elem.parentElement.getElementsByClassName('center')[0]
-            }
+    if (elem.classList.contains('is_area')) {
+        center = elem.parentElement.getElementsByClassName('center')[0]
     }
-    loadHole(center.id);
-    console.log(currentState)
-    pushState()
+    if (center.classList.contains('completed') | center.classList.contains('processed')) {
+        loadHole(center.id);
+        console.log(currentState)
+        pushState()
+    }
 };
 
 async function extendLattice(square_id) {
