@@ -1,5 +1,5 @@
 from abc import ABC, abstractmethod
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 import logging
 
 import serialem as sem
@@ -40,7 +40,7 @@ class MicroscopeInterface(ABC):
     microscope: Microscope
     detector: Detector
     atlas_settings:AtlasSettings
-    state: MicroscopeState = MicroscopeState()
+    state: MicroscopeState = field(default_factory=MicroscopeState)
     apertures: Apertures = None
     additional_settings: dict = None 
     has_hole_ref: bool = False
