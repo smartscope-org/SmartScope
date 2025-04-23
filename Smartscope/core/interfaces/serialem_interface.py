@@ -270,7 +270,9 @@ class SerialemInterface(MicroscopeInterface):
 
     def align_to_hole_ref(self):
         sem.View()
+        self.logger.debug(f'Aligning to hole reference. Cropping view image to {self.hole_crop_size}x{self.hole_crop_size}')
         sem.CropCenterToSize('A', self.hole_crop_size, self.hole_crop_size)
+        sem.Delay(0.5)
         sem.AlignTo('T')
         return sem.ReportAlignShift()
     
