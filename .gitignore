@@ -43,3 +43,4 @@ serialem.egg-info/
 SmartScope-docs
 data
 Smartscope/.local.env
+.venv
