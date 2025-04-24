@@ -60,15 +60,14 @@ class HoleModel(Target, ExtraPropertyMixin):
     def targets(self):
         from .high_mag import HighMagModel
         if self.bis_group is None:
-            return HighMagModel.objects.filter(hole_id=self.hole_id)
+            return self.highmagmodel_set.all()
 
         holes_in_group = HoleModel.objects.filter(square_id=self.square_id,bis_group=self.bis_group).values_list('hole_id', flat=True)
         return HighMagModel.display.filter(hole_id__in=holes_in_group)
     
     @property
     def targets_in_hole(self) -> int:
-        from .high_mag import HighMagModel
-        return HighMagModel.objects.filter(hole_id=self.hole_id).count()
+        return self.highmagmodel_set.count()
 
     @ property
     def targets_prefix(self):
