@@ -8,6 +8,7 @@ from pydantic import BaseModel
 from Smartscope.tasks.app import app
 from Smartscope.lib.image.montage import Montage
 from Smartscope.lib.image_manipulations import encode_image
+from Smartscope.lib.image_manipulations import convert_to_png, auto_contrast_sigma, fourier_crop
 from Smartscope.lib.mesh_operations import get_mesh_rotation_spacing, closest_to_center, filter_from_center
 from Smartscope.lib.Finders.lattice_extension import generic_lattice_extension
 from Smartscope.lib.image.targets import Targets
@@ -49,10 +50,14 @@ def send_find_squares_from_montage(montage, class_map:Dict[str,BaseModel], **kwa
     return (coords,labels_converted), True, dict()
 
 def send_find_holes_from_montage(montage:Montage, class_map:Dict[str,BaseModel], success_threshold:int=10,  **kwargs):
-    encoded = encode_image(montage.image)
+    scaling_factor = montage.image.shape[0] / 1024
+    image= convert_to_png(montage.image, height=1024, normalization=auto_contrast_sigma, binning_method=fourier_crop)
+
+    encoded = encode_image(image)
+
     data = { 'image': encoded }
     data['kwargs'] = kwargs
-    
+    data['kwargs']['scaling_factor'] = scaling_factor
     data['kwargs']['class_mapping'] = {k:v.model_dump() for k,v in class_map.items()}
     
     result = app.send_task('SmartscopeAI.interfaces.celery.tasks.find_holes', args=[json.dumps(data)], queue='celery')

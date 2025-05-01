@@ -2,7 +2,9 @@
 
 #Copy shared data to mount
 cp /opt/smartscope/config/docker/nginx-entrypoint.sh /opt/shared/
-cp -r /opt/smartscope/static /opt/shared/
+manage.py collectstatic --noinput
+# cp -r /opt/smartscope/static /opt/shared/
+
 
 version=$(cat /opt/config/version)
 echo "Config version is \"$version\" and current version is \"$VERSION\""
