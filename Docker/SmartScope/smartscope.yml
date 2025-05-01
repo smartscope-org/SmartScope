@@ -13,6 +13,8 @@ services:
       # - /path/to/where/serialem/will/write/files/:/mnt/your_scope_name_here/
       # Example:
       # - /mnt/gatan_Raid_X/smartscope/:/mnt/arctica/
+  db:
+    user: ${UID}:${GID}
   nginx:
     ports:
       #### BROADCASTED PORT ####

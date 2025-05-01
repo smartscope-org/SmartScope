@@ -2,20 +2,11 @@
 # For details about the docker-compose file, please refer to           #
 # https://docs.smartscope.org/installation/docker-compose_details.html #
 ########################################################################
-version: "3"
 services:
   smartscope:
-    image: ghcr.io/niehs/smartscope:stable
+    image: ghcr.io/smartscope-org/smartscope:dev
     restart: always
     volumes:
-      ######## FILL THIS ##########
-      # - :/mnt/data/
-      ######## ADD YOUR MICROSCOPES #########
-      # The synthax from the microscope volumes is as follows:
-      # - /path/to/where/serialem/will/write/files/:/mnt/your_scope_name_here/
-      # Example:
-      # - /mnt/gatan_Raid_X/smartscope/:/mnt/arctica/
-      ###### OTHER DEFAULT VOLUMES - NO NEED TO CHANGE #######
       - ./shared/auth/:/opt/auth/:rw
       - ./shared/nginx/:/opt/shared/:rw
       - ./shared/smartscope/:/opt/config/:rw
@@ -31,12 +22,13 @@ services:
     networks:
       - smartscopenet
   smartscope_ai:
-    image: smartscope_ai:dev
+    image: ghrc.io/smartscope-org/smartscopeai:latest-cpu
     restart: always
     env_file:
       - smartscope.conf
     networks:
-      - smartscopenet      
+      - smartscopenet
+    command: ["celery", "-A", "SmartscopeAI.interfaces.celery.app", "worker", "--loglevel=DEBUG", "--pool=solo"]
   db:
     image: mariadb:10.5
     restart: always
@@ -49,14 +41,13 @@ services:
   cache:
     image: redis:6.2-alpine
     restart: always
-    command: redis-server --save 20 1 --loglevel warning
     networks:
       - smartscopenet
   nginx:
     image: nginx
     restart: always
     volumes:
-      - ./shared/nginx/:/opt/shared/:ro #Doesn't need to be changed
+      - ./shared/nginx/:/opt/shared/:ro 
     networks:
       - smartscopenet
     depends_on:
