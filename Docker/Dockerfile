@@ -31,7 +31,7 @@ COPY --link --from=thirdparty IMOD /usr/local/IMOD
 COPY --link --from=thirdparty ctffind /opt/
 
 ENV IMOD_DIR=/usr/local/IMOD \
-    PATH=/root/.local/bin:$PATH:/opt/miniforge3/bin:/usr/local/IMOD/bin \
+    PATH=/root/.local/bin:$PATH:/usr/local/IMOD/bin \
     LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/usr/local/IMOD/lib \
     VERSION=$VERSION \
 	IMOD_DIR=/usr/local/IMOD \	
