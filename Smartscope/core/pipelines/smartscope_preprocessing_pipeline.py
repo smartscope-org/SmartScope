@@ -81,7 +81,7 @@ class SmartscopePreprocessingPipeline(PreprocessingPipeline):
             self.update_processes()
             self.list_incomplete_processes()
             self.grid.refresh_from_db()
-            if self.grid.status == 'complete' and len(self.incomplete_processes) == 0:
+            if self.grid.status == 'complete' and len(list(filter(lambda x: x.status == 'acquired', self.incomplete_processes))) == 0 :
                 return
 
     def list_incomplete_processes(self):
