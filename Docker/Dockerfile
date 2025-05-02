@@ -5,7 +5,7 @@ ARG BRANCH='dev'
 
 ENV DEBIAN_FRONTEND=noninteractive
 
-LABEL org.opencontainers.image.source=https://github.com/NIEHS/SmartScope
+LABEL org.opencontainers.image.source=https://github.com/smartscope-org/smartscope
 LABEL org.opencontainers.image.title=SmartScope
 LABEL org.opencontainers.image.description="SmartScope is a framework for automated cryo-electron microscopy"
 LABEL org.opencontainers.image.licenses=BSD-3-Clause
