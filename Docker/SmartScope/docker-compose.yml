@@ -22,7 +22,7 @@ services:
     networks:
       - smartscopenet
   smartscope_ai:
-    image: ghrc.io/smartscope-org/smartscopeai:latest-cpu
+    image: ghcr.io/smartscope-org/smartscopeai:latest-cpu
     restart: always
     env_file:
       - smartscope.conf
