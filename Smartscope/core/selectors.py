@@ -71,6 +71,9 @@ def gray_level_selector(parent, montage=None):
 
 def distance_from_center_selector(parent, montage=None):
     targets, montage = prepare_selector(parent, montage)
+    if len(targets) == 0:
+        logger.warning('No targets found for distance selector.')
+        return []
     montage_center = find_square_center(montage.image)
     distances = []
     for target in targets:
