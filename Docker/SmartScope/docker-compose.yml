@@ -1,0 +1,58 @@
+########################################################################
+# For details about the docker-compose file, please refer to           #
+# https://docs.smartscope.org/installation/docker-compose_details.html #
+########################################################################
+services:
+  smartscope:
+    image: ghcr.io/smartscope-org/smartscope:dev
+    restart: always
+    volumes:
+      - ./shared/auth/:/opt/auth/:rw
+      - ./shared/nginx/:/opt/shared/:rw
+      - ./shared/smartscope/:/opt/config/:rw
+      - ./testfiles/:/mnt/testfiles/:rw
+      - ./logs/:/opt/logs/
+      - ./backups/:/mnt/backups/
+    env_file:
+      - smartscope.conf
+      - database.conf
+    depends_on:
+      - db
+      - cache
+    networks:
+      - smartscopenet
+  smartscope_ai:
+    image: ghrc.io/smartscope-org/smartscopeai:latest-cpu
+    restart: always
+    env_file:
+      - smartscope.conf
+    networks:
+      - smartscopenet
+    command: ["celery", "-A", "SmartscopeAI.interfaces.celery.app", "worker", "--loglevel=DEBUG", "--pool=solo"]
+  db:
+    image: mariadb:10.5
+    restart: always
+    env_file:
+      - database.conf
+    volumes:
+      - ./db/:/var/lib/mysql/
+    networks:
+      - smartscopenet
+  cache:
+    image: redis:6.2-alpine
+    restart: always
+    networks:
+      - smartscopenet
+  nginx:
+    image: nginx
+    restart: always
+    volumes:
+      - ./shared/nginx/:/opt/shared/:ro 
+    networks:
+      - smartscopenet
+    depends_on:
+      - smartscope
+    command: /opt/shared/nginx-entrypoint.sh
+    
+networks:
+  smartscopenet: {}

@@ -1,0 +1,81 @@
+[build-system]
+requires = ["setuptools", "setuptools-scm"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "Smartscope"
+authors = [
+    {name = "Jonathan Bouvette", email = "bouvette@princeton.edu"},
+]
+description = "Smartscope module for automatic CryoEM grid screening"
+requires-python = ">=3.10"
+keywords = ["smartscope", "cryoem", "screening","serialem"]
+license = {file = "LICENSE"}
+classifiers = [
+    "Framework :: Django",
+    "Programming Language :: Python :: 3",
+]
+dynamic = ["version", "readme"]
+dependencies = [
+    "boto3",
+    "celery[redis]",
+    "channels_redis",
+    "channels[daphne]",
+    "ddt",
+    "django",
+    "django-environ",
+    "django-filter",
+    "django-storages",
+    "djangorestframework",
+    "djangorestframework-yaml",
+    "drawSvg[all]",
+    "environ",
+    "gunicorn",
+    "imutils",
+    "mrcfile",
+    "matplotlib",
+    "numpy",
+    "opencv-python",
+    "pandas",
+    "pillow",
+    "plotly",
+    "pycv2",
+    "pydantic",
+    "psutil",
+    "pymysql",
+    "seaborn",
+    "scipy",
+    "scikit-image",
+    "scikit-learn",
+    "uvicorn",
+    "websockets",
+    "django-cors-headers",
+    "mysqlclient",
+    "serialem",
+    "smartscope-connector",
+    "cryosparc-tools",
+    "jwt",
+]
+
+
+[project.optional-dependencies]
+dev = ["black", "flake8"]
+
+[project.urls]
+Homepage = "https://smartscope.org"
+Documentation = "https://docs.smartscope.org/"
+Repository = "https://github.com/NIEHS/SmartScope"
+# [project.scripts]
+# my-script = "my_package.module:function"
+
+[tool.setuptools.dynamic]
+version = {file = ["VERSION"]}
+readme = {file = ["README.md"]}
+
+[tool.uv.sources]
+serialem = { git = "https://github.com/JoQCcoz/serialem-pythonmodule.git" }
+smartscope-connector = { git = "https://github.com/JoQCcoz/SmartScope-connector.git" }
+
+[tool.setuptools]
+packages = ["Smartscope"]
+script-files = ["Smartscope/bin/smartscope.py","Smartscope/bin/manage.py","Smartscope/bin/smartscope.sh"]

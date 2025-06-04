@@ -1,0 +1,248 @@
+import os
+import sys
+from pathlib import Path
+from typing import List, Tuple, Literal
+# import torch
+import logging
+import time
+from django.conf import settings
+
+
+
+
+
+logger = logging.getLogger(__name__)
+# logger.info(settings)
+# logger.info(settings.AUTOSCREENDIR)
+
+# def is_gpu_enabled():
+#     print('GPU enabled:', torch.cuda.is_available())
+
+
+def test_serialem_connection(ip: str, port: int):
+    msg = 'Hello from smartscope'
+    print(f'Testing connection to SerialEM by printing \"{msg}\" to the SerialEM log.')
+    print(f'Using {ip}:{port}')
+    import serialem as sem
+    sem.ConnectToSEM(int(port), ip)
+    sem.Echo(msg)
+    sem.Exit(1)
+    print('Finished, please look at the serialEM log for the message.')
+
+
+def test_highmag_frame_processing(
+        frame_file: str,
+        test_dir=Path(settings.AUTOSCREENDIR, 'testing', 'preprocessing_tests'),
+    ):
+    '''
+    test_dir = autoscreen_dir + group + session
+    name = grid_id
+    '''
+    from Smartscope.lib.preprocessing_methods import process_hm_from_frames
+    frame_file = Path(frame_file)
+    test_dir.mkdir(parents=True, exist_ok=True)
+    raw_dir = Path(test_dir, 'raw')
+    raw_dir.mkdir(exist_ok=True)
+    os.chdir(test_dir)
+    frames_file_name = frame_file.name
+    frames_dirs = [frame_file.parent]
+    # frames_dirs = [Path(os.getenv('AUTOSCREENDIR')), Path(os.getenv('TEST_FILES'), 'highmagframes')]
+    logger.info(f'Processing frames from {frame_file} in {frames_dirs}.\n Saving to {test_dir}')   
+    movie = process_hm_from_frames(frame_file.stem, frames_file_name=frames_file_name, frames_directories=frames_dirs)
+    logger.info(f'All movie data: {movie.check_metadata()}')
+    logger.info(f'Metadata and CTFFIND results saved in {test_dir/frame_file.stem}. Aligned movie saved in {raw_dir/frame_file.stem}.mrc.')
+
+
+
+def refine_atlas_pixel_size(grids: List[str]):
+    logger.info('Running atlas pixel size refinement')
+    from Smartscope.core.models import AtlasModel
+    grids = grids.split(',')
+    instances = list(AtlasModel.objects.filter(grid_id__in=grids))
+    grid_meshes = [instance.grid_id.meshSize.pitch for instance in instances]
+    logger.debug(instances)
+    average, std = refine_pixel_size_from_targets(instances, grid_meshes)
+    error = abs(instances[0].pixel_size - average) / instances[0].pixel_size * 100
+    logger.info(
+        f'\n###################  Atlas magnification  ###################\nCalculated pixel size: {average:.1f} +/- {std:.1f} A/pix (n= {len(instances)}).\nThis is an difference of {error:.0f} % from the current {instances[0].pixel_size} A/pix value.\n#############################################################')
+
+
+def refine_square_pixel_size(grids: List[str]):
+    from Smartscope.core.models import SquareModel
+    logger.info('Running square pixel size refinement')
+    grids = grids.split(',')
+    instances = list(SquareModel.objects.filter(grid_id__in=grids, status='completed'))
+    grid_meshes = [instance.grid_id.holeType.pitch for instance in instances]
+    logger.debug(instances)
+    average, std = refine_pixel_size_from_targets(instances, grid_meshes)
+    error = abs(instances[0].pixel_size - average) / instances[0].pixel_size * 100
+    logger.info(
+        f'\n###################  Square magnification ##################\nCalculated pixel size: {average:.1f} +/- {std:.1f} A/pix (n= {len(instances)}).\nThis difference of {error:.0f} % from the current {instances[0].pixel_size} A/pix value.\n############################################################')
+
+
+def refine_pixel_size(grids: List[str]):
+    logger.info('Running Atlas and Square level pixel size refinement.')
+    refine_atlas_pixel_size(grids)
+    refine_square_pixel_size(grids)
+
+
+def refine_pixel_size_from_targets(instances, spacings) -> Tuple[float, float]:
+    from Smartscope.core.models import Finder
+    import numpy as np
+    from scipy.spatial.distance import cdist
+    pixel_sizes = []
+    for instance, grid_mesh in zip(instances, spacings):
+        targets = instance.base_target_query(manager='display').all().values_list('pk')
+        coordinates = np.array(Finder.objects.filter(object_id__in=targets).values_list('x', 'y'))
+
+        cd = cdist(coordinates, coordinates)
+        cd.sort(axis=0)
+        pixel_size = grid_mesh * 10000 / cd[1].mean()
+        pixel_sizes.append(pixel_size)
+
+    average = np.mean(pixel_sizes)
+    std = np.std(pixel_sizes)
+    return average, std
+
+
+def test_finder(plugin_name: str, raw_image_path: str, output_dir: str, repeats=1, kwargs=None):  # output_dir='/mnt/data/testing/'
+    from Smartscope.lib.image.montage import Montage
+    from Smartscope.lib.image.image_file import parse_mdoc 
+    from Smartscope.lib.image_manipulations import auto_contrast, save_image, convert_to_png, auto_contrast_sigma, fourier_crop
+    from .grid.finders import find_targets
+    import cv2
+    import math
+    import json
+
+    
+    output_dir = Path(output_dir)
+    try:
+        output_dir.mkdir(exist_ok=True)
+    except:
+        logger.info(f'Could not create or find {str(output_dir)}')
+        
+    image = Path(raw_image_path)
+    iterations = []
+    for ind in range(int(repeats)):
+        start = time.time()
+        logger.info(f'Testing finder {plugin_name} on image {raw_image_path}')
+        logger.debug(f'{image.name}, {image.parent}')
+        montage = Montage(image.stem, working_dir=output_dir)
+        montage.raw = image
+        montage.metadata = parse_mdoc(montage.mdoc)
+        montage.build_montage()
+        montage.read_image()
+
+        # montage.load_or_process()
+        if kwargs is not None:
+            print(f'kwargs: {kwargs}')
+            kwargs = json.loads(kwargs)
+        else:
+            kwargs = {}
+
+        output, _ , _ , additional_outputs = find_targets(montage, [plugin_name], **kwargs)
+        bit8_montage = auto_contrast(montage.image)
+        bit8_color = cv2.cvtColor(bit8_montage, cv2.COLOR_GRAY2RGB)
+        for i in output:
+            cv2.circle(bit8_color, (i.x,i.y),20, (0, 0, 255), cv2.FILLED)
+        if 'lattice_angle' in additional_outputs.keys():
+
+            cv2.line(bit8_color,tuple(montage.center),(int(3000*math.sin(math.radians(additional_outputs['lattice_angle']))+montage.center[0]), int(3000*math.cos(math.radians(additional_outputs['lattice_angle'])))+ montage.center[1]),(0,255,0),10)
+        logger.info(f"Saving diagnosis image in {Path(montage.directory,plugin_name.replace(' ', '_') + '.png')}")
+        save_image(bit8_color, plugin_name, destination=montage.directory, resize_to=512)
+        elapsed = time.time() - start
+        iterations.append(f'{elapsed:.2f}')
+        logger.info(f'Repeat {ind} took {elapsed} sec')
+    logger.info(f"Time for each iterations {', '.join(iterations)}")
+
+def test_protocol_command(microscope_id,detector_id,command, instance=None, instance_type=None, params=None):
+    from Smartscope.core.models import Microscope, Detector, SquareModel
+    from Smartscope.core.interfaces.microscope_methods import select_microscope_interface
+    import Smartscope.core.interfaces.microscope as micModels
+    from Smartscope.core.settings.worker import PROTOCOL_COMMANDS_FACTORY
+    if instance_type=='square':
+        logger.info(f'Selected square {instance}')
+        instance = SquareModel.objects.get(pk=instance)
+    microscope = Microscope.objects.get(pk=microscope_id)
+    detector = Detector.objects.get(pk=detector_id)
+    scopeInterface, additional_settings  = select_microscope_interface(microscope)
+    with scopeInterface(microscope = micModels.Microscope.model_validate(microscope),
+                              detector= micModels.Detector.model_validate(detector),
+                              atlas_settings= micModels.AtlasSettings.model_validate(detector),
+                              additional_settings=additional_settings) as scope:
+        PROTOCOL_COMMANDS_FACTORY[command](scope,params,instance,content={})
+
+def run_microscope_command(microscope_id, detector_id, command, *args):
+    from Smartscope.core.models import Microscope, Detector
+    from Smartscope.core.interfaces.microscope_methods import select_microscope_interface
+    import Smartscope.core.interfaces.microscope as micModels
+    microscope = Microscope.objects.get(pk=microscope_id)
+    detector = Detector.objects.get(pk=detector_id)
+    scopeInterface, additional_settings  = select_microscope_interface(microscope)
+    with scopeInterface(microscope = micModels.Microscope.model_validate(microscope),
+                              detector= micModels.Detector.model_validate(detector),
+                              atlas_settings= micModels.AtlasSettings.model_validate(detector),
+                              additional_settings=additional_settings) as scope:
+        args = [eval(arg) for arg in args]
+        getattr(scope, command)(*args)
+
+
+def list_plugins():
+    from Smartscope.core.settings.worker import PLUGINS_FACTORY
+    [print(f"{'#'*60}\n{name}:\n\n\t{plugin}\n{'#'*60}\n") for name,plugin in PLUGINS_FACTORY.get_plugins().items()]
+
+
+def list_protocols():
+    from Smartscope.core.settings.worker import PROTOCOLS_FACTORY
+    [print(f"{'#'*60}\n{name}:\n\n\t{plugin}\n{'#'*60}\n") for name,plugin in PROTOCOLS_FACTORY.items()]
+
+def backup_db(ouput_directory='/mnt/backups/'):
+    from datetime import datetime
+    import subprocess
+    filename = datetime.now().strftime("%Y%m%d_backup.sql")
+    output_file = os.path.join(ouput_directory, filename)
+    logger.info(f'Backing up database to {output_file}')
+    command = f"mysqldump --user={os.getenv('MYSQL_USER')} --password={os.getenv('MYSQL_PASSWORD')} --host={os.getenv('MYSQL_HOST')} --port={os.getenv('MYSQL_PORT')} {os.getenv('MYSQL_DATABASE')} > {output_file}"
+    subprocess.call(command, shell=True)
+    logger.info('Finished backing up database.')
+
+def restore_db(backup_file=None,backup_directory='/mnt/backups/'):
+    from datetime import datetime
+    import subprocess
+    if backup_file is None:
+        print('No backup file specified.')
+        backup_files = sorted(Path(backup_directory).glob('*.sql'), reverse=True)
+        print('\n'.join([f'\t{i+1}) {file.name}' for i,file in enumerate(backup_files)]))
+        while True:
+            in_value = input('Please select one from the list above: ')
+            if in_value.isdigit() and 0 < int(in_value) <= len(backup_files):
+                backup_file = backup_files[int(in_value)-1]
+                break
+    backup_file = os.path.join(backup_directory, backup_file)
+    logger.info(f'Restoring database to {backup_file}')
+    command = f"mysql --user={os.getenv('MYSQL_USER')} --password={os.getenv('MYSQL_PASSWORD')} --host={os.getenv('MYSQL_HOST')} --port={os.getenv('MYSQL_PORT')} {os.getenv('MYSQL_DATABASE')} < {backup_file}"
+    subprocess.call(command, shell=True)
+    logger.info('Finished restoring database.')
+
+def test_find_hole_geometry(grid_id):
+    from Smartscope.core.models import AutoloaderGrid
+    from Smartscope.core.mesh_rotation import save_hole_geometry
+    grid = AutoloaderGrid.objects.get(pk=grid_id)
+    rotation, spacing = save_hole_geometry(grid)
+    print(f'Updated grid {grid} with rotation: {rotation} degrees and spacing: {spacing} pixels.')
+
+
+def test_image_to_stage_conversion(image_file, coords, coordinate_system:Literal['smartscope','serialem']='smartscope'):
+    from pathlib import Path
+    from Smartscope.lib.image.montage import Montage
+    from Smartscope.lib.image.target import Target
+
+    montage_file = Path(image_file)
+    montage = Montage(name=montage_file.stem)
+    montage.raw = montage_file
+    montage.load_or_process()
+    coords = [int(i) for i in coords.split(',')]
+    if coordinate_system == 'serialem':
+        coords = Target.flip_y(coords, montage.shape_x)
+    target = Target(coords, from_center=True)
+    target.convert_image_coords_to_stage(montage, compare=True)

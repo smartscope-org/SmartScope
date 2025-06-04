@@ -1,0 +1,69 @@
+Bootstrap:  docker
+From:   pytorch/pytorch:1.8.1-cuda10.2-cudnn7-runtime
+
+%files
+    . /opt/smartscope/
+
+%post
+    apt-get update && apt-get -y upgrade
+    apt-get -y install python3-dev default-libmysqlclient-dev build-essential wget libglib2.0-0 ffmpeg libsm6 libxext6 curl
+    wget https://bio3d.colorado.edu/imod/AMD64-RHEL5/imod_4.11.15_RHEL7-64_CUDA10.1.sh
+    yes | bash imod_4.11.15_RHEL7-64_CUDA10.1.sh -name IMOD
+    cp /opt/smartscope/config/singularity/ctffind /usr/local
+    mkdir /opt/logs
+    conda install cudatoolkit=10.2 cudnn=7.6
+    yes | pip install -r /opt/smartscope/config/singularity/requirements.txt
+    pip install -e /opt/smartscope/ --no-dependencies
+    pip install -e /opt/smartscope/SerialEM-python --no-dependencies
+
+%environment
+    #General
+    export PATH=$PATH:/opt/smartscope/Smartscope/bin
+    export IMOD_DIR=/usr/local/IMOD
+    export PATH=$IMOD_DIR/bin:$PATH
+    export CTFFIND=/usr/local/ctffind
+    export APP=/opt/smartscope
+    export TEMPLATE_FILES=/opt/smartscope/Template_files
+    #Storage
+    export AUTOSCREENDIR=/mnt/data/
+    export TEMPDIR=/tmp/
+    export LOGDIR=/opt/logs/
+    #LongTermStorage
+    export AUTOSCREENSTORAGE=/mnt/longterm/
+
+##############################
+# Uncommment the part needed depending on installation type
+##############################
+%startscript
+    nginx
+    gunicorn -c /opt/smartscope/config/singularity/gunicorn_singularity.conf.py
+
+##############################
+# APP smartscope
+##############################
+
+%apprun smartscope
+    echo "Running smartscope.py"
+    echo "Arguments received: $*"
+    exec smartscope.py "$@"
+
+%applabels smartscope
+   Entrypoint to the smartscope main executable
+
+%apphelp smartscope
+    This is the help for smartscope.
+
+##############################
+# APP dbmanage
+##############################
+
+%apprun dbmanage
+    echo "Running manage.py"
+    echo "Arguments received: $*"
+    exec manage.py "$@"
+
+%applabels dbmanage
+   Entrypoint to the django manage.py command main executable
+
+%apphelp dbmanage
+    This is the help for dbmanage.

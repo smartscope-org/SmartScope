@@ -1,0 +1,126 @@
+{% extends "smartscopeSetup/setup_base.html" %}
+{% block subtitle %}Session control{% endblock %}
+{% block main %}
+{% csrf_token %}
+
+<div class="d-flex flex-row align-items-center justify-content-between">
+    <h1 class="col-auto">Run {{session}}</h1>
+    <a class='btn btn-outline-primary' href="{% url 'browser' %}?group={{session.group.pk}}&session_id={{session.pk}}&grid_id={{session.currentGrid.pk}}">Go to session
+        browser</a>
+    <p id="disk" class="col-auto align-middle"> Loading...</p>
+</div>
+{% if session.microscope_id.isLocked and session.microscope_id.currentSession is not None %}
+<div class="d-flex align-items-center justify-content-center">
+    {% if session.microscope_id.currentSession.pk != session.session_id%}
+    <div class='alert alert-warning p-2 m-2' role="alert">Microscope {{session.microscope_id}} is currently busy: <a
+            class="alert-link" href="{% url 'run_session' session.microscope_id.currentSession.pk %}">View
+            current session</a></div>
+    {% else %}
+    <div class='alert alert-warning p-2 m-2' role="alert">Microscope {{session.microscope_id}} is currently busy running this session.
+    </div>
+    {% endif %}
+</div>
+{% endif %}
+
+<div id='stopSignal' class="d-flex align-items-center justify-content-center d-none">
+    <div class='alert alert-info p-2 m-2' role="alert">Stop signal was received, Session will stop after the current acquisition. This may
+        take a few minutes. </div>
+</div>
+{% if process is not None%}
+<p>PID: {{process.PID}}</p>
+<p>Status: {{process.status}}</p>
+<p>Start time: {{process.start_time}}</p>
+<p>End time: {{process.end_time}}</p>
+{% endif %}
+
+
+<!-- Session toggle with start annd stop button. Start button changes to stop and vice versa-->
+<div class="dropdown d-inline">
+    <button class="btn btn-outline-primary dropdown-toggle session-toggle" type="button" id="start-button" data-bs-toggle="dropdown">
+        Start
+    </button>
+    <!-- Screening options full screening and atlas-only options are available as dropdown -->
+    <ul class="dropdown-menu" aria-labelledby="start-button">
+        <li>
+            <button class="dropdown-item screening-type" id="full-screening" data-mode="false">
+                Full Screening
+            </button>
+        </li>
+        <li>
+            <button class="dropdown-item screening-type" id="atlas-only" data-mode="true">
+                Atlas Only
+            </button>
+        </li>
+    </ul>
+</div
+    
+<!-- Pause session -->
+<button id="pause" class="btn active " type="button" value="pause">Pause between grids</button>
+
+<!-- Dropdown for downloading logs of run.out and proc.out files -->
+<div class="dropdown d-inline">
+    <button class="btn btn-outline-primary dropdown-toggle" type="button" id="downloadLogs" data-bs-toggle="dropdown">
+        Download Logs
+    </button>
+    <div class="dropdown-menu" aria-labelledby="downloadLogs">
+        <a class="dropdown-item" href="/api/sessions/{{ session_id }}/download_logs/?file_type=run">run.out</a>
+        <a class="dropdown-item" href="/api/sessions/{{ session_id }}/download_logs/?file_type=proc">proc.out</a>
+    </div>    
+</div>
+{% if request.user.is_staff %}
+<span>Staff only (use carefully):</span>
+<button id="force-start-button" class="btn btn-outline-primary" type="button" value="start">Force Start</button>
+<button id="removeLockButton" class="btn btn-outline-primary" type="button" value="remove_lock">Remove Microscope Lock
+    File</button>
+<button id="forceKill" class="btn btn-outline-primary" type="button" value="force_kill">Force-kill all session
+    processes</button>
+
+{% endif %}
+
+
+<div id="paused" class='popup hidden'>
+    <h3>SerialEM is paused</h3>
+    <div>
+        <button id="continue" class="btn btn-outline-primary" type="button" value="continue">Continue current
+            grid</button>
+        <button id="continue-next" class="btn btn-outline-primary" type="button" value="next">Proceed to next
+            grid</button>
+
+    </div>
+</div>
+
+<div>
+
+    <div class="media">
+        <div class="media-body">
+            <h5 class="mt-0 font-weight-bold blue-text">Main Output</h5>
+            <textarea readonly id='out' class="form-control z-depth-1" rows="15">
+                Fetching Logs...
+            </textarea>
+        </div>
+    </div>
+    <div class="media">
+        <div class="media-body">
+            <h5 class="mt-0 font-weight-bold blue-text">Processing</h5>
+            <textarea readonly id='proc' class="form-control z-depth-1" rows="15">
+                Fetching logs...
+                </textarea>
+        </div>
+    </div>
+</div>
+
+{% endblock main %}
+
+{% block script %}
+{% load static %}
+
+<script>
+    var is_running = {% if alive %}true{% else %} false{% endif %};
+    const session_id = "{{session.session_id}}";
+    console.log(is_running)
+</script>
+<script src="{% static 'run_session.js' %}"></script>
+
+
+
+{% endblock script %}
