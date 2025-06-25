@@ -1,17 +1,22 @@
 from celery.result import AsyncResult
 import json
-from typing import Dict
+from typing import Dict, Literal, List
 import logging
 import numpy as np
 from pydantic import BaseModel
+from pathlib import Path
 
 from Smartscope.tasks.app import app
 from Smartscope.lib.image.montage import Montage
 from Smartscope.lib.image_manipulations import encode_image
-from Smartscope.lib.image_manipulations import convert_to_png, auto_contrast_sigma, fourier_crop
+from Smartscope.lib.image_manipulations import convert_to_png, auto_contrast_sigma, fourier_crop, auto_contrast, extract_box_from_radius
 from Smartscope.lib.mesh_operations import get_mesh_rotation_spacing, closest_to_center, filter_from_center
 from Smartscope.lib.Finders.lattice_extension import generic_lattice_extension
 from Smartscope.lib.image.targets import Targets
+
+from Smartscope.sim_siam.prepare_data import sim_siam_prepare_data, sim_siam_copy_to_scratch_directory, sim_siam_copy_output_file_from_scratch, sim_siam_copy_output_directory_from_scratch, sim_siam_find_checkpoint
+from Smartscope.sim_siam.models import SimSiamWeights, SimSiamTrainingProcess
+from Smartscope.core.models import AutoloaderGrid
 
 logger = logging.getLogger(__name__)
 
@@ -94,3 +99,180 @@ def find_holes_with_lattice(montage, hole_spacing:float, lattice_radius:float, c
     filtered_lattice_from_center = filter_from_center(transposed, transposed[closest_lattice_point_to_center], lattice_radius_in_pixels)
     logger.debug(f'Extended lattice from {len(targets)} to {len(filtered_lattice_from_center)} holes using lattice extension\n{filtered_lattice_from_center}')
     return filtered_lattice_from_center, True, {'rotation': rotation, 'spacing': spacing}
+
+
+
+# def send_sim_siam_data_old(mag_level:Literal['square','hole'],grid_id:str):
+#     from Smartscope.core.status import status
+#     from Smartscope.core.models import AutoloaderGrid
+#     """
+#     Sends a task to the Celery queue to process data for SimSiam training.
+#     Parameters:
+#     mag_level (Literal['square','hole']): The magnification level, either 'square' or 'hole'.
+#     grid_id (str): The ID of the grid to be processed.
+#     Returns:
+#     AsyncResult: The result of the Celery task.
+#     """
+#     extract_size_factor = 1.2
+#     if mag_level not in ['square','hole']:
+#         raise ValueError(f"Invalid magnification level: {mag_level}. Must be 'square' or 'hole'.")
+#     grid = AutoloaderGrid.objects.get(grid_id=grid_id)
+    
+#     if mag_level == 'square':
+#         from Smartscope.core.models import AtlasModel
+#         queryset = list(AtlasModel.objects.filter(grid_id=grid_id))
+#         item_size_microns = grid.meshSize.square_size * extract_size_factor
+#         filepath_attr = 'mrc'
+#         extract_size_pixel = 150
+
+#     elif mag_level == 'hole':
+#         from Smartscope.core.models import SquareModel
+#         queryset = list(SquareModel.display.filter(grid_id=grid_id, status=status.COMPLETED))
+#         item_size_microns = grid.holeType.hole_size * extract_size_factor
+#         filepath_attr = 'raw_mrc'
+#         extract_size_pixel = 50
+
+#     if len(queryset) == 0:
+#         raise ValueError(f"No data found for grid ID: {grid_id} at magnification level {mag_level}.")
+    
+
+#     ###Find checkpoint path for the weights. NEED TO ADD SAMPLE AND PROJECT LEVEL CHECKS
+#     checkpoint_path= Path(grid.directory) / f"model_best_{mag_level}.pth"
+#     if not checkpoint_path.is_file():
+#         checkpoint_path = None
+
+#     data = []
+#     for item in queryset:
+#         grid_directory = str(grid.directory)
+#         directory = str(item.directory)
+#         image = getattr(item, filepath_attr)
+#         item_size_pixel = item_size_microns / (item.pixel_size /10_000)
+#         binning_factor = item_size_pixel / extract_size_pixel
+#         targets = []
+#         for target in item.targets:
+#             finder = target.finders.first()
+#             x = finder.x
+#             y = finder.y
+#             pk = target.pk
+#             target_dict = {
+#                 'x': int(round(x/binning_factor)),
+#                 'y': int(round(y/binning_factor)),
+#                 'pk': pk,
+#             }
+#             targets.append(target_dict)
+#         data.append({
+#             'pk': item.pk,
+#             'directory': directory, #.replace('/mnt/','/mnt/smartscope/smartscope-jo/'),
+#             'image': image, #.replace('/mnt/','/mnt/smartscope/smartscope-jo/'),
+#             'extract_size_pixel': extract_size_pixel,
+#             'binning_factor': binning_factor,
+#             'checkpoint_path': checkpoint_path,
+#             'targets': targets,
+#         })
+#     print(data)
+#     data = json.dumps({'images':data,
+#                        'output_directory': directory, #.replace('/mnt/','/mnt/smartscope/smartscope-jo/'),
+#                        'mag_level': mag_level,})
+    
+#     result = app.send_task('SmartscopeAI.interfaces.celery.tasks.sim_siam_data', args=[data], queue='celery')
+#     task_id = result.id
+#     res = AsyncResult(task_id, app=app)
+#     final_result = res.get(interval=1, timeout=120)
+#     print(final_result)
+
+
+def sim_siam_inference(mag_level:Literal['square','hole'], grid_id:str, **kwargs):
+    # Example usage
+
+    """
+    Sends a task to the Celery queue to process data for SimSiam training.
+    Parameters:
+    mag_level (Literal['square','hole']): The magnification level, either 'square' or 'hole'.
+    grid_id (str): The ID of the grid to be processed.
+    Returns:
+    AsyncResult: The result of the Celery task.
+    """
+    if mag_level not in ['square','hole']:
+        raise ValueError(f"Invalid magnification level: {mag_level}. Must be 'square' or 'hole'.")
+    grid = AutoloaderGrid.objects.get(grid_id=grid_id)
+    ####NEED TO ALSO TRANSFER THE CHECKPOINT AND CONFIGURATION IF AVAILABLE######
+
+    checkpoint_path = None
+    config_path = None
+
+    weights = sim_siam_find_checkpoint(mag_level, grid)
+    if weights is not None:
+        training_process = SimSiamTrainingProcess.objects.filter(sim_siam_weights=weights).first()
+        checkpoint_path = (weights.checkpoint_file,Path(*training_process.training_results_weights.parts[1:]))
+        config_path = (weights.config_file, Path(*training_process.training_config_file.parts[1:]))
+
+    grid_ids = [grid_id]  # Replace with actual grid IDs
+    dataset_name = '_'.join(grid_ids) + "_" + mag_level
+    file_list = sim_siam_prepare_data(mag_level, grid_ids)
+    if checkpoint_path is not None and config_path is not None:
+        file_list.append(checkpoint_path)
+        file_list.append(config_path)
+
+    sim_siam_copy_to_scratch_directory(dataset_name, file_list)
+
+    data = json.dumps(dict(
+        dataset_name = dataset_name,
+        mag_level = mag_level,
+        checkpoint_path = str(checkpoint_path)
+    ))
+
+    print(f'Sending SimSiam inference request for grid {grid_id} with magnification level {mag_level} and checkpoint {checkpoint_path}')
+    result = app.send_task('SmartscopeAI.interfaces.celery.tasks.sim_siam_data', args=[data], queue='celery')
+    task_id = result.id
+    res = AsyncResult(task_id, app=app)
+    final_result = res.get(interval=1, timeout=120)
+    print(final_result)
+
+    sim_siam_copy_output_file_from_scratch(final_result, grid.directory)
+
+def sim_siam_training(mag_level:Literal['square','hole'], grid_id:str, dataset_name=None,**kwargs):
+    """
+    Sends a task to the Celery queue to process data for SimSiam training.
+    Parameters:
+    mag_level (Literal['square','hole']): The magnification level, either 'square' or 'hole'.
+    grid_id (str): The ID of the grid to be processed.
+    Returns:
+    AsyncResult: The result of the Celery task.
+    """
+    if mag_level not in ['square','hole']:
+        raise ValueError(f"Invalid magnification level: {mag_level}. Must be 'square' or 'hole'.")
+    grid = AutoloaderGrid.objects.get(grid_id=grid_id)
+
+    checkpoint_path= Path(grid.directory) / f"model_best_{mag_level}.pth"
+    if not checkpoint_path.is_file():
+        checkpoint_path = None
+
+    grid_ids = [grid_id]  # Replace with actual grid IDs
+    if dataset_name is None:
+        dataset_name = '_'.join(grid_ids) + "_" + mag_level
+    file_list = sim_siam_prepare_data(mag_level, grid_ids)
+
+    sim_siam_copy_to_scratch_directory(dataset_name, file_list)
+
+    data = json.dumps(dict(
+        dataset_name = dataset_name,
+        mag_level = mag_level,
+        checkpoint_path = str(checkpoint_path)
+    ))
+    print(f'Sending SimSiam inference request for grid {grid_id} with magnification level {mag_level} and checkpoint {checkpoint_path}')
+    result = app.send_task('SmartscopeAI.interfaces.celery.tasks.sim_siam_training', args=[data], queue='celery')
+    return result.id
+    # res = AsyncResult(task_id, app=app)
+    # final_result = res.get(interval=1, timeout=120)
+    # print(final_result)
+    
+def sim_siam_check_task(task_id) -> AsyncResult:
+    """
+    Checks the status of a SimSiam task.
+    Parameters:
+    task_id (str): The ID of the task to check.
+    Returns:
+    str: The status of the task.
+    """
+    res = AsyncResult(task_id, app=app)
+    return res
