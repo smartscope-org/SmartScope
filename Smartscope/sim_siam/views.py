@@ -4,7 +4,7 @@ import plotly.express as px
 
 from django.http import HttpResponse, HttpRequest
 from django.template.response import TemplateResponse
-from rest_framework.decorators import api_view
+from rest_framework.decorators import api_view, authentication_classes, permission_classes
 from rest_framework.response import Response
 
 from Smartscope.core.models import AutoloaderGrid, HoleModel, SquareModel, AtlasModel
@@ -44,7 +44,9 @@ def suggest_similar(request):
     return Response({'suggestions':suggestions}, status=200, content_type='application/json')
 
 @api_view(['POST'])
-def sim_siam_callback_url(request: HttpRequest):
+@authentication_classes([])
+@permission_classes([])
+def sim_siam_training_callback_url(request: HttpRequest):
     """
     Callback URL for SimSiam embedding.
     """
@@ -52,7 +54,7 @@ def sim_siam_callback_url(request: HttpRequest):
     request_data = request.data
     process_id = request_data.get('process_id')
     
-    process = SimSiamTrainingProcess.objects.filter(id=process_id).first()
+    process = SimSiamTrainingProcess.objects.filter(process_id=process_id).first()
     response = sim_siam_check_task(process_id)
     status = response.status
     if status == 'SUCCESS':
