@@ -65,6 +65,10 @@ class HoleModel(Target, ExtraPropertyMixin):
         holes_in_group = HoleModel.objects.filter(square_id=self.square_id,bis_group=self.bis_group).values_list('hole_id', flat=True)
         return HighMagModel.display.filter(hole_id__in=holes_in_group)
     
+    @ property
+    def targets_export(self):
+        return self.highmagmodel_set.all()
+    
     @property
     def targets_in_hole(self) -> int:
         return self.highmagmodel_set.count()
