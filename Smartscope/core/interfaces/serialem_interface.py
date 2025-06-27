@@ -566,7 +566,7 @@ class SerialemInterface(MicroscopeInterface):
         self.logger.debug(f'Last autofocus distance was {last_autofocus_distance} um (Threshold {distance} um), skipping autofocus.')
         defocus_target = self.state.defocusTarget
         current_defocus = self.state.currentDefocus
-        new_defocus_target = self.rollDefocus(def1, def2, step)
+        new_defocus_target = self._rollDefocus(def1, def2, step)
         defocus_change = new_defocus_target - defocus_target
         self.logger.debug(f'Last defocus target: {defocus_target}. New defocus target: {defocus_target}. Change: {defocus_change}')
         sem.SetTargetDefocus(new_defocus_target)
