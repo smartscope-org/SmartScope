@@ -112,7 +112,7 @@ class DetailedHighMagSerializer(TargetSerializer):
         exclude = ['hm_id','hole_id','grid_id']
 
 class DetailedHoleSerializer(TargetSerializer):
-    targets = DetailedHighMagSerializer(many=True)
+    targets_export = DetailedHighMagSerializer(many=True)
 
     class Meta:
         model = models.HoleModel
@@ -144,7 +144,7 @@ class ScipionPluginHoleSerializer(TargetSerializer):
 
 
 class DetailedSquareSerializer(TargetSerializer):
-    targets = DetailedHoleSerializer(many=True, )
+    targets_export = DetailedHoleSerializer(many=True, )
 
     class Meta:
         model = models.SquareModel
@@ -180,7 +180,7 @@ class DetailedNoTargetSquareSerializer(TargetSerializer):
         parent_id_alias:str = 'atlas_id'
 
 class DetailedAtlasSerializer(ModelSerializer):
-    targets = DetailedSquareSerializer(many=True)
+    targets_export = DetailedSquareSerializer(many=True)
 
     class Meta:
         model = models.AtlasModel
