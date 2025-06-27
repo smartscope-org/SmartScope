@@ -14,7 +14,7 @@ def extract_targets(data, label_types:List[str]=['__all__']):
     target_labels['finders'] = [(item,models.Finder) for item in data.pop('finders',[])]
     target_labels['classifiers'] = [(item,models.Classifier) for item in data.pop('classifiers',[])]
     target_labels['selectors'] = [(item,models.Selector) for item in data.pop('selectors',[])]
-    targets = data.pop('targets',[])
+    targets = data.pop('targets_export',[])
     for label_type in label_types:
         output_labels += target_labels[label_type]
     return output_labels, data, targets

@@ -49,6 +49,19 @@ class Target(BaseModel):
         raise NotImplementedError('Prefix must be implemented in the subclass')
     
     @property
+    def targets(self):
+        """
+        Returns the targets associated with this target.
+        This is a placeholder method and should be implemented in subclasses.
+        """
+        raise NotImplementedError('Targets must be implemented in the subclass')
+    
+    @property
+    def targets_export(self):
+        """ Alias for targets. Can be overriden for export purposes."""
+        return self.targets
+    
+    @property
     def prefix_lower(self):
         return self.prefix.lower()
 
