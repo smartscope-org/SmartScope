@@ -13,7 +13,7 @@ from Smartscope.core.models.atlas import AtlasModel
 from Smartscope.core.models.square import SquareModel
 from Smartscope.core.models.high_mag import HighMagModel
 from Smartscope.core.models.target_label import Classifier
-from Smartscope.core.selector_sorter import SelectorSorter, LagacySorterError, SelectorValueParser, initialize_selector
+from Smartscope.core.selector_sorter import SelectorSorter, LagacySorterError, SelectorValueParser, initialize_selector, initialize_selector_from_embeddings
 from Smartscope.core.svg_plots import drawAtlasNew
 # from Smartscope.lib.storage.smartscope_storage import SmartscopeStorage
 from Smartscope.lib.converters import *
@@ -287,6 +287,10 @@ class SvgSerializer(RESTserializers.Serializer):
                 return drawAtlasNew(self.instance, sorter).as_svg()
             except LagacySorterError:
                 logger.warning('Lagacy sorter error. Reverting to lagacy sorting.')
+
+        if self.display_type == 'embeddings':
+            sorter = initialize_selector_from_embeddings(self.instance.grid_id, self.method, self.instance.targets)
+            return drawAtlasNew(self.instance, sorter).as_svg()
         return self.instance.svg(display_type=self.display_type, method=self.method,).as_svg()
         
 

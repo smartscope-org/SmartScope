@@ -14,7 +14,7 @@ class SimSiamEmbedding(Embedding):
     """
     Class for SimSiam embedding.
     """
-    name: str = 'SimSiam'
+    name: str = 'Sim Siam cluster'
     description: Optional[str] = "SimSiam embedding. This is a placeholder for the actual description."
     reference: Optional[str]= ''
     method: Optional[str] = 'send_sim_siam_data'
@@ -24,6 +24,7 @@ class SimSiamEmbedding(Embedding):
     # create_targets_method:Literal['box','center']='box'
     kwargs: Optional[Dict[str, Any]] = dict(mag_level='square')
     grid_related_kwargs: Optional[Dict[str, Any]] = dict(grid_id='grid_id')
+    colors: List = []
     # importPaths: Union[str,List] = Field(default_factory=list)
 
 
@@ -91,7 +92,43 @@ class SimSiamEmbedding(Embedding):
 
         # Send the data to the Celery task
         # ouput = send_sim_siam_suggest_similar(mag_level=mag_level, grid_id=grid_id)
-        return suggestions    
+        return suggestions
+
+    # def get_embedding_clusters(self, grid_id, mag_level) -> List[int]:
+    #     grid = AutoloaderGrid.objects.get(grid_id=grid_id)
+    #     data = self.load_data(grid, mag_level)
+    #     return data['assignments'].tolist()
+    
+    # def get_number_of_clusters(self, grid_id, mag_level) -> int:
+    #     """
+    #     Get the number of clusters for the given grid ID and magnification level.
+    #     Args:
+    #     grid_id (str): The ID of the grid to be processed.
+    #     mag_level (str): The magnification level, either 'square' or 'hole'.
+    #     """
+    #     grid = AutoloaderGrid.objects.get(grid_id=grid_id)
+    #     data = self.load_data(grid, mag_level)
+    #     return len(set(data['assignments'].tolist()))
+    
+    def sorter_data(self, grid_id, mag_level, queryset) -> Tuple[List[str], List[int]]:
+        """
+        Get the data for the sorter.
+        Args:
+        grid_id (str): The ID of the grid to be processed.
+        mag_level (str): The magnification level, either 'square' or 'hole'.
+        """
+        if isinstance(grid_id, str):
+            grid = AutoloaderGrid.objects.get(grid_id=grid_id)
+        else:
+            grid = grid_id
+        data = self.load_data(grid, mag_level)
+        pks = queryset.values_list('pk', flat=True)
+        data = data[data.index.isin(pks)]
+        data = data.reindex(pks)
+        clusters = data['assignments'].tolist()
+        
+        return clusters, len(set(clusters))
+
 
     def run(self, *args, **kwargs):
         """Where the main logic for the algorithm is"""
@@ -135,6 +172,10 @@ class SimSiamEmbedding(Embedding):
         with transaction.atomic():
             weights.save()
             training_process.save()
+
+
+    def get_label(self, label):
+        return self.colors[label]
 
 
         
