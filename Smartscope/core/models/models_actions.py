@@ -33,10 +33,7 @@ def targets_methods(instance):
     output = dict(finders=[PLUGINS_FACTORY.get_plugin(finder) for finder in finders],
                 classifiers=[PLUGINS_FACTORY.get_plugin(classifier) for classifier in classifiers],
                 selectors=[PLUGINS_FACTORY.get_plugin(selector) for selector in selectors],
-<<<<<<< HEAD
-=======
                 embeddings = [PLUGINS_FACTORY.get_plugin('Sim Siam Clustering')],
->>>>>>> 6cdc19a33938dc77d5e63928a7e96449af54065e
                 metadata=[CTFFitViewer()])
     cache.set(cache_key,output,timeout=300)
     return output

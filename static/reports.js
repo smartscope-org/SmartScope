@@ -72,8 +72,6 @@ async function queueSquareTargets(elem) {
     loadSquare(currentState.square)
 }
 
-<<<<<<< HEAD
-=======
 async function suggestSimilar(magLevel) {
     var selection = squareSelection.join(',')
     if (magLevel == 'hole') {
@@ -95,7 +93,6 @@ async function suggestSimilar(magLevel) {
 }
 
 
->>>>>>> 6cdc19a33938dc77d5e63928a7e96449af54065e
 
 
 async function loadAtlas(metaonly = false, display_type = null, method = null) {
@@ -182,11 +179,6 @@ function clearSelection(selection, type) {
 
     if (type == 'hole') {
         button = $('#holeClearSele')
-<<<<<<< HEAD
-    } else if (type == 'targets') {
-        button = $('#clearTargets')
-    } else {
-=======
         selection = holeSelection
         suggestion = holeSuggestion
     } else if (type == 'targets') {
@@ -194,20 +186,10 @@ function clearSelection(selection, type) {
     } else {
         selection = squareSelection
         suggestion = squareSuggestion
->>>>>>> 6cdc19a33938dc77d5e63928a7e96449af54065e
         button = $('#squareClearSele')
     }
     while (selection.length != 0) {
         if (type != 'targets') {
-<<<<<<< HEAD
-            document.getElementById(selection[0]).classList.remove('clicked')
-        } else {
-            selection[0][0].remove()
-        }
-
-        selection.shift()
-    }
-=======
             document.getElementById(selection[0]).classList.remove('clicked')  
     } else {
             selection[0][0].remove()
@@ -223,7 +205,6 @@ function clearSelection(selection, type) {
         }
         suggestion.shift()
     }
->>>>>>> 6cdc19a33938dc77d5e63928a7e96449af54065e
     button.prop("disabled", true)
     popup_sele = null
     checkSelection(type)
@@ -374,15 +355,9 @@ function optionMenu(meta, type = 'holes') {
     var skipBtn = document.getElementById(`opt-skip-square`)
     var queueDiv = document.getElementById('squareQueue')
     if (type == 'holes') {
-<<<<<<< HEAD
-    var queueBtn = document.getElementById('opt-queued-hole')
-    var queueDiv = document.getElementById('holeQueue')
-    var skipBtn = document.getElementById(`opt-skip-hole`)
-=======
         var queueBtn = document.getElementById('opt-queued-hole')
         var queueDiv = document.getElementById('holeQueue')
         var skipBtn = document.getElementById(`opt-skip-hole`)
->>>>>>> 6cdc19a33938dc77d5e63928a7e96449af54065e
     }
     if (queueBtn == null) {
         return
@@ -549,11 +524,7 @@ async function popupSele(element) {
 
 async function updateTargets(model, display_type, method, key, new_value, ids = null) {
 
-<<<<<<< HEAD
-    var sele = squareSelection
-=======
     var sele = squareSelection.concat(squareSuggestion)
->>>>>>> 6cdc19a33938dc77d5e63928a7e96449af54065e
     let stateKey = 'atlas'
     if (model == 'holes') {
         sele = holeSelection
@@ -697,11 +668,8 @@ async function reportMain() {
     hovered = [];
     squareSelection = []
     holeSelection = []
-<<<<<<< HEAD
-=======
     squareSuggestion = []
     holeSuggestion = []
->>>>>>> 6cdc19a33938dc77d5e63928a7e96449af54065e
     popupsele = null
     hmSelection = null
     targetsSelection = []

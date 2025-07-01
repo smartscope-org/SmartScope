@@ -461,8 +461,6 @@
     pointer-events: auto;
     z-index: 1000;
 }
-<<<<<<< HEAD
-=======
 
 /* Define the animation */
 @keyframes draw-outline {
@@ -485,4 +483,3 @@
     animation: draw-outline 2s linear infinite;
 
 }
->>>>>>> 6cdc19a33938dc77d5e63928a7e96449af54065e
