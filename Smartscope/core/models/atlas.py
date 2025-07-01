@@ -62,6 +62,13 @@ class AtlasModel(BaseModel, ExtraPropertyMixin):
     @ property
     def targets(self):
         return self.squaremodel_set.all()
+    
+    @property
+    def targets_export(self):
+        """
+        Alias for targets. Can be overridden for export purposes.
+        """
+        return self.targets
 
     # @cached_model_property(key_prefix='svg', extra_suffix_from_function=['method'], timeout=3600)
     def svg(self, display_type, method):

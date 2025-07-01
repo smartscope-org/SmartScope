@@ -8,13 +8,8 @@ function escapeRegExp(string) {
 
 async function loadSVG(data, element) {
     console.log(data, element)
-    // if (data['fullmeta'] !== null) {
-        // var targets = data['targets']
     if ("svg" in data) {
         element.html(data['svg'])
-        // }
-        // updateFullMeta(data['fullmeta'])
-        // grabCuration()
     }
 }
 
@@ -77,6 +72,30 @@ async function queueSquareTargets(elem) {
     loadSquare(currentState.square)
 }
 
+<<<<<<< HEAD
+=======
+async function suggestSimilar(magLevel) {
+    var selection = squareSelection.join(',')
+    if (magLevel == 'hole') {
+        selection = holeSelection.join(',')
+    }
+    var url = `/sim_siam/suggest_similar/?mag_level=${magLevel}&grid_id=${currentState.grid_id}&similar_to_ids=${selection}`
+
+    data = await fetchAsync(url, message=`Suggesting similar squares`)
+    suggestion = data['suggestions']
+    console.log('Suggestions:', suggestion)
+    for (item of suggestion) {    
+        $(`#${item}`).addClass('suggestion')
+    }
+    if (magLevel == 'hole') {
+        holeSuggestion = suggestion
+    } else {
+        squareSuggestion = suggestion
+    }
+}
+
+
+>>>>>>> 6cdc19a33938dc77d5e63928a7e96449af54065e
 
 
 async function loadAtlas(metaonly = false, display_type = null, method = null) {
@@ -163,13 +182,24 @@ function clearSelection(selection, type) {
 
     if (type == 'hole') {
         button = $('#holeClearSele')
+<<<<<<< HEAD
     } else if (type == 'targets') {
         button = $('#clearTargets')
     } else {
+=======
+        selection = holeSelection
+        suggestion = holeSuggestion
+    } else if (type == 'targets') {
+        button = $('#clearTargets')
+    } else {
+        selection = squareSelection
+        suggestion = squareSuggestion
+>>>>>>> 6cdc19a33938dc77d5e63928a7e96449af54065e
         button = $('#squareClearSele')
     }
     while (selection.length != 0) {
         if (type != 'targets') {
+<<<<<<< HEAD
             document.getElementById(selection[0]).classList.remove('clicked')
         } else {
             selection[0][0].remove()
@@ -177,6 +207,23 @@ function clearSelection(selection, type) {
 
         selection.shift()
     }
+=======
+            document.getElementById(selection[0]).classList.remove('clicked')  
+    } else {
+            selection[0][0].remove()
+        }
+        selection.shift()
+    }
+
+    while (suggestion.length != 0) {
+        if (type != 'targets') {
+            $(`#${suggestion[0]}`).removeClass('suggestion')
+        } else {
+            suggestion[0][0].remove()
+        }
+        suggestion.shift()
+    }
+>>>>>>> 6cdc19a33938dc77d5e63928a7e96449af54065e
     button.prop("disabled", true)
     popup_sele = null
     checkSelection(type)
@@ -327,9 +374,15 @@ function optionMenu(meta, type = 'holes') {
     var skipBtn = document.getElementById(`opt-skip-square`)
     var queueDiv = document.getElementById('squareQueue')
     if (type == 'holes') {
+<<<<<<< HEAD
     var queueBtn = document.getElementById('opt-queued-hole')
     var queueDiv = document.getElementById('holeQueue')
     var skipBtn = document.getElementById(`opt-skip-hole`)
+=======
+        var queueBtn = document.getElementById('opt-queued-hole')
+        var queueDiv = document.getElementById('holeQueue')
+        var skipBtn = document.getElementById(`opt-skip-hole`)
+>>>>>>> 6cdc19a33938dc77d5e63928a7e96449af54065e
     }
     if (queueBtn == null) {
         return
@@ -496,7 +549,11 @@ async function popupSele(element) {
 
 async function updateTargets(model, display_type, method, key, new_value, ids = null) {
 
+<<<<<<< HEAD
     var sele = squareSelection
+=======
+    var sele = squareSelection.concat(squareSuggestion)
+>>>>>>> 6cdc19a33938dc77d5e63928a7e96449af54065e
     let stateKey = 'atlas'
     if (model == 'holes') {
         sele = holeSelection
@@ -640,6 +697,11 @@ async function reportMain() {
     hovered = [];
     squareSelection = []
     holeSelection = []
+<<<<<<< HEAD
+=======
+    squareSuggestion = []
+    holeSuggestion = []
+>>>>>>> 6cdc19a33938dc77d5e63928a7e96449af54065e
     popupsele = null
     hmSelection = null
     targetsSelection = []

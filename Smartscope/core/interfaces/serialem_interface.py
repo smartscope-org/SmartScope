@@ -270,7 +270,9 @@ class SerialemInterface(MicroscopeInterface):
 
     def align_to_hole_ref(self):
         sem.View()
+        self.logger.debug(f'Aligning to hole reference. Cropping view image to {self.hole_crop_size}x{self.hole_crop_size}')
         sem.CropCenterToSize('A', self.hole_crop_size, self.hole_crop_size)
+        sem.Delay(0.5)
         sem.AlignTo('T')
         return sem.ReportAlignShift()
     
@@ -564,7 +566,11 @@ class SerialemInterface(MicroscopeInterface):
         self.logger.debug(f'Last autofocus distance was {last_autofocus_distance} um (Threshold {distance} um), skipping autofocus.')
         defocus_target = self.state.defocusTarget
         current_defocus = self.state.currentDefocus
+<<<<<<< HEAD
         new_defocus_target = self.rollDefocus(def1, def2, step)
+=======
+        new_defocus_target = self._rollDefocus(def1, def2, step)
+>>>>>>> 6cdc19a33938dc77d5e63928a7e96449af54065e
         defocus_change = new_defocus_target - defocus_target
         self.logger.debug(f'Last defocus target: {defocus_target}. New defocus target: {defocus_target}. Change: {defocus_change}')
         sem.SetTargetDefocus(new_defocus_target)

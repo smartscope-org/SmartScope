@@ -235,3 +235,19 @@ def initialize_selector(grid: models.AutoloaderGrid, selector:str, queryset:Opti
     if queryset is not None:
         selector_sorter.values = selector_data.extract_values(queryset)
     return selector_sorter
+
+def initialize_selector_from_embeddings(grid: models.AutoloaderGrid, selector:str, queryset:Optional=None) -> SelectorSorter:
+    plugin = PLUGINS_FACTORY.get_plugin(selector)
+    mag_level = queryset[0].prefix_lower
+    values,n_classes = plugin.sorter_data(grid,mag_level,queryset)
+    selector_sorter = SelectorSorter(selector_name=selector,fractional_limits=[0,1], n_classes=n_classes)
+
+
+    # directory = check_directories_for_selector_data(grid,selector)
+    # if directory is not None:
+    #     selector_data = SelectorSorterData.load(directory, selector)
+    #     selector_sorter = selector_data.create_sorter()
+    # selector_data = SelectorValueParser(selector, from_server=False)
+
+    selector_sorter.values = values
+    return selector_sorter

@@ -114,6 +114,16 @@ class Selector(BaseFeatureAnalyzer):
         output = function(*args, **kwargs, **self.kwargs)
 
         return output
+    
+class Embedding(BaseFeatureAnalyzer):
+    
+    def run(self, *args, **kwargs):
+        """Where the main logic for the algorithm is"""
+        module = importlib.import_module(self.module)
+        function = getattr(module, self.method)
+        output = function(*args, **kwargs, **self.kwargs)
+
+        return output
 
 
 class ImagingProtocol(BaseModel):

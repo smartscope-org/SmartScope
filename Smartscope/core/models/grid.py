@@ -1,5 +1,6 @@
 from pathlib import Path
 from django.contrib.contenttypes.fields import GenericRelation
+from django.contrib.contenttypes.models import ContentType
 from django.utils import timezone
 from .base_model import *
 from .tags import ProjectTag, SampleTag, SampleTypeTag, TagGrid
@@ -58,12 +59,31 @@ class AutoloaderGrid(BaseModel):
         to_field='params_id'
     )
     collection_mode = models.CharField(max_length=30, null=True, default=None)
-    # project_tags = GenericRelation(ProjectTag, related_query_name='grid_id')
-    # sample_tags = GenericRelation(SampleTag, related_query_name='grid_id')
-    # sample_type_tags = GenericRelation(TagGrid, related_query_name='grid_id')
 
     objects = GridManager()
     # aliases
+
+    @property
+    def tags(self):
+        """
+        Returns all tags associated with this grid.
+        """
+        return TagGrid.objects.filter(grid_id=self)
+
+    @property
+    def project_tags(self):
+        project_ct = ContentType.objects.get_for_model(ProjectTag)
+        return self.tags.filter(content_type=project_ct)
+    
+    @property
+    def sample_tags(self):
+        sample_ct = ContentType.objects.get_for_model(SampleTag)
+        return self.tags.filter(content_type=sample_ct)
+    
+    @property
+    def sampletype_tags(self):
+        sampletype_ct = ContentType.objects.get_for_model(SampleTypeTag)
+        return self.tags.filter(content_type=sampletype_ct)
 
     @property
     def id(self):

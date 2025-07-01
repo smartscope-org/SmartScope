@@ -104,7 +104,6 @@
 .clicked {
     stroke-width: 10;
     fill-opacity: 0.9;
-
 }
 
 .good {
@@ -462,3 +461,28 @@
     pointer-events: auto;
     z-index: 1000;
 }
+<<<<<<< HEAD
+=======
+
+/* Define the animation */
+@keyframes draw-outline {
+  0% {
+    stroke-dashoffset: 251.2;
+  }
+  50% {
+    stroke-dashoffset: 0;
+  }
+  100% {
+    stroke-dashoffset: -251.2;
+  }
+}
+
+.suggestion {
+    /* stroke-width: 80px; */
+    stroke: white;
+    stroke-dasharray: 251.2;  /* circumference of the circle */
+    stroke-dashoffset: 0;
+    animation: draw-outline 2s linear infinite;
+
+}
+>>>>>>> 6cdc19a33938dc77d5e63928a7e96449af54065e

@@ -75,8 +75,8 @@ def run_grid(
     params = grid.params_id
 
     protocol = get_or_set_protocol(grid)
-    # preprocessing = load_preprocessing_pipeline(Path('preprocessing.json'))
-    # preprocessing.start(grid)
+    preprocessing = load_preprocessing_pipeline(Path('preprocessing.json'))
+    preprocessing.start(grid)
     check_stop_flag(session_id)
     atlas = queue_atlas(grid)
 

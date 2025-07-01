@@ -21,6 +21,8 @@
         <div class="div" id="{{instance.targets_prefix}}Queue">
 
             <h6 class="dropdown-header">Change Status</h6>
+            <button id='opt-suggest-{{instance.targets_prefix}}' class="dropdown-item" value=1
+                onmousedown="suggestSimilar('{{instance.targets_prefix}}')">Suggest Similar</button>
             <button id='opt-queued-{{instance.targets_prefix}}' class="dropdown-item" value=1
                 onmousedown="updateTargets('{{instance.targets_prefix}}s', false, false, 'selected', this.value)">Queue</button>
             <button id='opt-skip-{{instance.targets_prefix}}' class="dropdown-item" value=skipped

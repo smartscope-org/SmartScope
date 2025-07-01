@@ -73,6 +73,7 @@ INSTALLED_APPS = [
     'Smartscope.core.settings.apps.API',
     'Smartscope.server.selector_viewer',
     'Smartscope.server.annotator',
+    'Smartscope.sim_siam',
 ]
 
 MIDDLEWARE = [

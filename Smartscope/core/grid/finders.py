@@ -31,10 +31,6 @@ def find_targets(montage: Montage, methods: list, grid:AutoloaderGrid=None ,**kw
         if grid is not None:
             grid_related_kwargs = parse_grid_related_kwargs(method.grid_related_kwargs, grid)
 
-        if 'scaling_factor' in kwargs:
-            kwargs.pop('scaling_factor', None)
-        if 'scaling_factor' in grid_related_kwargs:
-            grid_related_kwargs.pop('scaling_factor', None)
         try:
             targets, success, additional_outputs  = method.run(montage=montage, class_map=method.classes, force_mdoc=FORCE_MDOC_TARGETING, **kwargs, **grid_related_kwargs)
         except Exception as err:
