@@ -71,7 +71,7 @@ def count_filtered(filtered, value:str="0"):
 def add_selector_to_score_string(score, selector_class):
     return score + str(selector_class)
 
-def filter_targets(parent, targets, stage_radius_limit:int = 975, offset_x:float=0, offset_y:float=0):
+def filter_targets(grid, targets, stage_radius_limit:int = 975, offset_x:float=0, offset_y:float=0):
     classifiers = get_target_methods(targets, 'classifiers')
     selectors = get_target_methods(targets, 'selectors')
 
@@ -99,17 +99,15 @@ def filter_targets(parent, targets, stage_radius_limit:int = 975, offset_x:float
     logger.debug(f'Filtered classes against classifiers {classifiers}: {filtered}')            
     # filtered = np.array(filtered)
     for selector in selectors:
-        sorter = initialize_selector(parent.grid_id, selector, targets)
+        sorter = initialize_selector(grid, selector, targets)
         filtered = list(map(add_selector_to_score_string, filtered, sorter.classes))
     logger.debug(f'Filtered classes against classifiers {classifiers} and selectors {selectors}: {filtered}')
     
     return filtered
 
-def apply_filter(targets, filtered):
-    # for target, filt in zip(targets, filtered):
-    #     if '0' in filt:
-    #         continue
-    #     yield target
+def apply_filter(targets, filtered, invert= False):
+    if invert:
+        return [target for target, filt in zip(targets, filtered) if '0' in filt]
     return [target for target, filt in zip(targets, filtered) if '0' not in filt]
 
 def prepare_filtered_set(filters)-> set:
@@ -158,7 +156,7 @@ def select_n_areas(parent, n, is_bis=False):
         additional_filters['bis_type'] = 'center'
     additional_filters['status'] = None
     targets = list(parent.targets.all())
-    filtered= filter_targets(parent, targets)
+    filtered= filter_targets(parent.grid_id, targets)
     targets,filtered = prune_targets(targets, filtered, **additional_filters)
     logger.debug(f'Filtered targets: {len(filtered)}, {filtered}')
     assert len(targets) == len(filtered), f'Length of targets {len(targets)} and filtered {len(filtered)} do not match.'

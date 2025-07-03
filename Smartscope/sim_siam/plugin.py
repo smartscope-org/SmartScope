@@ -53,7 +53,7 @@ class SimSiamEmbedding(Embedding):
         print(min_distances)
         return min_distances
     
-    def suggest_similar(self,grid_id,mag_level, similar_to_ids: List[str], number_of_suggestions=3) -> List[str]:
+    def suggest_similar(self,grid_id,mag_level, similar_to_ids: List[str], number_of_suggestions=10) -> List[str]:
         """
         Suggest similar squares or holes based on the grid ID and magnification level.
         Args:
@@ -67,8 +67,8 @@ class SimSiamEmbedding(Embedding):
         #     raise ValueError(f"Invalid magnification level: {mag_level}. Must be 'square' or 'hole'.")
         min_distances = self.get_embedding_distances(data, similar_to_ids)
         nearest_neighbors = np.argsort(min_distances)[number_of_suggestions:number_of_suggestions*2]
-        print(nearest_neighbors)
         suggestions = data.iloc[nearest_neighbors].index.tolist()
+        print(f'Suggestions: {suggestions}')
         # Get the indices of the nearest neighbors
 
         # Send the data to the Celery task

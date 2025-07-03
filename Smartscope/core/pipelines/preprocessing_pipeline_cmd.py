@@ -46,6 +46,6 @@ class PreprocessingPipelineCmd(BaseModel):
         logger.info('Preprocessing has been killed gracefully.')
     
     def start(self, grid:AutoloaderGrid):
-        proc = sub.call(shlex.split(f'smartscope.py highmag_processing {grid.grid_id}'))
+        proc = sub.Popen(shlex.split(f'smartscope.py highmag_processing {grid.grid_id}'))
         time.sleep(3)
 
