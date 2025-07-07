@@ -837,7 +837,7 @@ class HighMagModelViewSet(viewsets.ModelViewSet, GeneralActionsMixin, ExtraActio
     filterset_fields = ['grid_id', 'grid_id__meshMaterial', 'grid_id__holeType', 'grid_id__meshSize',
                         'grid_id__quality', 'hole_id', 'hole_id__square_id', 'grid_id__session_id', 'hm_id', 'number', 'status','name','frames']
 
-    detailed_serializer = DetailedHighMagSerializer
+    detailed_serializer = DetailedViewsetHighMagSerializer
 
     @ action(detail=True, methods=['patch'])
     def upload_images(self,request, *args, **kwargs):
