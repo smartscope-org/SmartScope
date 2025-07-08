@@ -46,6 +46,7 @@ USE_MICROSCOPE = eval(os.getenv('USE_MICROSCOPE', 'True'))
 
 REDIS_HOST = os.getenv("REDIS_HOST",'localhost')
 REDIS_PORT = int(os.getenv("REDIS_PORT", '6379'))
+REDIS_PASSWORD = os.getenv('REDIS_PASSWORD', None)
 
 if USE_LONGTERMSTORAGE:
     AUTOSCREENSTORAGE = os.getenv('AUTOSCREENSTORAGE')
@@ -117,14 +118,16 @@ ASGI_APPLICATION = 'Smartscope.server.main.asgi.application'
 # Database
 # https://docs.djangoproject.com/en/3.0/ref/settings/#databases
 
+if REDIS_PASSWORD:
+    REDIS_URL = f"redis://:{REDIS_PASSWORD}@{REDIS_HOST}:{REDIS_PORT}"
+else:
+    REDIS_URL = f"redis://{REDIS_HOST}:{REDIS_PORT}"
+
 CHANNEL_LAYERS = {
     "default": {
         "BACKEND": "channels_redis.core.RedisChannelLayer",
         "CONFIG": {
-            "hosts": [
-                (REDIS_HOST, 
-                REDIS_PORT)
-            ],
+            "hosts": [REDIS_URL],
         },
     },
 }
@@ -132,7 +135,7 @@ CHANNEL_LAYERS = {
 CACHES = {
     'default': {
         'BACKEND': 'django.core.cache.backends.redis.RedisCache',
-        'LOCATION': f"redis://{REDIS_HOST}:{REDIS_PORT}",
+        'LOCATION': REDIS_URL,
     }
 }
 

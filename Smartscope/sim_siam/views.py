@@ -39,7 +39,7 @@ def suggest_similar(request):
     number_of_suggestions = request_data.get('number_of_suggestions', 3)
     mag_level = request_data.get('mag_level', 'square')
     
-    suggestions = SimSiamEmbedding().suggest_similar_from_distance(grid_id=grid_id, mag_level=mag_level, similar_to_ids=similar_to_ids)
+    suggestions = SimSiamEmbedding().suggest_similar(grid_id=grid_id, mag_level=mag_level, similar_to_ids=similar_to_ids)
     
     return Response({'suggestions':suggestions}, status=200, content_type='application/json')
 
