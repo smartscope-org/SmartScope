@@ -62,3 +62,4 @@ smartscope_testfiles.tar.gz
 static/admin/
 static/rest_framework/
 testfiles.old/
+redis.conf
