@@ -239,6 +239,8 @@ def initialize_selector(grid: models.AutoloaderGrid, selector:str, queryset:Opti
 def initialize_selector_from_embeddings(grid: models.AutoloaderGrid, selector:str, queryset:Optional=None) -> SelectorSorter:
     plugin = PLUGINS_FACTORY.get_plugin(selector)
     mag_level = queryset[0].prefix_lower
+    if not plugin.is_embedding_data(grid, mag_level):
+        return None
     values,n_classes = plugin.sorter_data(grid,mag_level,queryset)
     selector_sorter = SelectorSorter(selector_name=selector,fractional_limits=[0,1], n_classes=n_classes)
 

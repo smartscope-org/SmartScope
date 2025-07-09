@@ -27,6 +27,9 @@ class SimSiamEmbedding(Embedding):
     colors: List = []
     # importPaths: Union[str,List] = Field(default_factory=list)
 
+    def is_embedding_data(self, grid, mag_level) -> bool:
+        return (grid.directory / f'sim_siam_embeddings_{mag_level}.parquet.zip').is_file()
+
 
     def load_data(self, grid, mag_level, *args, **kwargs) -> pd.DataFrame:
         """Load data for the algorithm"""
@@ -122,7 +125,7 @@ class SimSiamEmbedding(Embedding):
         else:
             grid = grid_id
         data = self.load_data(grid, mag_level)
-        pks = queryset.values_list('pk', flat=True)
+        pks = [obj.pk for obj in queryset]
         data = data[data.index.isin(pks)]
         data = data.reindex(pks)
         clusters = data['assignments'].tolist()
