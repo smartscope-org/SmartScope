@@ -118,7 +118,7 @@ ASGI_APPLICATION = 'Smartscope.server.main.asgi.application'
 # Database
 # https://docs.djangoproject.com/en/3.0/ref/settings/#databases
 
-if REDIS_PASSWORD:
+if REDIS_PASSWORD is not None:
     REDIS_URL = f"redis://:{REDIS_PASSWORD}@{REDIS_HOST}:{REDIS_PORT}"
 else:
     REDIS_URL = f"redis://{REDIS_HOST}:{REDIS_PORT}"
