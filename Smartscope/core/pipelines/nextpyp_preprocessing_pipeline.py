@@ -256,16 +256,16 @@ class NextPYPPreprocessingPipeline(PreprocessingPipeline):
             png_path = instance.png #.replace('/mnt', real_data_root)
             ctf_path = instance.ctf_img #.replace('/mnt', real_data_root)
             
-            if not os.path.exists(os.path.basename(png_path)):
-                logger.warning(f"PNG path does not exist: {os.path.basename(png_path)}")
+            if not os.path.exists(os.path.dirname(png_path)):
+                logger.warning(f"PNG path does not exist: {os.path.dirname(png_path)}")
             else:
-                logger.info(f"PNG path exists: {os.path.basename(png_path)}")
-            if not os.path.exists(os.path.basename(ctf_path)):
-                logger.warning(f"CTF path does not exist: {os.path.basename(ctf_path)}")
+                logger.info(f"PNG path exists: {os.path.dirname(png_path)}")
+            if not os.path.exists(os.path.dirname(ctf_path)):
+                logger.warning(f"CTF path does not exist: {os.path.dirname(ctf_path)}")
                 os.makedirs(os.path.dirname(ctf_path), exist_ok=True)
                 logger.info(f"Creating directory for CTF path: {os.path.dirname(ctf_path)}")
             else:
-                logger.info(f"CTF path exists: {os.path.basename(ctf_path)}")
+                logger.info(f"CTF path exists: {os.path.dirname(ctf_path)}")
             await asyncio.to_thread(self.wait_and_convert_webp_to_png, micrograph_source_path, png_path, timeout=60)
             await asyncio.to_thread(self.wait_and_convert_webp_to_png, ctf_source_path, ctf_path, timeout=60)
             
