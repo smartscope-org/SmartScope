@@ -8,6 +8,7 @@ from django.core.cache import cache
 from Smartscope.core.test_commands import *
 from Smartscope.core.utils.training_data import add_to_training_set
 from Smartscope.core.export_optics import export_optics
+from .autoscreen import autoscreen
 
 import numpy as np
 
@@ -441,9 +442,9 @@ def highmag_processing(grid_id: str, *args, **kwargs):
     from .preprocessing_pipelines import highmag_processing
     highmag_processing(grid_id, *args, **kwargs)
 
-def autoscreen(session_id:str, screening_mode:bool):
-    from .autoscreen import autoscreen
-    autoscreen(session_id=session_id, screening_mode=screening_mode)
+# def autoscreen(session_id:str, screening_mode:bool):
+#     
+#     autoscreen(session_id=session_id, screening_mode=screening_mode)
 
 def reload_plugins():
     from Smartscope.core.settings.worker import PLUGINS_FACTORY
