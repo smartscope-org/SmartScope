@@ -228,6 +228,10 @@ class MicroscopeInterface(ABC):
 
     def save_eucentric_focus(self):
         pass
+    
+    @abstractmethod
+    def open_valves(self):
+        pass
 
     @abstractmethod
     def autofocus(self, def1, def2, step):
