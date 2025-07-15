@@ -34,7 +34,9 @@ logger = logging.getLogger(__name__)
 def run_grid(
         grid:AutoloaderGrid,
         scope:MicroscopeInterface,
-        screening_mode: bool = False
+        screening_mode: bool = False,
+        skip_loading: bool = False
+
     ): 
     """Main logic for the SmartScope process
     Args:
@@ -88,7 +90,9 @@ def run_grid(
     if params.save_frames:
         GridIO.create_grid_frames_directory(session.detector_id.frames_directory, grid.frames_dir(prefix=prefix))
         logger.debug(f'Saving the frames in {grid_dir}')
-    scope.loadGrid(grid.position)
+    if not skip_loading:
+        scope.loadGrid(grid.position)
+    scope.open_valves()
     check_stop_flag(session_id)
     scope.setup(params.save_frames,grid_dir=grid_dir,framesName=f'{session.date}_{grid.name}')
     scope.reset_state()
