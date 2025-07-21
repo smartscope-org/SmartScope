@@ -1,6 +1,7 @@
 import os
 import logging
 from pathlib import Path
+import asyncio
 
 from Smartscope.core.models.grid import AutoloaderGrid
 from Smartscope.core.settings.worker import DEFAULT_PREPROCESSING_PIPELINE
@@ -9,10 +10,14 @@ from Smartscope.lib.logger import add_log_handlers
 
 logger = logging.getLogger(__name__)
 
-from .pipelines import PreprocessingPipelineCmd, SmartscopePreprocessingPipeline, CryoSPARCPipeline
+from .pipelines import PreprocessingPipelineCmd, SmartscopePreprocessingPipeline, CryoSPARCPipeline, NextPYPPreprocessingPipeline
 
 
-PREPROCESSING_PIPELINE_FACTORY = dict(smartscopePipeline=SmartscopePreprocessingPipeline,) #cryoSPARC=CryoSPARCPipeline)
+PREPROCESSING_PIPELINE_FACTORY = {
+    "smartscopePipeline" : SmartscopePreprocessingPipeline,
+    # "cryoSPARC" : CryoSPARCPipeline,
+    "nextpypPipeline" : NextPYPPreprocessingPipeline,
+}
 
 def load_preprocessing_pipeline(file:Path):
     if file.exists():

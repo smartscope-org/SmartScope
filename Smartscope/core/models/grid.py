@@ -60,7 +60,6 @@ class AutoloaderGrid(BaseModel):
     )
     collection_mode = models.CharField(max_length=30, null=True, default=None)
 
-
     objects = GridManager()
     # aliases
 
