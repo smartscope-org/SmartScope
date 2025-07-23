@@ -4,8 +4,11 @@ import json
 from django.db import transaction
 from django.core.cache import cache
 
+#These imports expose functions from other files to the smartscope.py script. Not ideal but that's how the CLI works for now.
 from Smartscope.core.test_commands import *
-
+from Smartscope.core.utils.training_data import add_to_training_set
+from Smartscope.core.export_optics import export_optics
+from .autoscreen import autoscreen
 
 import numpy as np
 
@@ -50,7 +53,7 @@ def run_selectors(square_id):
     protocol = get_or_set_protocol(square.grid_id).square.targets
     montage = Montage(name=square.name, working_dir=square.grid_id.directory)
     montage.load_or_process()
-    selector_wrapper(protocol.selectors, square, n_groups=5, montage=montage)
+    selector_wrapper(protocol.selectors, square, montage=montage)
     cache_key = f'{square_id}_targets_methods'
     cache.delete(cache_key)
 
@@ -144,10 +147,9 @@ def select_areas(mag_level, object_id, n_areas):
             update(obj, selected=True, status='queued')
     print('Done.')
 
-def regroup_bis(grid_id, square_id):
+def regroup_bis(grid_id, square_id, reset_groups=True):
     from Smartscope.core.models import AutoloaderGrid, SquareModel, HoleModel
-    from Smartscope.core.db_manipulations import group_holes_for_BIS
-    from Smartscope.core.data_manipulations import filter_targets, apply_filter
+    from Smartscope.core.db_manipulations import group_holes_from_square_for_BIS
     from Smartscope.core.status import status
     grid = AutoloaderGrid.objects.get(grid_id=grid_id)
     if square_id == 'all':
@@ -156,38 +158,19 @@ def regroup_bis(grid_id, square_id):
         queryparams = dict(grid_id=grid_id, square_id=square_id)
     logger.debug(f"{grid_id} {square_id}")
     collection_params = grid.params_id
-    logger.debug(f"Removing all holes from queue")
-    HoleModel.objects.filter(**queryparams,status__isnull=True)\
-        .update(selected=False,status=status.NULL,bis_group=None,bis_type=None)
-    HoleModel.objects.filter(**queryparams,status='queued',)\
-        .update(selected=False,status=status.NULL,bis_group=None,bis_type=None)
+    if reset_groups:
+        logger.debug(f"Removing all holes from queue")
+        HoleModel.objects.filter(**queryparams,status__isnull=True)\
+            .update(selected=False,status=status.NULL,bis_group=None,bis_type=None)
+        HoleModel.objects.filter(**queryparams,status='queued',)\
+            .update(selected=False,status=status.NULL,bis_group=None,bis_type=None)
     
-    # filtered_holes = HoleModel.display.filter(**queryparams,status__isnull=True)
-    holes_for_grouping = []
-    # other_holes = []
-    # for h in filtered_holes:
-    #     if h.is_good() and not h.is_excluded()[0] and not h.is_out_of_range():
-    #         holes_for_grouping.append(h)
     squares = SquareModel.display.filter(status=status.COMPLETED,**queryparams)
     for square in squares:
-        logger.debug(f"Filtering square {square}, {square.pk}")
-        targets = square.targets.filter(status__isnull=True)
-        filtered = filter_targets(square, targets)
-        holes_for_grouping += apply_filter(targets, filtered)
-
-
-    logger.info(f'Holes for grouping = {len(holes_for_grouping)}')
-
-    holes = group_holes_for_BIS(
-        holes_for_grouping,
-        max_radius=collection_params.bis_max_distance,
-        min_group_size=collection_params.min_bis_group_size,
-    )
-
-    with transaction.atomic():
-        for hole in holes:
-            hole.save()
-    
+        group_holes_from_square_for_BIS(square, 
+                                        max_radius=collection_params.bis_max_distance,
+                                        min_group_size=collection_params.min_bis_group_size)
+   
     logger.info('Regrouping BIS done.')
     return squares
 
@@ -301,15 +284,124 @@ def get_atlas_to_search_offset(detector_name,maximum=0):
     print('Skip setting values')
 
 
-def export_grid(grid_id, export_to=''):
+def export_grid(grid_id: str, export_to: str = ''):
+    """
+    Exports a specific grid, with each grid having its own export YAML file.
+
+    Args:
+        grid_id (str): The ID of the grid to export.
+        export_to (str, optional): The path to export the YAML file.
+                                   If not provided, defaults to the grid's directory.
+    Exceptions:
+        - Handles missing grid IDs gracefully.
+        - Catches permission or file path errors during file export.
+    """
     from Smartscope.core.models import AutoloaderGrid
-    from Smartscope.core.utils.export_import import export_grid
-    grid = AutoloaderGrid.objects.get(grid_id=grid_id)
-    if export_to == '':
-        export_to = os.path.join(grid.directory, 'export.yaml')
-        print(f'Export path not specified. Exporting to default loacation: {export_to}')
-    export_grid(grid, export_to=export_to)
-    print('Done.')
+    from Smartscope.core.utils.export_import import write_grid
+
+    try:
+        # Retrieve the grid based on grid_id
+        grid = AutoloaderGrid.objects.get(grid_id=grid_id)
+
+        # Determine the export path
+        if not export_to:
+            export_to = os.path.join(grid.directory, f'export_{grid.id}.yaml')
+            print(f'Export path not specified. Using default location: {export_to}')
+        else:
+            export_to = os.path.join(export_to, f'export_{grid.id}.yaml')
+            print(f'Exporting to: {export_to}')
+
+        # Write the export file
+        write_grid(instance=grid, export_to=export_to)
+        print(f'Success: Grid {grid.id} exported successfully.')
+
+    except AutoloaderGrid.DoesNotExist:
+        print(f"Error: Grid with ID '{grid_id}' does not exist.")
+
+    except (OSError, IOError) as e:
+        print(f"Error: Failed to export grid {grid_id} due to file error: {str(e)}")
+
+    except Exception as e:
+        print(f"Error: An unexpected error occurred while exporting grid {grid_id}: {str(e)}")
+
+
+
+def export_session(session_id: str):
+    """
+    Exports all grids from a session by calling the export_grid function.
+
+    Args:
+        session_id (str): The ID of the session to export.
+
+    Exceptions:
+        - Handles missing session IDs gracefully.
+        - Catches permission or file path errors during the session export.
+    """
+    from Smartscope.core.models import AutoloaderGrid, ScreeningSession
+
+    try:
+        # Retrieve the session to ensure it exists
+        session = ScreeningSession.objects.get(session_id=session_id)
+        print(f"Session found: {session_id}. Proceeding with the export request.")
+
+        # Retrieve all grids for the session
+        grids = AutoloaderGrid.objects.filter(session_id=session_id)
+
+        if not grids:
+            print(f"No grids found in session {session_id}.")
+            return
+
+        print(f"Found {len(grids)} grids for session {session_id}.")
+        for grid in grids:
+            print(f" Grid_ID - {grid}")
+
+        # Call export_grid function for each grid
+        for grid in grids:
+            print(f"Exporting grid: {grid.id}")
+            export_grid(grid.id)
+
+    except ScreeningSession.DoesNotExist:
+        print(f"Session ID: {session_id} does not exist.")
+
+    except Exception as e:
+        print(f"An error occurred while exporting session {session_id}: {str(e)}")
+
+
+
+def export_group(group_name: str):
+    """
+    Exports all sessions within a group by calling the export_session function.
+
+    Args:
+        group_name (str): The name of the group to export.
+
+    Exceptions:
+        - Handles group with no sessions gracefully.
+        - Catches any unexpected errors during the export.
+    """
+    from Smartscope.core.models import AutoloaderGrid, ScreeningSession
+
+    try:
+        # Retrieve all session IDs for the given group
+        session_ids = ScreeningSession.objects.filter(group=group_name).values_list('session_id', flat=True)
+
+        if not session_ids:
+            print(f"No sessions found for group '{group_name}'.")
+            return
+
+        print(f"Found {len(session_ids)} sessions for group '{group_name}'.")
+        for session_id in session_ids:
+            print(f"Session ID - {session_id}")
+
+        # Call export_session function for each session
+        for session_id in session_ids:
+            print(f"*************************************************************************************")
+            print(f"Exporting session: {session_id}")
+            export_session(session_id)
+
+    except Exception as e:
+        print(f"An error occurred while exporting the group '{group_name}': {e}")
+
 
 def import_grid(file:str, group:str='', user:str=''):
     from Smartscope.core.utils.export_import import import_grid
@@ -321,16 +413,19 @@ def import_grid(file:str, group:str='', user:str=''):
     print('Done.')
 
 
-def extend_lattice(square_id):
+def extend_lattice(square_id, force_recalculate='False'):
     from Smartscope.core.models import SquareModel
     from Smartscope.lib.Datatypes.grid_geometry import GridGeometry, GridGeometryLevel
     from Smartscope.core.mesh_rotation import calculate_hole_geometry
     from Smartscope.lib.Finders.lattice_extension import lattice_extension
     from Smartscope.lib.image.montage import Montage
+    force_recalculate = eval(force_recalculate)
     square = SquareModel.objects.get(pk=square_id)
     grid = square.grid_id
-    geometry = GridGeometry.load(directory=grid.directory)
-    rotation, spacing = geometry.get_geometry(level=GridGeometryLevel.SQUARE)
+    rotation, spacing = None, None
+    if not force_recalculate:
+        geometry = GridGeometry.load(directory=grid.directory)
+        rotation, spacing = geometry.get_geometry(level=GridGeometryLevel.SQUARE)
     if any([rotation is None, spacing is None]):
         rotation, spacing = calculate_hole_geometry(grid)
     montage = Montage(name=square.name, working_dir=grid.directory)
@@ -347,9 +442,9 @@ def highmag_processing(grid_id: str, *args, **kwargs):
     from .preprocessing_pipelines import highmag_processing
     highmag_processing(grid_id, *args, **kwargs)
 
-def autoscreen(session_id:str):
-    from .autoscreen import autoscreen
-    autoscreen(session_id=session_id)
+# def autoscreen(session_id:str, screening_mode:bool):
+#     
+#     autoscreen(session_id=session_id, screening_mode=screening_mode)
 
 def reload_plugins():
     from Smartscope.core.settings.worker import PLUGINS_FACTORY
@@ -360,6 +455,16 @@ def list_plugins():
     plugins = PLUGINS_FACTORY.get_plugins()
     print(plugins)
     return plugins
+
+def reload_protocols():
+    from Smartscope.core.settings.worker import PROTOCOLS_FACTORY
+    PROTOCOLS_FACTORY.reload_protocols()
+
+def list_protocols():
+    from Smartscope.core.settings.worker import PROTOCOLS_FACTORY
+    protocols = PROTOCOLS_FACTORY.get_protocols()
+    print(protocols)
+    return protocols
     
 
             

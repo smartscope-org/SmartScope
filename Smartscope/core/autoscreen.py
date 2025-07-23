@@ -8,17 +8,14 @@ logger = logging.getLogger(__name__)
 
 from .interfaces.microscope import Microscope, Detector, AtlasSettings
 from .interfaces.microscope_methods import select_microscope_interface
-from Smartscope.core.models import ScreeningSession, Process
-from Smartscope.core.status import status
+from .models import ScreeningSession, Process
 from .grid.grid_status import GridStatus
-from Smartscope.core.db_manipulations import update
+from .db_manipulations import update
+from .run_grid import run_grid, clear_stop_file
 
 from Smartscope.lib.logger import add_log_handlers
 
-from .run_grid import run_grid, is_stop_file
-
-
-def autoscreen(session_id:str):
+def autoscreen(session_id:str, screening_mode: bool=False, skip_loading: bool=False):
     '''
     major procedure: autoscreen
     '''
@@ -27,7 +24,7 @@ def autoscreen(session_id:str):
     add_log_handlers(directory=session.directory, name='run.out')
     logger.debug(f'Main Log handlers:{logger.handlers}')
     process = create_process(session)
-    is_stop_file(session.session_id)
+    clear_stop_file(session.session_id)
     if microscope.isLocked:
         logger.warning(f"""
             The requested microscope is busy.
@@ -56,10 +53,10 @@ def autoscreen(session_id:str):
 
             logger.debug(f'Main Log handlers:{logger.handlers}')
             logger.debug(scope.__dict__)
-
+            logger.debug(scope.microscope.__dict__)
             # RUN grid
             for grid in grids:
-                status = run_grid(grid, session,  scope) #processing_queue,
+                status = run_grid(grid, scope, screening_mode=screening_mode, skip_loading=skip_loading) #processing_queue,
             status = 'complete'
     except Exception as e:
         logger.exception(e)

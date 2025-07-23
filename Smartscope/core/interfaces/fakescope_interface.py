@@ -12,16 +12,16 @@ logger = logging.getLogger(__name__)
 class FakeScopeInterface(MicroscopeInterface):
 
     def set_atlas_optics(self):
-        logger.info(f'Setting atlas optics')
-        logger.info('Done setting atlas optics')
+        self.logger.info(f'Setting atlas optics')
+        self.logger.info('Done setting atlas optics')
 
     def set_atlas_optics_delay(self, delay:int=1):
-        logger.info(f'Setting atlas optics with a {delay} sec delay between each command.')
-        logger.info('Done setting atlas optics')
+        self.logger.info(f'Setting atlas optics with a {delay} sec delay between each command.')
+        self.logger.info('Done setting atlas optics')
 
     def set_atlas_optics_imaging_state(self, state_name:str='Atlas'):
-        logger.info(f'Setting atlas optics from the {state_name} imaging state')
-        logger.info('Done setting atlas optics')
+        self.logger.info(f'Setting atlas optics from the {state_name} imaging state')
+        self.logger.info('Done setting atlas optics')
 
     def reset_stage(self):
         pass
@@ -33,16 +33,19 @@ class FakeScopeInterface(MicroscopeInterface):
         pass
 
     def call(self, script):
-        logger.info(f'Calling {script}')
+        self.logger.info(f'Calling {script}')
 
     
     def call_function(self, function, *args):
-        logger.info(f'Calling {function} with args {args}')
+        self.logger.info(f'Calling {function} with args {args}')
 
     def checkDewars(self, wait=30) -> None:
         pass
 
     def checkPump(self, wait=30):
+        pass
+
+    def open_valves(self):
         pass
 
     def eucentricHeight(self, tiltTo=10, increments=-5) -> float:
@@ -51,18 +54,26 @@ class FakeScopeInterface(MicroscopeInterface):
     def eucentricity(self):
         pass
 
-    def moveStage(self, stage_x, stage_y, stage_z):
+    def moveStage(self, stage_x, stage_y, stage_z=None):
+        pass
+
+    def recenter_beam(self, interval_in_minutes:int=5):
         pass
 
     def realign_to_square(self):
         return super().realign_to_square()
 
     def atlas(self, size, file=''):
+        self.logger.info('Running atlas.')
         Fake.generate_fake_file(
             file,
             'atlas',
             destination_dir=self.microscope.scopePath
         )
+
+    def atlas_in_low_dose_search(self, size, file=''):
+        self.logger.info('Running atlas in low dose search.')
+        self.atlas(size,file)
 
     def square(self, file=''):
         Fake.generate_fake_file(
@@ -76,8 +87,9 @@ class FakeScopeInterface(MicroscopeInterface):
     def align():
         pass
 
-    def image_shift_by_microns(self, isX, isY, tiltAngle, afis=False):
-        return super().image_shift_by_microns(isX, isY, tiltAngle)
+    def image_shift_by_microns(self, isX, isY, tiltAngle, afis=False, goToRecord=True, delay_multiplier=1, additional_delay=0):
+        self.logger.debug(f'Image shift by microns: {isX}, {isY}, {tiltAngle}, {afis}, {goToRecord}, {delay_multiplier}, {additional_delay}')
+        return super().image_shift_by_microns(isX, isY, tiltAngle, afis, goToRecord, delay_multiplier, additional_delay)
 
     def reset_image_shift(self):
         return super().reset_image_shift()
@@ -97,6 +109,9 @@ class FakeScopeInterface(MicroscopeInterface):
     def load_hole_ref(self):
         return super().load_hole_ref()
     
+    def zero_image_shift(self):
+        pass
+    
     def report_stage(self):
         return super().report_stage()
     
@@ -109,7 +124,7 @@ class FakeScopeInterface(MicroscopeInterface):
         command: highmag_processing <grid_id>
         '''
         file = Fake.select_random_fake_file('lowmagHole')
-        logger.debug(f'Using {file} to generate fake buffer')
+        self.logger.debug(f'Using {file} to generate fake buffer')
         with mrcfile.open(file) as mrc:
             header = mrc.header
             img = mrc.data
@@ -142,7 +157,7 @@ class FakeScopeInterface(MicroscopeInterface):
             )
             return
         movies = os.path.join(self.microscope.scopePath, 'movies', self.grid_dir)
-        logger.info(f"High resolution movies are stored at {movies} in fake mode")
+        self.logger.info(f"High resolution movies are stored at {movies} in fake mode")
         frames = Fake.generate_fake_file(
             file,
             'highmagframes',
@@ -152,13 +167,13 @@ class FakeScopeInterface(MicroscopeInterface):
         return frames.split('\\')[-1]
 
     def connect(self):
-        logger.info('Connecting to fake scope.')
+        self.logger.info('Connecting to fake scope.')
 
     def setup(self, saveframes:bool, grid_dir:str, framesName=None):
         self.grid_dir = grid_dir
 
     def disconnect(self, close_valves=True):
-        logger.info('Disconnecting from fake scope.')
+        self.logger.info('Disconnecting from fake scope.')
 
     def loadGrid(self, position):
         pass
@@ -170,4 +185,22 @@ class FakeScopeInterface(MicroscopeInterface):
         pass
 
     def autofocus_after_distance(self, def1, def2, step, distance):
+        pass
+
+    def report_aperture_size(self, aperture:int):
+        pass
+  
+    def remove_aperture(self,aperture:int, wait:int=10):
+        pass
+
+    def insert_aperture(self, aperture:int, aperture_size:int, wait:int=10):
+        pass
+
+    def set_apertures_for_highmag(self, highmag_aperture_size:int, objective_aperture_size:int):
+        pass
+
+    def set_apertures_for_lowmag(self):
+        pass
+
+    def set_focus_for_bis_tilt(self,isY,tiltAngle):
         pass

@@ -1,4 +1,5 @@
 from .base_model import *
+import math
 
 
          
@@ -69,6 +70,10 @@ class SquareModel(Target, ExtraPropertyMixin):
     @property
     def prefix(self):
         return 'Square'
+    
+    @property
+    def prefix_lower(self):
+        return self.prefix.lower()
 
     @property
     def targets_prefix(self):
@@ -90,6 +95,10 @@ class SquareModel(Target, ExtraPropertyMixin):
     @property
     def parent_stage_z(self):
         return self.parent.stage_z
+    
+    @property
+    def radius(self):
+        return math.sqrt(self.area) // 2
 
     @property
     def targets(self):
@@ -99,7 +108,6 @@ class SquareModel(Target, ExtraPropertyMixin):
     def target_model(cls):
         from .hole import HoleModel
         return HoleModel
-
 
     # @cached_model_property(key_prefix='svg', 
     # extra_suffix_from_function=['method'], timeout=3600)

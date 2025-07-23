@@ -19,8 +19,6 @@ import time
 import logging
 from pathlib import Path
 import mrcfile
-import mrcfile.mrcinterpreter
-import mrcfile.mrcfile
 
 from .serializers import *
 from Smartscope.server.api.permissions import HasGroupPermission
@@ -98,6 +96,7 @@ class ExtraActionsMixin:
             'targets_methods': targets_methods(instance),
             'display_type': get_request_param(request, 'display_type', 'classifiers'),
             'method': get_request_param(request, 'method'),
+            'TRAINING_ANNOTATOR_FEATURE_FLAG': settings.TRAINING_ANNOTATOR_FEATURE_FLAG,
         }
         if context['method'] is None:
             methods = context['targets_methods'].get(context['display_type'], [])
@@ -189,7 +188,11 @@ class TargetRouteMixin:
     
     @ action(detail=False, methods=['get'], url_path='scipion_plugin')
     def scipion_plugin(self, request, *args, **kwargs):
-        return self.detailedMany(request=request,*args,serializer=ScipionPluginHoleSerializer ,**kwargs)
+        reset_queries()
+
+        view = self.detailedMany(request=request,*args,serializer=ScipionPluginHoleSerializer ,**kwargs)
+        logger.debug(f'Loading scipion plugin data required {len(connection.queries)} queries')
+        return view
 
     @action(detail=False, methods=['post'])
     def add_targets(self, request, *args, **kwargs):
@@ -298,6 +301,7 @@ class ScreeningSessionsViewSet(viewsets.ModelViewSet, GeneralActionsMixin,):
     def run_session(self, request, **kwargs):
         self.object = self.get_object()
         data = request.data
+        screening_mode = str(data.get('screening_mode', 'false')).lower() in ['true', '1']
 
         if 'start' in data.keys() and not viewer_only(request.user):
             process_init = process = self.object.process_set.first()
@@ -306,7 +310,7 @@ class ScreeningSessionsViewSet(viewsets.ModelViewSet, GeneralActionsMixin,):
                 send_to_worker(
                     self.object.microscope_id.worker_hostname,
                     self.object.microscope_id.executable,
-                    arguments=['autoscreen', self.object.session_id],
+                    arguments=['autoscreen', self.object.session_id, screening_mode],
                 )
             else:
                 logger.info('stopping')
@@ -406,6 +410,47 @@ class ScreeningSessionsViewSet(viewsets.ModelViewSet, GeneralActionsMixin,):
             os.path.join('/tmp/', f'{self.object.microscope_id.pk}.lock')], communicate=True)
         logger.info(f'OUTPUT: {out}\nERROR: {err}')
         return Response(dict(out=out, err=err))
+    
+    @action(detail=True, methods=['get'])
+    def download_logs(self, request, pk=None):
+        """
+        Handles the download of specific log files ('run.out' or 'proc.out') 
+        for a given session. The file type is determined by the 'file_type' 
+        parameter in the request. If the file exists, it is served as an 
+        attachment for download; otherwise, a 404 error is raised.
+
+        Args:
+            request (HttpRequest): The request object containing 'file_type'.
+            pk (int, optional): The primary key of the session instance.
+
+        Returns:
+            FileResponse: The requested log file as a downloadable attachment.
+
+        Raises:
+            Http404: If the file type is invalid or the file does not exist.
+        """
+        # Get the session instance 
+        session = self.get_object()
+
+        # Determine the file based on the 'file_type' parameter in the request
+        file_type = request.GET.get('file_type')
+        if file_type == 'run':
+            filename = "run.out"
+        elif file_type == 'proc':
+            filename = "proc.out"
+        else:
+            raise Http404("File not found")
+
+        # Construct the full path to the specified file
+        file_path = os.path.join(session.directory, filename)
+
+        # Check if the file exists and provide it for download; otherwise, return a 404 error if the file is unavailable.
+        if os.path.exists(file_path):
+            return FileResponse(open(file_path, 'rb'), as_attachment=True, filename=filename)
+        else:
+            raise Http404("File not found")
+        
+        
 
     def read_file(self, name, start_line=-100):
         try:
@@ -521,6 +566,49 @@ class AutoloaderGridViewSet(viewsets.ModelViewSet, GeneralActionsMixin, ExtraAct
         except Exception as err:
             logger.exception(f'Error while updating parameters, {err}.')
             return Response(dict(success=False))
+    
+    @action(detail=True, methods=['post'])
+    def write_grid_geometry(self, request, pk=None):
+        ### write the grid_geometry.json file from extend lattice form
+        try:
+            # Get the grid
+            grid = self.get_object()
+            logger.debug(f"Grid found: {grid}")
+            logger.debug(f"Grid directory: {grid.directory}")
+
+            # Ensure the grid's directory exists
+            if not os.path.exists(grid.directory):
+                os.makedirs(grid.directory)
+                logger.debug(f"Created directory: {grid.directory}")
+
+            # Define the file path
+            file_path = os.path.join(grid.directory, 'grid_geometry.json')
+            logger.debug(f"File path: {file_path}")
+
+            # Write the payload to the file
+            with open(file_path, 'w') as file:
+                json.dump(request.data, file, indent=4)
+                logger.debug(f"Data written to file: {file_path}")
+
+            # Return a success response as JSON
+            return Response(
+                {
+                    'status': 'success',
+                    'message': 'Grid data written successfully!',
+                    'file_path': file_path
+                },
+            )
+
+        except Exception as e:
+            logger.error(f"Error encountered: {e}", exc_info=True)
+            # Return an error response as JSON
+            return Response(
+                {
+                    'status': 'error',
+                    'message': f"An error occurred: {str(e)}"
+                },
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
 
     @ action(detail=True, methods=['get'])
     def export(self, resquest, **kwargs):
@@ -568,7 +656,13 @@ class AutoloaderGridViewSet(viewsets.ModelViewSet, GeneralActionsMixin, ExtraAct
             return Response(dict(out=out))
         except Exception as err:
             logger.error(f'Error tring to regrouping BIS and reselecting, {err}')
-            return Response(dict(success=False),status=rest_status.HTTP_500_INTERNAL_SERVER_ERROR)  
+            return Response(dict(success=False),status=rest_status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+    @ action(detail=True, methods=['get'])
+    def get_report_url(self, request, *args, **kwargs):
+        obj:AutoloaderGrid = self.get_object()
+        url=  request.build_absolute_uri(reverse('browser') + f'?group={obj.session_id.group.pk}&session_id={obj.session_id.pk}&grid_id={obj.pk}')
+        return Response(url)
 
 
 class AtlasModelViewSet(viewsets.ModelViewSet, GeneralActionsMixin, ExtraActionsMixin, TargetRouteMixin):
@@ -608,16 +702,19 @@ class SquareModelViewSet(viewsets.ModelViewSet, GeneralActionsMixin, ExtraAction
             obj = self.get_object()
             action = request.data['action']
             is_bis = obj.grid_id.params_id.bis_max_distance > 0
+            query_filters = dict()
+            if is_bis:
+                query_filters['bis_type'] = 'center'
+                query_filters['bis_group__isnull'] = False
             if action == 'addall':
-                query_filters = dict(selected=False)
-                if is_bis:
-                    query_filters['bis_type'] = 'center'
-                    query_filters['bis_group__isnull'] = False
+                query_filters.update(selected=False)
                 query = obj.holemodel_set.all().filter(**query_filters)
                 selected = True
                 status = 'queued'
             elif action == 'cancelall':
-                query = obj.holemodel_set.filter(status='queued').update(selected=False,status=None)
+                query = obj.holemodel_set.filter(status='queued',**query_filters)
+                selected = False
+                status = None
 
             with transaction.atomic():
                 for target in query:
@@ -637,7 +734,7 @@ class SquareModelViewSet(viewsets.ModelViewSet, GeneralActionsMixin, ExtraAction
             obj = self.get_object()
             microscope = obj.grid_id.session_id.microscope_id
             out, err = send_to_worker(microscope.worker_hostname, microscope.executable, arguments=[
-                'regroup_bis', obj.grid_id.pk, obj.square_id], communicate=True, timeout=30)
+                'regroup_bis', obj.grid_id.pk, obj.square_id], communicate=True, timeout=120)
             out = out.decode("utf-8").strip().split('\n')[-1]
             return Response(dict(out=out))
         except Exception as err:
@@ -653,7 +750,7 @@ class SquareModelViewSet(viewsets.ModelViewSet, GeneralActionsMixin, ExtraAction
         queryset = obj.holemodel_set.filter(status__isnull=True, selected=False)
         logger.debug(f"Deleting {queryset.count()} holes")
         queryset.delete()
-        return Response(data=dict(success=True),status=rest_status.HTTP_204_NO_CONTENT)
+        return Response(data=dict(success=True))
     
     @ action(detail=True, methods=['get'])
     def extend_lattice(self,request, *args, **kwargs):
@@ -678,6 +775,11 @@ class HoleModelViewSet(viewsets.ModelViewSet, GeneralActionsMixin, ExtraActionsM
                         'square_id', 'status', 'bis_group', 'bis_type']
 
     detailed_serializer = DetailedFullHoleSerializer
+
+    @ action(detail=False, methods=['get'], url_path='scipion_plugin')
+    def scipion_plugin(self, request, *args, **kwargs):
+        self.queryset = HoleModel.display.all()
+        return super().scipion_plugin(request, *args, **kwargs)
 
     @ action(detail=True, methods=['get'])
     def load(self, request, **kwargs):
@@ -735,7 +837,7 @@ class HighMagModelViewSet(viewsets.ModelViewSet, GeneralActionsMixin, ExtraActio
     filterset_fields = ['grid_id', 'grid_id__meshMaterial', 'grid_id__holeType', 'grid_id__meshSize',
                         'grid_id__quality', 'hole_id', 'hole_id__square_id', 'grid_id__session_id', 'hm_id', 'number', 'status','name','frames']
 
-    detailed_serializer = DetailedHighMagSerializer
+    detailed_serializer = DetailedViewsetHighMagSerializer
 
     @ action(detail=True, methods=['patch'])
     def upload_images(self,request, *args, **kwargs):

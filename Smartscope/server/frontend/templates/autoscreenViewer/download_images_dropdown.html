@@ -16,9 +16,8 @@
                 href="/api/{{instance.api_viewset_name}}/{{instance.id}}/download/?extension=png">
                 .png
             </a>
-            <a id='opt-png' class="dropdown-item" data-bs-toggle="tooltip" data-bs-placement="left"
-                title="Download png with overlays"
-                href="/api/{{instance.api_viewset_name}}/{{instance.id}}/download/?extension=svg">
+            <a id='opt-overlay' name="{{instance.name}}" class="opt-overlay dropdown-item" data-bs-toggle="tooltip" data-bs-placement="left"
+                title="Download png with overlays" href="#">
                 .png + overlay
             </a>
             <a id='opt-raw' class="dropdown-item" data-bs-toggle="tooltip" data-bs-placement="left"

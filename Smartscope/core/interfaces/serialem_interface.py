@@ -1,29 +1,47 @@
-from pathlib import PureWindowsPath, Path
-from typing import Callable, Tuple
-from abc import ABC
+from pathlib import PureWindowsPath
+from typing import Tuple
 import serialem as sem
 import time
 import logging
 import math
 import numpy as np
 from .microscope import CartridgeLoadingError
-from .microscope_interface import MicroscopeInterface
+from .microscope_interface import MicroscopeInterface, MicroscopeLogger
 from Smartscope.lib.Finders.basic_finders import find_square
 
 logger = logging.getLogger(__name__)
 
-class SerialemInterface(MicroscopeInterface):
 
-    def eucentricHeight(self, tiltTo:int=10, increments:int=-5):
-        logger.info(f'Doing eucentric height')
+class SerialEMLogger(MicroscopeLogger):
+
+    def info(self, message:str):
+        msg = self._create_message(message, self.prefix, self.info_prefix)
+        logger.info(msg)
+        sem.Echo(msg)
+    
+    def debug(self, message: str):
+        msg = self._create_message(message, self.prefix, self.debug_prefix)
+        logger.debug(msg)
+        sem.Echo(msg)
+    
+    def error(self, message: str):
+        msg = self._create_message(message, self.prefix, self.error_prefix)
+        logger.debug(msg)
+        sem.Echo(msg)
+
+class SerialemInterface(MicroscopeInterface):
+    logger = SerialEMLogger()
+
+    def eucentricHeight(self, tilt_to:int=10, increments:int=-5, max_movement:int=200):
+        self.logger.info(f'Doing eucentric height')
         offsetZ = 51
         iteration = 0
         while abs(offsetZ) > 50 and iteration != 3:
             iteration += 1
-            logger.info(f'Staring iteration {iteration}')
+            self.logger.info(f'Staring iteration {iteration}')
             alignments = []
             stageZ = sem.ReportStageXYZ()[2]
-            sem.TiltTo(tiltTo)
+            sem.TiltTo(tilt_to)
             currentAngle = int(sem.ReportTiltAngle())
             sem.Search()
             loop = 0
@@ -35,17 +53,51 @@ class SerialemInterface(MicroscopeInterface):
                 sem.AlignTo('B', 1)
                 alignments.append(sem.ReportAlignShift()[5] / math.sin(math.radians(abs(increments) * loop)))
 
-            logger.debug(alignments)
+            # self.logger.debug(', '.join(alignments))
             offsetZ = sum(alignments) / (len(alignments) * 1000)
             totalZ = stageZ + offsetZ
-            if abs(totalZ) < 200:
-                logger.info(f'Moving by {offsetZ} um')
+            if abs(totalZ) < max_movement:
+                self.logger.info(f'Moving by {offsetZ} um')
 
                 sem.MoveStage(0, 0, offsetZ)
                 time.sleep(0.2)
             else:
-                logger.info('Eucentric alignement would send the stage too far, stopping Eucentricity.')
+                self.logger.info('Eucentric alignement would send the stage too far, stopping Eucentricity.')
                 break
+
+    def eucentricity_by_beam_tilt(self, max_movement:int=200, beam_tilt_angle:int=2):
+        self.logger.info(f'Doing eucentric height by beam tilt')
+        sem.GoToLowDoseArea('V')
+        target_Z = sem.ReportLDDefocusOffset('V')
+        sem.SetEucentricFocus(1)
+        sem.ChangeFocus(target_Z)
+        offsetZ = 51
+        iteration = 0
+        while abs(offsetZ) > 5 and iteration != 3:
+            iteration += 1
+            self.logger.info(f'Staring iteration {iteration}')
+            alignments = []
+            stageZ = sem.ReportStageXYZ()[2]
+            sem.SetBeamTilt(-beam_tilt_angle, 0)
+            sem.View()
+            sem.SetBeamTilt(beam_tilt_angle, 0)
+            sem.View()
+            sem.AlignTo('B', 1)
+            shift = sem.ReportAlignShift()[5]/1000
+
+            # self.logger.debug(', '.join(alignments))
+            offsetZ = shift/(beam_tilt_angle*0.002) + target_Z
+            self.logger.info(f'Iteration {iteration} offset calculate to {offsetZ}')
+            # break
+            totalZ = stageZ + offsetZ
+            if abs(totalZ) < max_movement:
+                self.logger.info(f'Moving by {offsetZ} um')
+
+                sem.MoveStage(0, 0, offsetZ)
+                time.sleep(0.2)
+            else:
+                self.logger.info('Eucentric alignement would send the stage too far, stopping Eucentricity.')
+                break        
 
     def eucentricity(self):
         sem.GoToLowDoseArea('V')
@@ -69,83 +121,127 @@ class SerialemInterface(MicroscopeInterface):
         return sem.ReportStageXYZ()
     
     def set_atlas_optics(self):
-        logger.info('Setting atlas optics')
-        logger.debug('Deactivating low dose mode')
+        self.logger.info('Setting atlas optics')
+        self.logger.debug('Deactivating low dose mode')
         sem.SetLowDoseMode(0)
-        logger.debug('Setting atlas mag')
+        self.logger.debug('Setting atlas mag')
         sem.SetMag(self.atlas_settings.mag)
-        logger.debug('Setting spot size')
+        self.logger.debug('Setting spot size')
         sem.SetSpotSize(self.atlas_settings.spotSize)
-        logger.debug('Setting C2 percent')
+        self.logger.debug('Setting C2 percent')
         sem.SetPercentC2(self.atlas_settings.c2)
-        logger.info('Done setting atlas optics')
+        self.logger.info('Done setting atlas optics')
     
     def set_atlas_optics_delay(self, delay:int=1):
-        logger.info(f'Setting atlas optics with a {delay} sec delay between each command.')
-        logger.debug('Deactivating low dose mode')
+        self.logger.info(f'Setting atlas optics with a {delay} sec delay between each command.')
+        self.logger.debug('Deactivating low dose mode')
         sem.SetLowDoseMode(0)
         time.sleep(delay)
-        logger.debug('Setting atlas mag')
+        self.logger.debug('Setting atlas mag')
         sem.SetMag(self.atlas_settings.mag)
         time.sleep(delay)
-        logger.debug('Setting spot size')
+        self.logger.debug('Setting spot size')
         sem.SetSpotSize(self.atlas_settings.spotSize)
         time.sleep(delay)
-        logger.debug('Setting C2 percent')
+        self.logger.debug('Setting C2 percent')
         sem.SetPercentC2(self.atlas_settings.c2)
         time.sleep(delay)
-        logger.info('Done setting atlas optics')
+        self.logger.info('Done setting atlas optics')
 
     def set_atlas_optics_imaging_state(self, state_name:str='Atlas'):
-        logger.info(f'Setting atlas optics from the {state_name} imaging state')
+        self.logger.info(f'Setting atlas optics from the {state_name} imaging state')
         sem.GoToImagingState(state_name)
-        logger.info('Done setting atlas optics')
+        self.logger.info('Done setting atlas optics')
 
     
     def reset_stage(self):
-        logger.info(f'Resetting stage to center.')
+        self.logger.info(f'Resetting stage to center.')
         sem.TiltTo(0)
         sem.MoveStageTo(0,0,0)
 
     def remove_slit(self):
-        if self.detector.energyFilter:
-            if sem.ReportEnergyFilter()[2] == 1:
-                logger.info('Removing slit.')
-                sem.SetSlitIn(0)
+        if not self.detector.energyFilter:
+            return
+        if sem.ReportEnergyFilter()[2] == 1:
+            self.logger.info('Removing slit.')
+            sem.SetSlitIn(0)
         
-
     def atlas(self, size, file=''):
+        self.state.current_mag = 'atlas'
         sem.OpenNewMontage(size[0],size[1], file)
+        sem.SetMontageParams(1)
+        sem.ParamSetToUseForMontage(1)
         self.checkDewars()
         self.checkPump()
-        logger.info('Starting Atlas acquisition')
+        self.logger.info('Starting Atlas acquisition')
         sem.Montage()
+        self._add_vectors_to_mdoc(buffer='B')
         sem.CloseFile()
-        logger.info('Atlas acquisition finished')
-        # sem.SetLowDoseMode(1)
+        self.logger.info('Atlas acquisition finished')
+
+    def atlas_in_low_dose_search(self, size, file=''):
+        self.state.current_mag = 'atlas'
+        sem.GoToLowDoseArea('S')
+        sem.SetEucentricFocus()
+        sem.ParamSetToUseForMontage(3)
+        self.atlas(size, file)
+        msg = 'Atlas finished, Restoring Search state.'
+        self.logger.info(msg)
+        sem.RestoreState()
+
+    def _add_vectors_to_mdoc(self, buffer='A'):
+        binning_tile = sem.ImageProperties('A')[2]
+        binning = sem.ImageProperties(buffer)[2] / binning_tile
+        image_to_stage_matrix = np.array(sem.BufImageToStageMatrix(buffer, 1))
+        image_to_stage_matrix /= np.array([binning, binning, binning, binning, 1, 1])
+        image_to_stage_matrix = [str(x) for x in image_to_stage_matrix.tolist()]
+        stage_to_image_matrix = np.array(sem.StageToBufImageMatrix(buffer, 1))
+        stage_to_image_matrix /= np.array([binning, binning, binning, binning, 1, 1])
+        stage_to_image_matrix = [str(x) for x in stage_to_image_matrix.tolist()]
+        sem.AddToAutodoc('ImageToStageMatrix', ' '.join(image_to_stage_matrix))
+        sem.AddToAutodoc('StageToImageMatrix', ' '.join(stage_to_image_matrix))
+        sem.WriteAutodoc()
 
     def save_image(self, file:str):
-        image_to_stage_matrix = sem.BufImageToStageMatrix('A', 1)
-        image_to_stage_matrix = [str(x) for x in image_to_stage_matrix]
+        # image_to_stage_matrix = sem.BufImageToStageMatrix('A', 1)
+        # image_to_stage_matrix = [str(x) for x in image_to_stage_matrix]
         sem.OpenNewFile(file)
         sem.Save()
-        sem.AddToAutodoc('ImageToStageMatrix', ' '.join(image_to_stage_matrix))
-        sem.WriteAutodoc()
+        self._add_vectors_to_mdoc()
+        # sem.AddToAutodoc('ImageToStageMatrix', ' '.join(image_to_stage_matrix))
+        # sem.WriteAutodoc()
         sem.CloseFile()
 
+    def recenter_beam(self, interval_in_minutes:int=5):
+        if interval_in_minutes < 0 or self.state.time_since_last_autocenter < interval_in_minutes * 60:
+            self.logger.info(f'Time since last autocenter: {self.state.time_since_last_autocenter}. Skipping beam centering')
+            return
+        self.logger.info('Running beam centering.')
+        sem.Trial()
+        sem.CenterBeamFromImage()
+        sem.Trial()
+        self.state.last_autocenter_time = time.time()
+
     def square(self, file=''):
+        self.state.current_mag = 'square'
         sem.SetLowDoseMode(1)
         sem.GoToLowDoseArea('S')
         self.checkDewars()
         self.checkPump()
         sem.Search()
         self.save_image(file)
-        logger.info('Square acquisition finished')
+        self.logger.info('Square acquisition finished')
     
     def buffer_to_numpy(self, buffer:str='A') -> Tuple[np.array, int, int, int, float, float]:
         sem.Delay(1)
         shape_x, shape_y, binning, exposure, pixel_size, _ = sem.ImageProperties(buffer)
-        buffer = sem.bufferImage(buffer)
+        while True:
+            try:
+                buffer = sem.bufferImage(buffer)
+                break
+            except sem.SEMerror:
+                self.logger.error(f"Error getting the buffer image. Trying again.")
+        self.logger.info(f"Downloaded the buffer image successfully.")
         return np.asarray(buffer), shape_x, shape_y, binning, exposure, pixel_size
 
     def numpy_to_buffer(self,image,buffer='T'):
@@ -155,27 +251,30 @@ class SerialemInterface(MicroscopeInterface):
     def realign_to_square(self):
         self.tiltTo(0)
         while True:
-            logger.info('Running square realignment')
+            self.logger.info('Running square realignment')
             sem.Search()
+            sem.Delay(0.2, 's')
             square, shape_x, shape_y, _, _, _ = self.buffer_to_numpy()
             _, square_center, _ = find_square(square)
             im_center = (square.shape[1] // 2, square.shape[0] // 2)
             diff = square_center - np.array(im_center)
-            logger.info(f'Found square center: {square_center}. Image-shifting by {diff} pixels')
+            self.logger.info(f'Found square center: {square_center}. Image-shifting by {diff} pixels')
             sem.ImageShiftByPixels(int(diff[0]), -int(diff[1]))
             sem.ResetImageShift()
             if max(diff) < max(square.shape) // 4:
-                logger.info('Done.')
+                self.logger.info('Done.')
                 sem.Search()
                 break
-            logger.info('Iterating.')
+            self.logger.info('Iterating.')
         return sem.ReportStageXYZ()
 
     def align_to_hole_ref(self):
         sem.View()
+        self.logger.debug(f'Aligning to hole reference. Cropping view image to {self.hole_crop_size}x{self.hole_crop_size}')
         sem.CropCenterToSize('A', self.hole_crop_size, self.hole_crop_size)
+        sem.Delay(0.5)
         sem.AlignTo('T')
-        return sem.ReportAlignShift()[5:]
+        return sem.ReportAlignShift()
     
     def align_to_coord(self, coord):
         sem.ImageShiftByPixels(coord[0], coord[1])
@@ -186,11 +285,15 @@ class SerialemInterface(MicroscopeInterface):
         sem.SetAxisPosition('F', distance, angle)
         self.focus_position_set = True
 
-    def moveStage(self,stage_x,stage_y,stage_z):
+    def moveStage(self,stage_x,stage_y,stage_z=None):
         sem.SetImageShift(0, 0)
-        sem.Echo(f'Moving stage to {stage_x},{stage_y},{stage_z}.')
-        sem.MoveStageTo(stage_x,stage_y,stage_z)
-        self.state.setStage(stage_x,stage_y,stage_z)
+        
+        args = [stage_x, stage_y]
+        if stage_z is not None:
+            args.append(stage_z)
+        self.logger.info(f'Moving stage to {args}.')
+        sem.MoveStageTo(*args)
+        self.state.setStage(*args)
     
     def get_conversion_matrix(self, magIndex=0):
         return sem.CameraToSpecimenMatrix(magIndex)
@@ -202,6 +305,7 @@ class SerialemInterface(MicroscopeInterface):
         self.has_hole_ref = True
 
     def acquire_medium_mag(self):
+        self.state.current_mag = 'hole'
         sem.GoToLowDoseArea('V')
         time.sleep(1)
         self.checkDewars()
@@ -219,16 +323,52 @@ class SerialemInterface(MicroscopeInterface):
         self.acquire_medium_mag()
         self.save_image(file)
 
-    def autofocus(self, def1, def2, step):
-        self.rollDefocus(def1, def2, step)
+    def save_eucentric_focus(self):
+        if self.state.eucentricDefocus is None:
+            sem.SetEucentricFocus()
+            self.state.eucentricDefocus = sem.ReportDefocus()
+
+    def roll_defocus(self, def1, def2, step):
+        sem.GoToLowDoseArea('Record')
+        self.save_eucentric_focus()
+        self._rollDefocus(def1, def2, step)
         sem.SetTargetDefocus(self.state.defocusTarget)
+
+    def autofocus_by_z(self):
+        sem.SetDefocus(self.state.eucentricDefocus)
+        defocus = 99999
+        iteration = 0
+        total_movement = 0
+        while True:
+            iteration += 1
+            self.logger.info(f'Starting iteration {iteration}.')
+            sem.AutoFocus(-1)
+            defocus, error_code = sem.ReportAutoFocus()
+            movement = (defocus - self.state.defocusTarget)*-1
+            if error_code != 0:
+                self.logger.info('Autofocus seems to have failed')
+            if abs(defocus-self.state.defocusTarget) < 0.5:
+                sem.ChangeFocus(movement)
+                break
+            self.logger.info(f'Defocus measured at {defocus:.2f} um, moving stage by {movement:.2f}')
+            sem.MoveStage(0,0, movement)
+            total_movement += movement
+        self.logger.info(f'Autofocus by Z finished after {iteration} iterations and a total movement of {total_movement:.2f}')
+ 
+
+    def autofocus(self, def1, def2, step):
         sem.AutoFocus()
+        defocus, error_code = sem.ReportAutoFocus()
+        self.state.add_to_last_five_defocus(defocus)
+        if error_code in [1,2,3,-1]:
+            self.logger.error(f'Autofocus failed with error code {error_code}.')
+            
         self.state.currentDefocus = sem.ReportDefocus()
         self.state.set_last_autofocus_position()
 
     def wait_drift(self, drifTarget):
         if drifTarget > 0:
-            sem.DriftWaitTask(drifTarget, 'A', 300, 10, -1, 'T', 1)
+            sem.DriftWaitTask(drifTarget, 'A', 300, 10, -1, 'F', 1)
 
     def connect(self):
         logger.info(
@@ -246,23 +386,36 @@ class SerialemInterface(MicroscopeInterface):
 
     def setup(self, saveframes:bool, grid_dir:str='', framesName=None):
         if saveframes:
-            logger.info('Saving frames enabled')
+            self.logger.info('Saving frames enabled')
             sem.SetDoseFracParams('P', 1, 1, 0)
             movies_directory = PureWindowsPath(self.detector.framesDir, grid_dir).as_posix().replace('/', '\\')
-            logger.info(f'SerialEM will be saving frames to {movies_directory}')
+            self.logger.info(f'SerialEM will be saving frames to {movies_directory}')
             sem.SetFolderForFrames(movies_directory)
             if framesName is not None:
                 sem.SetFrameBaseName(0, 1, 0, framesName)
         else:
-            logger.info('Saving frames disabled')
-            sem.SetDoseFracParams('P', 1, 0, 1)
+            self.logger.info('Saving frames disabled')
+            sem.SetDoseFracParams('P', 1, 0, 0)
 
         sem.KeepCameraSetChanges('P')
         sem.SetLowDoseMode(1)
+        sem.SetBufferImageTimeout(5)
 
     def refineZLP(self, zerolossDelay:float):
-        if self.detector.energyFilter and zerolossDelay > 0:
-            sem.RefineZLP(zerolossDelay * 60)
+        if not self.detector.energyFilter:
+            return
+        if zerolossDelay < 0:
+            self.logger.info('Refine ZLP disabled')
+            return
+        if self.state.last_refine_zlp_success:
+            zerolossDelay = 0
+        success = sem.RefineZLP(zerolossDelay * 60, 0, 0, 1)
+        self.state.last_refine_zlp_success = True if success == 0 else False
+        if self.state.last_refine_zlp_success:
+            self.logger.info('Refine ZLP successful')
+            return
+        self.logger.info('Refine ZLP failed. Will try again after the next area')
+            
     
     def collectHardwareDark(self, harwareDarkDelay:int):
         if harwareDarkDelay > 0:
@@ -270,7 +423,7 @@ class SerialemInterface(MicroscopeInterface):
 
     def disconnect(self, close_valves=True):
         
-        logger.info("Closing Valves and disconnecting from SerialEM")
+        self.logger.info("Closing Valves and disconnecting from SerialEM")
         if close_valves:
             try:
                 sem.SetColumnOrGunValve(0)
@@ -290,12 +443,12 @@ class SerialemInterface(MicroscopeInterface):
             if slot_status == -1:
                 raise ValueError(f'SerialEM return an error when reading slot {position} of the autoloader.')
             if slot_status == 1:
-                logger.info(f'Autoloader position is occupied')
-                logger.info(f'Loading grid {position}')
+                self.logger.info(f'Autoloader position is occupied')
+                self.logger.info(f'Loading grid {position}')
                 sem.Delay(5)
                 sem.SetColumnOrGunValve(0)
                 sem.LoadCartridge(position)
-            logger.info(f'Grid {position} is loaded')
+            self.logger.info(f'Grid {position} is loaded')
             sem.Delay(5)
             slot_status = sem.ReportSlotStatus(position)
             #This was added to support the new 4.1 2023-02-27 version 
@@ -304,7 +457,14 @@ class SerialemInterface(MicroscopeInterface):
                 slot_status = slot_status[0]
             if  slot_status != 0:
                 raise CartridgeLoadingError('Cartridge did not load properly. Stopping')
+        # sem.SetColumnOrGunValve(1)
+
+    def open_valves(self):
+        sem.Delay(2)
         sem.SetColumnOrGunValve(1)
+
+    def zero_image_shift(self):
+        return sem.SetImageShift(0,0)
 
     def reset_image_shift(self):
         return sem.ResetImageShift()
@@ -320,11 +480,20 @@ class SerialemInterface(MicroscopeInterface):
         if afis:
             sem.RestoreBeamTilt()
 
-    def image_shift_by_microns(self,isX,isY,tiltAngle, afis:bool=False):
-        sem.GoToLowDoseArea('Record')
-        sem.ImageShiftByMicrons(isX - self.state.imageShiftX, isY - self.state.imageShiftY, 1, int(afis))
-        self.state.imageShiftX = isX
-        self.state.imageShiftY = isY
+    def image_shift_by_microns(self,isX,isY,tiltAngle, afis:bool=False, goToRecord=True, delay_multiplier=1, additional_delay=0):
+        self.logger.debug(f'Image shift by microns: {isX}, {isY}, {tiltAngle}, {afis}, {goToRecord}, {delay_multiplier}, {additional_delay}')
+        if goToRecord:
+            sem.GoToLowDoseArea('Record')
+        sem.ImageShiftByMicrons(isX - self.state.imageShiftX, isY - self.state.imageShiftY, delay_multiplier, int(afis))
+        if goToRecord:
+            self.state.imageShiftX = isX
+            self.state.imageShiftY = isY
+        if additional_delay > 0:
+            time.sleep(additional_delay)
+
+    def set_focus_for_bis_tilt(self,isY,tiltAngle):
+        if tiltAngle == 0:
+            return
         sem.SetDefocus(self.state.currentDefocus - isY * math.sin(math.radians(tiltAngle)))     
 
     def highmag(self, file='', frames=True, earlyReturn=False):
@@ -344,36 +513,70 @@ class SerialemInterface(MicroscopeInterface):
                 # Workaround since the output of the ReportFrame 
                 # command changed in 4.0, need to test ans simplify
                 frames = frames[0]
-            logger.debug(f"Frames: {frames},")
+            self.logger.debug(f"Frames: {frames},")
             return frames.split('\\')[-1]
         
     def get_property(self, property_name:str):
         return sem.ReportProperty(property_name)
     
-    def _remove_aperture(self, aperture:int):
-        if sem.ReportApertureSize(aperture) != 0:
-            sem.RemoveAperture(aperture)
-    
-    def _reinsert_aperture(self, aperture:int):
-        if sem.ReportApertureSize(aperture) == 0:
-            sem.ReInsertAperture(aperture)
+
+    def report_aperture_size(self, aperture:int):
+        aperture_size = self.state.get_aperture_state(aperture)
+        if not aperture_size is None:
+            return aperture_size
+        aperture_size = int(sem.ReportApertureSize(aperture))
+        self.state.set_aperature_state(aperture, aperture_size)
+        return aperture_size
+           
+    def remove_aperture(self,aperture:int, wait:int=10):
+        inital_aperture_size = self.report_aperture_size(aperture)
+        if inital_aperture_size == 0:
+            self.logger.info( f'Aperture {aperture} already out.')
+            return
+        self.logger.info( f'Removing aperture {aperture} and waiting {wait}s.')
+        sem.RemoveAperture(aperture)
+        self.state.set_aperature_state(aperture, 0)
+        time.sleep(wait)
+        
+    def insert_aperture(self, aperture:int, aperture_size:int, wait:int=10):
+        if self.report_aperture_size(aperture) == aperture_size:
+            self.logger.info( f'Aperture {aperture} already at {aperture_size}.')
+            return
+        self.logger.info( f'Inserting/Changing aperture {aperture} to {aperture_size} and waiting {wait}s.')
+        sem.SetApertureSize(aperture, aperture_size)
+        time.sleep(wait)
+        self.state.set_aperature_state(aperture, aperture_size)
+
+    def set_apertures_for_highmag(self, highmag_aperture_size:int, objective_aperture_size:int):
+        if not self.microscope.apertureControl:
+            return
+        self.insert_aperture(self.apertures.OBJECTIVE, objective_aperture_size)
+        self.insert_aperture(self.apertures.CONDENSER, highmag_aperture_size)
+
+    def set_apertures_for_lowmag(self):
+        if not self.microscope.apertureControl:
+            return
+        self.remove_aperture(self.apertures.OBJECTIVE)
+        if self.atlas_settings.atlas_c2_aperture == 0:
+            self.remove_aperture(self.apertures.CONDENSER)
+            return
+        self.insert_aperture(self.apertures.CONDENSER, self.atlas_settings.atlas_c2_aperture)
 
     def autofocus_after_distance(self, def1, def2, step, distance):
         last_autofocus_distance = self.state.get_last_autofocus_distance()
         if last_autofocus_distance > distance:
-            logger.info(f'Last autofocus distance was {last_autofocus_distance} um (Threshold {distance} um), running autofocus')
+            self.logger.info(f'Last autofocus distance was {last_autofocus_distance} um (Threshold {distance} um), running autofocus')
             return self.autofocus(def1, def2, step)
-        logger.debug(f'Last autofocus distance was {last_autofocus_distance} um (Threshold {distance} um), skipping autofocus.')
+        self.logger.debug(f'Last autofocus distance was {last_autofocus_distance} um (Threshold {distance} um), skipping autofocus.')
         defocus_target = self.state.defocusTarget
         current_defocus = self.state.currentDefocus
-        new_defocus_target = self.rollDefocus(def1, def2, step)
+        new_defocus_target = self._rollDefocus(def1, def2, step)
         defocus_change = new_defocus_target - defocus_target
-        logger.debug(f'Last defocus target: {defocus_target}. New defocus target: {defocus_target}. Change: {defocus_change}')
+        self.logger.debug(f'Last defocus target: {defocus_target}. New defocus target: {defocus_target}. Change: {defocus_change}')
         sem.SetTargetDefocus(new_defocus_target)
         self.state.currentDefocus += defocus_change
-        logger.debug(f'Current defocus: {current_defocus}. New current defocus: {self.state.currentDefocus}')
+        self.logger.debug(f'Current defocus: {current_defocus}. New current defocus: {self.state.currentDefocus}')
         if defocus_change != 0:
             sem.ChangeFocus(defocus_change)
             return
 
-    # def _set_aperture_size(self, aperture:int, aperture_size:int):

@@ -1,6 +1,6 @@
 import logging
 from pathlib import Path
-
+from django.utils import timezone
 from .base_model import *
 
 from .custom_paths import CustomUserPath, CustomGroupPath
@@ -54,7 +54,7 @@ class ScreeningSession(BaseModel):
     from .microscope import Microscope
     from .detector import Detector
     
-    session = models.CharField(max_length=30)
+    session = models.CharField(max_length=60)
     user = models.ForeignKey(User, null=True, default=None, on_delete=models.SET_NULL, to_field='username')
     group = models.ForeignKey(
         Group,
@@ -77,11 +77,13 @@ class ScreeningSession(BaseModel):
     )
     working_dir = models.CharField(max_length=300, editable=False)
     session_id = models.CharField(max_length=30, primary_key=True, editable=False)
+    creation_time = models.DateTimeField(null=True, default=None)
 
     objects = ScreeningSessionManager()
 
     class Meta(BaseModel.Meta):
         db_table = "screeningsession"
+        ordering = ['-creation_time']
 
     @property
     def directory(self):
@@ -116,9 +118,19 @@ class ScreeningSession(BaseModel):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         if not self.session_id:
-            if not self.date:
-                self.date = datetime.today().strftime('%Y%m%d')
+            # if not self.date:
+            #     self.date = datetime.today().strftime('%Y%m%d')
+            self.creation_time = timezone.now()
             self.session_id = generate_unique_id(extra_inputs=[self.date, self.session])
+        ##This is to handle every field that were not set prior to 0.9.4
+        elif self.creation_time is None:
+            date = datetime.strptime(self.date, '%Y%m%d')
+            self.creation_time = timezone.make_aware(date, timezone.get_current_timezone())
+            logger.debug(f'Setting creation time for {self} to {self.creation_time}')
+            self.save()
+
+
+
     
     @property
     def working_directory(self):

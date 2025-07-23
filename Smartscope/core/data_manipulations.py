@@ -1,11 +1,11 @@
 
-from typing import List, Optional, Dict
+from typing import List, Optional
 import logging
 import random
-from copy import copy
+from functools import partial
 from Smartscope.lib.image.target import Target
 from smartscope_connector.Datatypes.querylist import QueryList
-from Smartscope.core.selector_sorter import SelectorSorter, SelectorValueParser, initialize_selector
+from Smartscope.core.selector_sorter import initialize_selector
 from Smartscope.core.settings.worker import PLUGINS_FACTORY
 import numpy as np
 
@@ -59,70 +59,109 @@ def choose_get_index(lst, value):
     if indices == []:
         return None
     choice = random.choice(indices)
-    del lst[choice]
     return choice
 
 
-def filter_out_of_range(target):
-    return 0 if target.is_out_of_range() else 1
+def filter_out_of_range(target,stage_radius_limit:int = 975, offset_x:float=0, offset_y:float=0):
+    return str(int(target.is_position_within_stage_limits(stage_radius_limit, offset_x, offset_y))) + "_"
 
+def count_filtered(filtered, value:str="0"):
+    return len(list(filter(lambda x: x == value, filtered)))
 
-def filter_targets(parent, targets):
+def add_selector_to_score_string(score, selector_class):
+    return score + str(selector_class)
+
+def filter_targets(parent, targets, stage_radius_limit:int = 975, offset_x:float=0, offset_y:float=0):
     classifiers = get_target_methods(targets, 'classifiers')
     selectors = get_target_methods(targets, 'selectors')
 
     ##Filter out of range targets
-    filtered = list(map(filter_out_of_range, targets))
-    logger.debug(f'Filtering {len(filtered)} targets.')
-    
-    for classifier in classifiers:
-        for ind, target in enumerate(targets):
-            if filtered[ind] == 0:
-                continue
-            t_classifiers = target.classifiers
-            if not isinstance(t_classifiers, list):
-                t_classifiers = list(t_classifiers.all())
+    filter_oor_partial = partial(filter_out_of_range, stage_radius_limit=stage_radius_limit, offset_x=offset_x, offset_y=offset_y)
+    filtered = list(map(filter_oor_partial, targets))
+    logger.debug(f'Number of targers: {len(filtered)}. Number of targets out of range: {count_filtered(filtered)}')
+    # for classifier in classifiers:
+    for ind, target in enumerate(targets):
+        # if '0' in filtered[ind]:
+        #     continue
+        t_classifiers = target.classifiers
+        if not isinstance(t_classifiers, list):
+            t_classifiers = list(t_classifiers.all())
+        for classifier in classifiers:
             label = next(filter(lambda x: x.method_name == classifier, t_classifiers),None)
             if label is None:
                 continue
-            if PLUGINS_FACTORY.get_plugin(classifier).classes[label.label].value <= 0:
-                filtered[ind] = 0
-                continue
-
-    filtered = np.array(filtered)
+            value = PLUGINS_FACTORY.get_plugin(classifier).classes[label.label].value
+            if value <= 0:
+                filtered[ind] += '0'
+            else:
+                filtered[ind] += str(value)
+        filtered[ind] += "_"
+    logger.debug(f'Filtered classes against classifiers {classifiers}: {filtered}')            
+    # filtered = np.array(filtered)
     for selector in selectors:
         sorter = initialize_selector(parent.grid_id, selector, targets)
-        filtered *= np.array(sorter.classes)
+        filtered = list(map(add_selector_to_score_string, filtered, sorter.classes))
     logger.debug(f'Filtered classes against classifiers {classifiers} and selectors {selectors}: {filtered}')
     
-    return filtered.tolist()
+    return filtered
 
 def apply_filter(targets, filtered):
-    return [target for target, filt in zip(targets, filtered) if filt > 0]
+    # for target, filt in zip(targets, filtered):
+    #     if '0' in filt:
+    #         continue
+    #     yield target
+    return [target for target, filt in zip(targets, filtered) if '0' not in filt]
 
-def select_random_areas(targets, filtered, n):
-    filtered_set = set(filtered)
-    if filtered_set == {0} or len(filtered_set) == 0:
-        return []
-    filtered_set.discard(0) 
+def prepare_filtered_set(filters)-> set:
+    filtered_set = set(filters)
+    return {s for s in filtered_set if '0' not in s}
+
+
+def select_random_areas(targets, filtered, n, output=None):
+    filtered_set = prepare_filtered_set(filtered)
+    if len(filtered_set) == 0:
+        return filtered_set if output is None else output
+    output = [] if output is None else output
     logger.debug(f'Selecting from {len(filtered_set)} subsets.')
     choices = randomized_choice(filtered_set, n)
     logger.debug(f'Randomized choices: {choices}')
-    output = []
     for choice in choices:
+        assert len(targets) == len(filtered), f'Length of targets {len(targets)} and filtered {len(filtered)} do not match.'
         ind = choose_get_index(filtered, choice)
         if ind is None:
             break
-        output.append(targets[ind])
+        selection = targets[ind]
+        assert '0' not in filtered[ind], f'Filtered value {filtered[ind]} for target {selection} is not valid.'
+        del filtered[ind]
+        del targets[ind]
+        output.append(selection)
+    if len(output) < n:
+        logger.debug(f'Not enough valid targets from {filtered_set}, {len(output)} selected, {n} required. Selecting more.')
+        n = n - len(output)
+        return select_random_areas(targets, filtered, n, output)
     return output
+
+def prune_targets(targets, filtered, **extra_filters):
+    def filter_func(target, filt):
+        for key, value in extra_filters.items():
+            if getattr(target, key) != value:
+                return '_0'
+        return '_1'
+
+    for ind, target in enumerate(targets):
+        filtered[ind] += filter_func(target, filtered[ind])
+    return targets, filtered
 
 def select_n_areas(parent, n, is_bis=False):
     additional_filters = dict()
     if is_bis:
         additional_filters['bis_type'] = 'center'
-    additional_filters['status__isnull'] = True
-    targets = list(parent.targets.filter(**additional_filters))
+    additional_filters['status'] = None
+    targets = list(parent.targets.all())
     filtered= filter_targets(parent, targets)
+    targets,filtered = prune_targets(targets, filtered, **additional_filters)
+    logger.debug(f'Filtered targets: {len(filtered)}, {filtered}')
+    assert len(targets) == len(filtered), f'Length of targets {len(targets)} and filtered {len(filtered)} do not match.'
     if n <=0:
         return apply_filter(targets, filtered)
     return select_random_areas(targets, filtered, n)

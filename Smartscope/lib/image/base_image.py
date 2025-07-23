@@ -8,6 +8,7 @@ import numpy as np
 import pandas as pd
 
 from .temporary_s3_file import TemporaryS3File
+from .process_image import ProcessImage
 
 import logging
 logger = logging.getLogger(__name__)
@@ -47,7 +48,9 @@ class BaseImage(ABC):
 
     @image_path.setter
     def image_path(self, value):
-        self._image_path = value
+        self._image_path = Path(value)
+
+
 
     @property
     def metadataFile(self):
@@ -55,7 +58,7 @@ class BaseImage(ABC):
 
     @metadataFile.setter
     def metadataFile(self, value):
-        self._metadataFile = value
+        self._metadataFile = Path(value)
 
     @property
     def image(self):
@@ -66,6 +69,10 @@ class BaseImage(ABC):
             by using the BaseImage.read_image() or Montage.
             build_montage() method first
         ''')
+    
+    @image.setter
+    def image(self, value:np.ndarray):
+        self._image = value
 
     @property
     def png(self):
@@ -138,7 +145,16 @@ class BaseImage(ABC):
 
     @property
     def pixel_size(self):
+        #REMOVED THIS FOR NOW. IT SEEMS BUGGY
+        # if 'ImageToStageMatrix' in self.metadata.iloc[-1].keys():
+        #     pixel_size = ProcessImage.pixel_spacing_from_vectors(self.metadata.iloc[-1].ImageToStageMatrix)
+        #     logger.info(f'Calculated ImageToStageMatrix to calculate pixel size. Calculated Pixel size: {pixel_size}. Metadata Pixel size: {self.metadata.iloc[0].PixelSpacing}')
+        #     return ProcessImage.pixel_spacing_from_vectors(self.metadata.iloc[-1].ImageToStageMatrix)
         return self.metadata.iloc[0].PixelSpacing
+    
+    @property
+    def pixel_size_micron(self):
+        return self.pixel_size / 10_000
 
 
     def read_data(self):
@@ -192,6 +208,8 @@ class BaseImage(ABC):
         logger.debug(f'Relative path from {self.directory} to raw = {relative}')
         os.symlink(relative, self.image_path)
 
+    def __str__(self):
+        return f'{self.name}'
 
     # import imutils
     # def downsample(self, scale=2) -> np.ndarray:

@@ -119,7 +119,7 @@ function validateForm(event) {
     }
 
 
-    if (form.checkValidity() === false) {
+    if (form.checkValidity() === false | has_error) {
         event.preventDefault();
         event.stopPropagation();
         form.classList.add('was-validated');

@@ -47,6 +47,9 @@ if USE_LONGTERMSTORAGE:
 else:
     AUTOSCREENSTORAGE = None
 
+TAGS_FEATURE_FLAG = eval(os.getenv('TAGS_FEATURE_FLAG', 'False'))
+TRAINING_ANNOTATOR_FEATURE_FLAG = eval(os.getenv('TRAINING_FEATURE_FLAG', 'False'))
+
 INSTALLED_APPS = [
     'daphne',
     'django.contrib.admin',
@@ -64,6 +67,7 @@ INSTALLED_APPS = [
     'Smartscope.core.settings.apps.Frontend',
     'Smartscope.core.settings.apps.API',
     'Smartscope.server.selector_viewer',
+    'Smartscope.server.annotator',
 ]
 
 MIDDLEWARE = [

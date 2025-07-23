@@ -63,7 +63,7 @@ def save_protocol(protocol, file='protocol.yaml'):
         yaml.dump(protocol.dict(), f)
 
 def set_protocol(protocol_name:str,protocol_file:Path):
-    protocol = PROTOCOLS_FACTORY[protocol_name]
+    protocol = PROTOCOLS_FACTORY.get_protocol(protocol_name)
     save_protocol(protocol,protocol_file)
     return protocol
 

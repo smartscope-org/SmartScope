@@ -103,10 +103,12 @@ _rlnMicrographMovieName #1
 _rlnOpticsGroup #2
 """
         for (name, group) in micrographs[:, (0, 3)]:
+            if name is None:
+                continue
             if self.extension is not None:
                 name = '.'.join(name.split('.')[:-1]) + self.extension
             name = os.path.join(self.directory, name)
-            string += ' '.join([name, group]) + '\n'
+            string += f'{name} {group}\n'
         return string
 
     def __enter__(self):
@@ -117,7 +119,7 @@ _rlnOpticsGroup #2
         self.file.close()
 
 
-def export_optics(grid_id, mic_directory, mic_extension, mic_type):
+def export_optics(grid_id, mic_directory='Micrographs', mic_extension='tif', mic_type='movie'):
     holes = list(HoleModel.objects.all().filter(grid_id=grid_id, status='completed'))
     hm = list(HighMagModel.objects.all().filter(grid_id=grid_id, status='completed'))
     pixel_size = list(set([entry.pixel_size for entry in hm]))[0]

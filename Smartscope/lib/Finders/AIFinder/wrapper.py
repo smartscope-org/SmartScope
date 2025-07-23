@@ -1,24 +1,29 @@
 import os
 import sys
 import cv2
+from typing import Dict
 import numpy as np
 sys.path.append(os.path.join(os.path.dirname(os.path.abspath(__file__)), 'detectors'))
 
 from .detectors.detect_squares import detect
 from .detectors.detect_holes import detect_holes, detect_and_classify_holes
-from ..basic_finders import find_square_center
+from ..basic_finders import mask_square
 import logging
 import torch
 
-from Smartscope.lib.image_manipulations import fourier_crop
 from Smartscope.lib.image.montage import Montage
+from Smartscope.lib.image_manipulations import convert_to_png, auto_contrast_sigma, fourier_crop
+from Smartscope.lib.mesh_operations import get_mesh_rotation_spacing, closest_to_center, filter_from_center
+from Smartscope.lib.Finders.lattice_extension import generic_lattice_extension
+from Smartscope.lib.image.targets import Targets
+
 logger = logging.getLogger(__name__)
 
 WEIGHT_DIR = os.path.join(os.getenv("TEMPLATE_FILES"), 'weights')
 IS_CUDA = False if eval(os.getenv('FORCE_CPU')) else torch.cuda.is_available() 
 
 
-def find_squares(montage, **kwargs):
+def find_squares(montage, class_map:Dict=None, **kwargs):
     logger.info('Running AI find_squares')
     kwargs['weights'] = os.path.join(WEIGHT_DIR, kwargs['weights'])
     if not IS_CUDA:
@@ -32,33 +37,76 @@ def find_squares(montage, **kwargs):
     squares = [i.numpy() for i in squares]
     return (squares, labels), success, dict()
 
-
-def find_holes(montage:Montage, **kwargs):
+def find_holes_from_image(image, class_map:Dict=None, success_threshold:int=10, scaling_factor=1,  **kwargs):
+   
+    def filter_hole_class(hole):
+        return class_map[hole[-1]].name == 'Hole'
+    
+    center = np.array([image.shape[1]/2, image.shape[0]//2],dtype=int)
     logger.info('Running AI hole detection')
     # centroid = find_square_center(montage.image)
     kwargs['weights_circle'] = os.path.join(WEIGHT_DIR, kwargs['weights_circle'])
     if not IS_CUDA:
         kwargs['device'] = 'cpu'
-    image = montage.image
-    binning=1
-    if montage.pixel_size < 100:
-        logger.info(f'Resizing image')
-        binning = (150/montage.pixel_size)
-        image = fourier_crop(image, height=montage.shape_x/binning)
-        pad_x = int((montage.shape_x - image.shape[0]) //2)
-        pad_y = int((montage.shape_y - image.shape[1]) //2)
-        image = cv2.copyMakeBorder(image,pad_x,pad_x,pad_y,pad_y,cv2.BORDER_CONSTANT,value=0)
-    logger.debug(f'Resized shape: {image.shape}, original: {montage.image.shape}')
-    holes, _ = detect_holes(image, **kwargs)
+
+    all_targets = detect_holes(image, **kwargs)
+    holes = list(filter(lambda x: filter_hole_class(x), all_targets))
+    holes = [np.array(hole[0:-1]) * scaling_factor for hole in holes]
+
     logger.info(f'AI hole detection found {len(holes)} holes')
     success = True
-    if len(holes) < 10:
+    if len(holes) < success_threshold:
         success = False
     logger.debug(f'{holes[0]},{type(holes[0])}')
     
-    holes = [(np.array(hole)-np.array(list(montage.center)*2))*binning + np.array(list(montage.center)*2) for hole in holes]
+    holes = [(np.array(hole)-np.array(list(center)*2)) + np.array(list(center)*2) for hole in holes]
     # logger.debug(f'{holes[0]},{type(holes[0])}')
     return holes, success, dict()
+
+
+def find_holes(montage:Montage, class_map:Dict=None, success_threshold:int=10,  **kwargs):
+    scaling_factor = montage.image.shape[0] / 1024
+    image= convert_to_png(montage.image, height=1024, normalization=auto_contrast_sigma, binning_method=fourier_crop)
+    return find_holes_from_image(image, class_map, success_threshold, scaling_factor=scaling_factor, **kwargs)
+
+def find_holes_from_square(montage:Montage, class_map:Dict=None, success_threshold:int=10,  **kwargs):
+    scaling_factor = montage.image.shape[0] / 1024
+    image= convert_to_png(montage.image, height=1024)
+    image = mask_square(image)
+    return find_holes_from_image(image, class_map, success_threshold, scaling_factor=scaling_factor, **kwargs)
+
+def find_holes_with_lattice(montage, hole_spacing:float, lattice_radius:float, class_map:Dict=None, success_threshold:int=2, **kwargs):
+    """
+    Identifies holes in a montage image using a lattice pattern.
+    Parameters:
+    montage (ndarray): The montage image in which to find holes.
+    class_map (Dict, optional): A dictionary mapping class labels to their respective values. Defaults to None.
+    success_threshold (int, optional): The minimum number of successful detections required to consider the operation successful. Defaults to 10.
+    hole_spacing (float): The spacing between holes in the lattice pattern in microns
+    lattice_radius (float): The radius of the lattice used to find holes in microns.
+    Returns:
+    List[Tuple[int, int]]: A list of coordinates where holes were found.
+    """
+
+    targets, success, _= find_holes(montage, class_map, success_threshold, **kwargs)
+    if not success:
+        return [], success, dict()
+    targets = Targets.create_targets_from_box(targets, montage, force_mdoc=False) ###REPLACE WITH THE ENV VARIABLE
+    expected_spacing = hole_spacing / montage.pixel_size_micron
+    print(f'Expected spacing: {expected_spacing} pixels')
+    lattice_radius_in_pixels = lattice_radius / montage.pixel_size_micron * 1.5
+    rotation, spacing = get_mesh_rotation_spacing(np.array([target.coords for target in targets]), expected_spacing)
+    logger.debug(f'Calculated hole geometry for grid {montage} with {len(targets)} holes and mesh spacing: {spacing} um. Pixel size of {montage}: {montage.pixel_size} A.\n Calculated rotation: {rotation}\n Calculated spacing: {spacing}')
+    lattice = generic_lattice_extension([t.coords for t in targets], np.array([lattice_radius_in_pixels,lattice_radius_in_pixels]), rotation, spacing, offset=montage.center)
+    transposed = lattice.T
+    logger.debug(f'Transposed lattice shape ({transposed.shape}):\n{transposed}')
+    closest_lattice_point_to_center = closest_to_center(transposed, montage.center)
+    filtered_lattice_from_center = filter_from_center(transposed, transposed[closest_lattice_point_to_center], lattice_radius_in_pixels)
+    logger.debug(f'Extended lattice from {len(targets)} to {len(filtered_lattice_from_center)} holes using lattice extension\n{filtered_lattice_from_center}')
+    # targets = Targets.create_targets_from_center(lattice, montage, force_mdoc=False,convert_to_stage=False) ###REPLACE WITH THE ENV VARIABLE
+    return filtered_lattice_from_center, True, {'rotation': rotation, 'spacing': spacing}
+
+    
 
 
 def find_and_classify_holes(montage, **kwargs):

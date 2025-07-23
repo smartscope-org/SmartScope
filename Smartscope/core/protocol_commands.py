@@ -1,5 +1,4 @@
 from typing import Dict
-from math import cos, radians
 from random import random
 import numpy as np
 import logging
@@ -32,16 +31,21 @@ def call(scope:MicroscopeInterface,params,instance, content:Dict, *args, **kwarg
     script = content.get('script', None)
     assert script is not None, 'No script was specified'
     scope.call(script=script)
+    return instance
 
 def callFunction(scope:MicroscopeInterface,params,instance, content:Dict, *args, **kwargs) -> None:
     """Calls any function that is saved in the SerialEM scripts."""
     function = content.get('function', None)
     assert function is not None, 'No function was specified'
     scope.call_function(function=function, *args)
+    return instance
 
 def atlas(scope:MicroscopeInterface,params,instance, content:Dict, *args, **kwargs)  -> None:
     """Collects and atlas of X by Y tiles from the collection parameters using the Montage command"""
     scope.atlas(size=[params.atlas_x,params.atlas_y],file=instance.raw)
+
+def atlasInLowDoseSearch(scope:MicroscopeInterface,params,instance, content:Dict, *args, **kwargs)  -> None:
+    scope.atlas_in_low_dose_search(size=[params.atlas_x,params.atlas_y],file=instance.raw)
 
 def realignToSquare(scope:MicroscopeInterface,params,instance, content:Dict, *args, **kwargs)  -> None:
     """Realigns to the square using the Search magnification. 
@@ -60,15 +64,17 @@ def moveStage(scope:MicroscopeInterface,params,instance, content:Dict, *args, **
     """Moves the stage to the instance position"""
     finder = instance.finders.first()
     stage_x, stage_y, stage_z = finder.stage_x, finder.stage_y, finder.stage_z
-    scope.moveStage(stage_x,stage_y,stage_z)
+    scope.moveStage(stage_x,stage_y,stage_z=stage_z)
 
 def moveStageWithAtlasToSearchOffset(scope:MicroscopeInterface,params,instance, content:Dict, *args, **kwargs)  -> None:
     """Moves the stage to the instance position with an offset"""
     offset_x = scope.atlas_settings.atlas_to_search_offset_x
     offset_y = scope.atlas_settings.atlas_to_search_offset_y
     finder = instance.finders.first()
-    stage_x, stage_y, stage_z = finder.stage_x, finder.stage_y, finder.stage_z
-    scope.moveStage(stage_x+offset_x,stage_y+offset_y,stage_z)
+    stage_args = [finder.stage_x + offset_x, finder.stage_y + offset_y]
+    if instance.prefix.lower() != 'square':
+        stage_args.append(finder.stage_z)
+    scope.moveStage(*stage_args)
 
 def autoFocus(scope:MicroscopeInterface,params,instance, content:Dict, *args, **kwargs) :
     """Acquires the focus drift image using the Search preset."""
@@ -95,6 +101,10 @@ def eucentricMediumMag(scope:MicroscopeInterface,params,instance, content:Dict, 
     """Calculates eucentricity using the View preset. Equivalent to Eucentric Rough."""
     scope.eucentricity()
 
+def eucentricByBeamTilt(scope:MicroscopeInterface,params,instance, content:Dict, *args, **kwargs) :
+    """Calculates eucentricity using the View preset using beam tilt instead of stage tilt. Equivalent to Eucentric Rough."""
+    scope.eucentricity_by_focus()
+
 def mediumMagHole(scope:MicroscopeInterface,params,instance, content:Dict, *args, **kwargs) :
     """Acquires the hole at the View preset."""
     scope.medium_mag_hole(file=instance.raw)
@@ -108,12 +118,16 @@ def alignToHoleRef(scope:MicroscopeInterface,params,instance, content:Dict, *arg
     iteration = 0
     while iteration < max_iterations:
         iteration +=1
+        if iteration > 1:
+            scope.image_shift_by_microns(0.2,0, tiltAngle=params.tilt_angle, goToRecord=False)
         shift = scope.align_to_hole_ref()
-        if np.sqrt(np.sum(np.array(shift)**2)) < 700:
+        if np.sqrt(np.sum(np.array(shift[:5])**2)) < 500:
             return
         scope.reset_image_shift()
     logger.warning(f'It seems like the hole realignment did not converge after {max_iterations} iterations.')
 
+def zeroImageShift(scope:MicroscopeInterface,params,instance, content:Dict, *args, **kwargs):
+    scope.zero_image_shift()
 
 def loadHoleRef(scope:MicroscopeInterface,params,instance, content:Dict, *args, **kwargs) :
     """Loads the references/holeref.mrc image into buffer T to be used as hole template for the alignToHoleRef command."""
@@ -128,6 +142,9 @@ def highMag(scope:MicroscopeInterface, params,instance, content:Dict, *args, **k
     
     Also automatically corrects defocus and image-shift based on the tilt angle.
     """
+    delay_multiplier = content.get('delay_multiplier', 1)
+    additional_delay = content.get('additional_delay', 0)
+
     finder = instance.finders.first()
     stage_x, stage_y, _ = scope.report_stage()
     grid = instance.grid_id
@@ -136,9 +153,11 @@ def highMag(scope:MicroscopeInterface, params,instance, content:Dict, *args, **k
     offset = 0
     if params.offset_targeting and not params.multishot_per_hole and (grid.collection_mode == 'screening' or params.offset_distance != -1) and grid_type.hole_size is not None:
         offset = add_IS_offset(grid_type.hole_size, grid_mesh.name, offset_in_um=params.offset_distance)
-    isX, isY = stage_x - finder.stage_x + offset, (stage_y - finder.stage_y) * cos(radians(params.tilt_angle))
+    isX, isY = stage_x - finder.stage_x + offset, (stage_y - finder.stage_y) #* cos(radians(params.tilt_angle))
     logger.debug(f'The tilt angle is {params.tilt_angle}, Y axis image-shift corrected from {stage_y - finder.stage_y:.2f} to {isY:.2f}')
-    scope.image_shift_by_microns(isX,isY,params.tilt_angle, afis=params.afis)
+    scope.image_shift_by_microns(isX,isY,params.tilt_angle, afis=params.afis, delay_multiplier=delay_multiplier, additional_delay=additional_delay)
+    # logger.debug(f'Image shift is {isX},{isY}.')
+    scope.set_focus_for_bis_tilt(isY,tiltAngle=params.tilt_angle)
     frames = scope.highmag(file=instance.raw, 
                            frames=params.save_frames, 
                            earlyReturn=any([params.force_process_from_average, params.save_frames is False, 'Falcon' in grid.session_id.detector_id.detector_model]))
@@ -201,6 +220,69 @@ def autoFocusAfterDistance(scope:MicroscopeInterface,params,instance, content:Di
         distance
         )
 
+def set_apertures_for_highmag(scope:MicroscopeInterface,params,instance, content:Dict, *args, **kwargs) :
+    """Sets the apertures for the highmag image."""
+    scope.set_apertures_for_highmag(
+        highmag_aperture_size=params.highmag_aperture_size,
+        objective_aperture_size=params.objective_aperture_size
+    )
+
+def set_apertures_for_lowmag(scope:MicroscopeInterface,params,instance, content:Dict, *args, **kwargs) :
+    scope.set_apertures_for_lowmag()
+
+def createHoleRef(scope,params,instance, content:Dict, *args, **kwargs):
+    from Smartscope.core.grid.finders import create_hole_ref_from_image
+    if scope.has_hole_ref:
+        return
+    scope.acquire_medium_mag()
+    image, _, _, _, _, pixel_size = scope.buffer_to_numpy()
+    average = create_hole_ref_from_image(image, pixel_size, instance.grid_id.holeType.hole_size)
+    scope.numpy_to_buffer(average)
+    scope.hole_crop_size = average.shape[0]
+    scope.has_hole_ref = True
+
+def alignToHoleNoTemplate(scope,params,instance, content:Dict, *args, **kwargs):
+    """
+    Aligns the hole using Ptolemy instead of a hole reference image. Slower but very precise
+    """
+
+    from Smartscope.lib.image.base_image import BaseImage
+    from Smartscope.core.grid.finders import find_targets
+    from Smartscope.core.db_manipulations import set_or_update_refined_finder
+    iteration = 0
+    while iteration < 2:
+        scope.acquire_medium_mag()
+        pixel_size = scope.get_image_settings()
+        image, _, _, _, _, pixel_size = scope.buffer_to_numpy()
+        montage = BaseImage('recentering')
+        montage.image = image
+        targets = find_targets(montage, ['Medium Mag AI hole finder'], convert_to_stage=False)[0]
+
+        coords_from_center = np.array([[target.x,target.y] for target in targets]) - np.array([montage.shape_x,montage.shape_y])//2
+        dist_to_center = np.sqrt(np.sum(np.power(coords_from_center,2),axis=1))
+        closest_index = np.argmin(dist_to_center)
+        if dist_to_center[closest_index] * pixel_size < 500: # 500 nm
+            set_or_update_refined_finder(instance.pk,*scope.report_stage())
+            break
+        iteration += 1
+        scope.align_to_coord(coords_from_center[closest_index])
+
+def refineOpticsForHighMag(scope,params,instance, content:Dict, *args, **kwargs):
+    if scope.state.current_mag in ['atlas','square']:
+        scope.recenter_beam(interval_in_minutes=0)
+        if params.zeroloss_delay != -1:
+            scope.refineZLP(zerolossDelay=0)
+
+def rollDefocus(scope,params,instance, content:Dict, *args, **kwargs):
+    scope.roll_defocus(
+        params.target_defocus_min,
+        params.target_defocus_max,
+        params.step_defocus,
+    )
+
+def autofocusByZ(scope,params,instance, content:Dict, *args, **kwargs):
+    scope.autofocus_by_z()
+
 
 protocolCommandsFactory = dict(
     setAtlasOptics=setAtlasOptics,
@@ -211,19 +293,29 @@ protocolCommandsFactory = dict(
     call=call,
     callFunction=callFunction,
     atlas=atlas,
+    atlasInLowDoseSearch=atlasInLowDoseSearch,
     realignToSquare=realignToSquare,
     square=square,
     moveStage=moveStage,
     moveStageWithAtlasToSearchOffset=moveStageWithAtlasToSearchOffset,
     eucentricSearch=eucentricSearch,
     eucentricMediumMag=eucentricMediumMag,
+    createHoleRef=createHoleRef,
+    eucentricByBeamTilt=eucentricByBeamTilt,
     mediumMagHole=mediumMagHole,
     tiltToAngle=tiltToAngle,
     alignToHoleRef=alignToHoleRef,
+    alignToHoleNoTemplate=alignToHoleNoTemplate,
     loadHoleRef=loadHoleRef,
     highMag=highMag,
     setFocusPosition=setFocusPosition,
+    setAperturesForHighMag=set_apertures_for_highmag,
+    setAperturesForLowMag=set_apertures_for_lowmag,
+    refineOpticsForHighMag=refineOpticsForHighMag,
     autoFocus=autoFocus,
     autoFocusAfterDistance=autoFocusAfterDistance,
-    waitDrift=waitDrift
+    waitDrift=waitDrift,
+    zeroImageShift=zeroImageShift,
+    rollDefocus=rollDefocus,
+    autofocusByZ=autofocusByZ,
 )

@@ -37,6 +37,17 @@ def extract_from_image(image, center: np.array, apix: float, box_size: float = 2
         overLimits = True
     return image[topleft[1]:botright[1], topleft[0]:botright[0]], apix, box_size, topleft, overLimits
 
+def extract_box_from_radius(image:np.array, x,y , radius: float, apix: float=-1.0):
+    if apix != -1.0:
+        radius = int(radius//apix)
+    up = max([0, y - radius])
+    left = max([0, x - radius])
+    down = min([image.shape[0], y + radius])
+    right = min([image.shape[1], x + radius])
+
+    
+    return image[up:down, left:right]
+
 
 def to_8bits(image):
     img = image.astype('float64')
@@ -99,6 +110,15 @@ def save_image(img, filename, extension='png', resize_to: int = None, destinatio
     cv2.imwrite(file, img)
 
 
+def convert_to_png(
+        image,
+        height=1024,
+        normalization=auto_contrast,
+        binning_method=imutils.resize
+    ) -> Path:
+    return normalization(binning_method(image, height=height))
+
+
 def export_as_png(
         image,
         output,
@@ -106,7 +126,7 @@ def export_as_png(
         normalization=auto_contrast,
         binning_method=imutils.resize
     ) -> Path:
-    resized = normalization(binning_method(image, height=height))
+    resized = convert_to_png(image, height=height, normalization=normalization, binning_method=binning_method)
     cv2.imwrite(str(output), resized)
     return output
 
@@ -226,6 +246,12 @@ def auto_canny(image, limits=None, sigma=0.33, dilation=5):
         dilated = cv2.dilate(edged, kernel, iterations=1)
         erosion = cv2.erode(dilated, kernel, iterations=1)
         return erosion, lower, upper
+
+def encode_image(image:np.ndarray):
+    
+    _, buffer = cv2.imencode('.png', to_8bits(image))
+    return base64.b64encode(buffer).decode('utf-8')
+
 
 def embed_image(path):
     mimeType = 'image/png'

@@ -34,6 +34,7 @@ urlpatterns = [
     path('sidepanel/', SidePanel.as_view()),
     path('report/', ReportPanel.as_view()),
     path('plugins/', PluginView.as_view()),
+    path('protocols/', ProtocolView.as_view()),
     # path('squares', SquareListView.as_view())
 ]
 

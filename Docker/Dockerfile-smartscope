@@ -1,4 +1,4 @@
-FROM smartscope-base-test
+FROM 20241029-base
 
 ARG VERSION='0.8-rc.2'
 ARG BRANCH='stable'
@@ -47,7 +47,7 @@ ENV PATH=$PATH:/opt/smartscope/Smartscope/bin:/usr/local/IMOD/bin
 
 COPY --link Template_files/ /opt/Template_files/
 COPY --link ctffind /opt/
-COPY --link miniconda3/ /opt/miniconda3/
+COPY --link miniforge3/ /opt/miniforge3/
 COPY smartscope/ /opt/smartscope/
 COPY external_plugins/ /opt/external_plugins/
 COPY Smartscope-connector /opt/Smartscope-connector/

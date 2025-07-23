@@ -4,18 +4,22 @@ from scipy.spatial.distance import cdist
 
 logger = logging.getLogger(__name__)
 
-def filter_closest(points,max_dist):
+def filter_closest(points,expected_dist, limit=0.2):
+
     distances = cdist(points,points)
+    # logger.debug(f'Distance matrix for {points} = \n{distances}')
     out_points = []
     dists = []
     for ind,row in enumerate(distances):
-        indexes= [i[1] for i in np.argwhere([row > 0, row < max_dist]) if i[0] ==1 and i[1] != ind]
+        filter_argwhere = np.argwhere([row > expected_dist*(1-limit), row < expected_dist*(1+limit)])
+        # logger.debug(f'Argwhere result for {row} = {filter_argwhere} ')
+        indexes= [i[1] for i in filter_argwhere if i[0] ==1 and i[1] != ind]
         filtered = points[indexes,:] - points[ind]
         out_points.extend(filtered)
         dists.extend(row.copy()[indexes])
     return np.array(out_points), np.median(dists)
 
-def generate_rotated_grid(spacing, angle, shape):
+def generate_rotated_grid(spacing, angle, shape, offset=np.array([0,0])):
     # Generate a grid of points with spacing
     x = np.arange(-shape[1],shape[1], spacing)  # Adjust the range as needed
     y = np.arange(-shape[0],shape[0], spacing)
@@ -32,7 +36,7 @@ def generate_rotated_grid(spacing, angle, shape):
     # Rotate the points
     rotated_points = np.dot(rotation_matrix, points)
 
-    coordinates = rotated_points + np.array([[shape[1]//2],[shape[0]//2]])
+    coordinates = rotated_points + offset.reshape(2,1)
 
     return coordinates
 
@@ -88,8 +92,21 @@ def get_average_angle(points):
 def get_mesh_rotation_spacing(targets, mesh_spacing_in_pixels):
     # grid = AutoloaderGrid.objects.get(pk=grid_id)
     # print(f'Finding points within {mesh_spacing_in_pixels} pixels.')
-    filtered_points, spacing= filter_closest(targets, mesh_spacing_in_pixels*1.08)
+    filtered_points, spacing= filter_closest(targets, mesh_spacing_in_pixels)
     logger.debug(f'Calculated mean spacing: {spacing} pixels')
     rotation = get_average_angle(filtered_points)
     logger.debug(f'Calculated mesh rotation: {rotation} degrees')
     return rotation, spacing
+
+def closest_to_center(points:np.ndarray,center:np.ndarray):
+    coords_from_center = points - np.array(center)
+    dist_to_center = np.sqrt(np.sum(np.power(coords_from_center,2),axis=1))
+    return np.argmin(dist_to_center)
+
+def filter_from_center(points, center_point, radius_in_pixel):
+    distances = cdist(points,[center_point])
+    # logger.debug(f'Distance matrix for {points} = \n{distances}')
+    logger.debug(f'Filtering points under {radius_in_pixel} pixels from center point.')
+    indexes = np.argwhere(distances < radius_in_pixel)
+    logger.debug(f'Filtered indexes {len(indexes)} from {len(points)} points')
+    return points[indexes[:,0],:]

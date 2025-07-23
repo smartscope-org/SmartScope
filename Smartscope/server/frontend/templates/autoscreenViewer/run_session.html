@@ -34,8 +34,39 @@
 {% endif %}
 
 
-<button id="start-button" class="btn btn-outline-primary" type="button" value="start">Start</button>
+<!-- Session toggle with start annd stop button. Start button changes to stop and vice versa-->
+<div class="dropdown d-inline">
+    <button class="btn btn-outline-primary dropdown-toggle session-toggle" type="button" id="start-button" data-bs-toggle="dropdown">
+        Start
+    </button>
+    <!-- Screening options full screening and atlas-only options are available as dropdown -->
+    <ul class="dropdown-menu" aria-labelledby="start-button">
+        <li>
+            <button class="dropdown-item screening-type" id="full-screening" data-mode="false">
+                Full Screening
+            </button>
+        </li>
+        <li>
+            <button class="dropdown-item screening-type" id="atlas-only" data-mode="true">
+                Atlas Only
+            </button>
+        </li>
+    </ul>
+</div
+    
+<!-- Pause session -->
 <button id="pause" class="btn active " type="button" value="pause">Pause between grids</button>
+
+<!-- Dropdown for downloading logs of run.out and proc.out files -->
+<div class="dropdown d-inline">
+    <button class="btn btn-outline-primary dropdown-toggle" type="button" id="downloadLogs" data-bs-toggle="dropdown">
+        Download Logs
+    </button>
+    <div class="dropdown-menu" aria-labelledby="downloadLogs">
+        <a class="dropdown-item" href="/api/sessions/{{ session_id }}/download_logs/?file_type=run">run.out</a>
+        <a class="dropdown-item" href="/api/sessions/{{ session_id }}/download_logs/?file_type=proc">proc.out</a>
+    </div>    
+</div>
 {% if request.user.is_staff %}
 <span>Staff only (use carefully):</span>
 <button id="force-start-button" class="btn btn-outline-primary" type="button" value="start">Force Start</button>
@@ -43,6 +74,7 @@
     File</button>
 <button id="forceKill" class="btn btn-outline-primary" type="button" value="force_kill">Force-kill all session
     processes</button>
+
 {% endif %}
 
 

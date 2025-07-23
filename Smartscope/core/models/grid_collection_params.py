@@ -14,6 +14,7 @@ class GridCollectionParams(BaseModel):
     square_y = models.IntegerField(default=1)
     squares_num = models.IntegerField(default=3)
     holes_per_square = models.IntegerField(default=3)  # If -1 means all
+    max_exposures_for_grid = models.IntegerField(default=-1, verbose_name='Max Exposures For Grid', help_text='Move on to the next grid when this number of exposures were acquired.')  # If -1 means inactive
     bis_max_distance = models.FloatField(default=3)  # 0 means not BIS
     min_bis_group_size = models.IntegerField(default=1)
     afis = models.BooleanField(default=False, verbose_name='AFIS')
@@ -24,11 +25,14 @@ class GridCollectionParams(BaseModel):
     tilt_angle = models.FloatField(default=0)
     save_frames = models.BooleanField(default=True)
     force_process_from_average = models.BooleanField(default=False)
+    highmag_aperture_size = models.IntegerField(default=50, verbose_name='High Mag Aperture Size', help_text='Size of the aperture for the View and Record presets.')
+    objective_aperture_size = models.IntegerField(default=0, verbose_name='Objective Aperture Size', help_text='Objective aperture to use for View and Record. 0 means no aperture.')
     offset_targeting = models.BooleanField(default=True)
     offset_distance = models.FloatField(default=-1)
     zeroloss_delay = models.IntegerField(default=-1)
     hardwaredark_delay = models.IntegerField(default=-1,verbose_name='Hardware Dark Delay')
     coldfegflash_delay= models.IntegerField(default=-1,verbose_name='ColdFEG Flash Delay', help_text='Number of hours between cold FEG flashes. Will only work if the microscope has a cold FEG. Values smaller than 0 will disable the procedure.')
+    beam_centering_delay = models.IntegerField(default=-1,verbose_name='Beam Centering Delay', help_text='Number of minutes between beam centering procedures. Values smaller than 0 will disable the procedure.')
     multishot_per_hole = models.BooleanField(default=False)
 
     class Meta(BaseModel.Meta):

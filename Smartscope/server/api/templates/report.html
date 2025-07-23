@@ -45,42 +45,46 @@
         </div>
     </div>
     <div class="d-flex flex-row align-items-center justify-content-between mx-0 px-0">
-        <form id='editNotesForm' class='row col-12 col-md-8 align-items-center m-0' action='#'>
-            <div class="col-10">
-                <div class="input-group">
-                    <span class='input-group-text'>Notes</span>
-                    <textarea class="form-control" type="text" id="notes" name="notes"
-                        rows="1">{{grid.notes}}</textarea>
-                </div>
-            </div>
-            <!-- <input id="editNotesSubmit" class="btn btn-sm btn-outline-primary col-2 col-md-auto" type="submit" value="Save"> -->
-
-        </form>
-        <div class='d-flex flex-row col-12 col-md-4 align-items-center justify-content-center'>
-            <button id='gridPreprocessingBtn' hx-get="{% url 'preprocessingPipeline' %}{{grid.grid_id}}" hx-target="#main" hx-swap="beforeend"
-            data-bs-toggle="tooltip" data-bs-placement="top" title="Show/Edit preprocessingpipeline." class="btn btn-sm btn-outline-primary col-3 col-md-auto mx-1" type="button">
-                Show preprocessing
+        <div class="col-12 col-lg-7 row align-items-center m-0">
+            <form id='editNotesForm' action='#'>
+                    <div class="input-group">
+                        <span class='input-group-text'>Notes</span>
+                        <textarea class="form-control" type="text" id="notes" name="notes"
+                            rows="1">{{grid.notes}}</textarea>
+                    </div>
+            </form>
+        </div>
+        <div class='d-flex flex-wrap col-12 col-lg-5 align-items-center justify-content-right'>
+            <button id='gridParamBtn' class="btn btn-sm btn-outline-primary col-3 col-md-auto" type="button"
+                data-bs-toggle="collapse" data-bs-target="#collapseGridParams" aria-expanded="false"
+                aria-controls="collapseExample">
+                Collection Parameters
             </button>
-            <button id='gridStatsBtn' hx-get="{% url 'collectionStats' grid_id=grid.grid_id %}" hx-target="#main" hx-swap="beforeend" class="btn btn-sm btn-outline-primary col-3 col-md-auto mx-1" type="button"
+            <button id='gridPreprocessingBtn' hx-get="{% url 'preprocessingPipeline' %}{{grid.grid_id}}" hx-target="#main" hx-swap="beforeend"
+            data-bs-toggle="tooltip" data-bs-placement="top" title="Show/Edit preprocessingpipeline." class="btn btn-sm btn-outline-primary col-3 col-md-auto" type="button">
+                Preprocessing
+            </button>
+            <button id='gridStatsBtn' hx-get="{% url 'collectionStats' grid_id=grid.grid_id %}" hx-target="#main" hx-swap="beforeend" class="btn btn-sm btn-outline-primary col-3 col-md-auto" type="button"
                 data-bs-toggle="collapse" data-bs-target="#collapseGridStats" aria-expanded="false"
                 aria-controls="collapseExample">
-                Show stats
+                Stats
             </button>
-            <button id='gridProtocolBtn' class="btn btn-sm btn-outline-primary col-3 col-md-auto mx-1" type="button"
+            <button id='gridProtocolBtn' class="btn btn-sm btn-outline-primary col-3 col-md-auto" type="button"
                 hx-get="{% url 'protocol' grid_id=grid.grid_id %}",
                 hx-target="#main",
                 hx-swap="beforeend",>
-                Show protocol
+                Protocol
             </button>
-
-            <button id='gridParamBtn' class="btn btn-sm btn-outline-primary col-3 col-md-auto mx-1" type="button"
-                data-bs-toggle="collapse" data-bs-target="#collapseGridParams" aria-expanded="false"
-                aria-controls="collapseExample">
-                + grid details
+            {% if tagsFeatureFlag %}
+            <button id='gridTagsBtn' hx-get="{% url 'tagsManager' grid_id=grid.grid_id %}" hx-target="#main" hx-swap="beforeend" class="btn btn-sm btn-outline-primary col-3 col-md-auto" type="button">
+                Tags
             </button>
-            <button id='legendsBtn' class="btn btn-sm btn-outline-primary col-3 col-md-auto mx-1" type="button"
+            {% endif %}
+            <button id='gridTargetHistory' hx-get="{% url 'targetHistory' grid_id=grid.grid_id %}" hx-target="#main" hx-swap="beforeend" class="btn btn-sm btn-outline-primary col-3 col-md-auto" type="button">
+                History/Queue
+            <button id='legendsBtn' class="btn btn-sm btn-outline-primary col-3 col-md-auto" type="button"
                 data-bs-toggle="collapse" data-bs-target="#legends" aria-expanded="false" aria-controls="collapseExample">
-                Show legend
+                Display
             </button>
         </div>
     </div>
@@ -129,14 +133,16 @@
     <div class='col-12'>
         <div class='d-flex flex-row align-items-center'>
             <b>General Toggle:</b>
-            <button class='btn btn-sm btn-outline-primary active' onmousedown='hideSVG(this)' value='Numbers'>
+            <button class='btn btn-xs btn-outline-primary active' onmousedown='hideSVG(this)' value='Numbers'>
                 Numbers</button>
-            <button class='btn btn-sm btn-outline-primary active' onmousedown='hideSVG(this)' value='Labels'>
+            <button class='btn btn-xs btn-outline-primary active' onmousedown='hideSVG(this)' value='Labels'>
                 Labels</button>
+            <button class='btn btn-xs btn-outline-primary active' onmousedown='hideSVG(this)' value='Legends'>
+                Legends</button>
         </div>
     </div>
     <div class='col-6'>
-        <div id='atlasLegend' class='row'>
+        <div id='atlasLegend' class='d-flex flex-row'>
             <b>Atlas labels:</b>
             <button class="btn btn-xs completed active" onmousedown="hideSVGlabel(this,'Atlas_im')"
                 value='completed'>Acquired</button>
@@ -145,14 +151,15 @@
         </div>
     </div>
     <div class='col-6'>
-        <div id='squareLegend' class='row'>
-            <b>Status labels:</b>
+        <div id='squareLegend' class='d-flex flex-row'>
+            <b>Area labels:</b>
             <button class="btn btn-xs completed active" onmousedown="hideSVGlabel(this,'Square_im')"
                 value='completed'>Acquired</button>
             <button class='btn btn-xs queued active' onmousedown="hideSVGlabel(this,'Square_im')"
                 value='queued'>Queued</button>
         </div>
     </div>
+    <hr>
 </div>
 
 <div>
@@ -186,6 +193,8 @@
                 <div class="row h-100 w-100 m-0 p-0 justify-content-center">
                     <div id="Square_im" class="d-flex w-100 h-100 justify-content-center">
                         <img src="{% static 'images/squareholder.png' %}">
+                        <!--Svgcanvas allows to draw a line and measure angle on square_im -->
+                        <svg id="svgCanvas" class="position-absolute w-100 h-100" style="top:0; left:0;"></svg>
                     </div>
                 </div>
             </div>

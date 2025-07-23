@@ -1,7 +1,7 @@
 import os
 import sys
 from pathlib import Path
-from typing import List, Tuple
+from typing import List, Tuple, Literal
 import torch
 import logging
 import time
@@ -30,20 +30,28 @@ def test_serialem_connection(ip: str, port: int):
     print('Finished, please look at the serialEM log for the message.')
 
 
-def test_high_mag_frame_processing(
-        test_dir=Path(settings.AUTOSCREENDIR, 'testing', 'montage_test'),
-        name='test_frames'
+def test_highmag_frame_processing(
+        frame_file: str,
+        test_dir=Path(settings.AUTOSCREENDIR, 'testing', 'preprocessing_tests'),
     ):
     '''
     test_dir = autoscreen_dir + group + session
     name = grid_id
     '''
     from Smartscope.lib.preprocessing_methods import process_hm_from_frames
+    frame_file = Path(frame_file)
+    test_dir.mkdir(parents=True, exist_ok=True)
+    raw_dir = Path(test_dir, 'raw')
+    raw_dir.mkdir(exist_ok=True)
     os.chdir(test_dir)
-    frames_file_name = '20230321_AB_0317_2_3302_0.0.tif'
-    frames_dirs = [Path(os.getenv('AUTOSCREENDIR')), Path(os.getenv('TEST_FILES'), 'highmagframes')]
-    movie = process_hm_from_frames(name, frames_file_name=frames_file_name, frames_directories=frames_dirs)
-    print(f'All movie data: {movie.check_metadata()}')
+    frames_file_name = frame_file.name
+    frames_dirs = [frame_file.parent]
+    # frames_dirs = [Path(os.getenv('AUTOSCREENDIR')), Path(os.getenv('TEST_FILES'), 'highmagframes')]
+    logger.info(f'Processing frames from {frame_file} in {frames_dirs}.\n Saving to {test_dir}')   
+    movie = process_hm_from_frames(frame_file.stem, frames_file_name=frames_file_name, frames_directories=frames_dirs)
+    logger.info(f'All movie data: {movie.check_metadata()}')
+    logger.info(f'Metadata and CTFFIND results saved in {test_dir/frame_file.stem}. Aligned movie saved in {raw_dir/frame_file.stem}.mrc.')
+
 
 
 def refine_atlas_pixel_size(grids: List[str]):
@@ -97,12 +105,14 @@ def refine_pixel_size_from_targets(instances, spacings) -> Tuple[float, float]:
     return average, std
 
 
-def test_finder(plugin_name: str, raw_image_path: str, output_dir: str, repeats=1):  # output_dir='/mnt/data/testing/'
+def test_finder(plugin_name: str, raw_image_path: str, output_dir: str, repeats=1, kwargs=None):  # output_dir='/mnt/data/testing/'
     from Smartscope.lib.image.montage import Montage
-    from Smartscope.lib.image_manipulations import auto_contrast, save_image
+    from Smartscope.lib.image.image_file import parse_mdoc 
+    from Smartscope.lib.image_manipulations import auto_contrast, save_image, convert_to_png, auto_contrast_sigma, fourier_crop
     from .grid.finders import find_targets
     import cv2
     import math
+    import json
 
     
     output_dir = Path(output_dir)
@@ -119,8 +129,18 @@ def test_finder(plugin_name: str, raw_image_path: str, output_dir: str, repeats=
         logger.debug(f'{image.name}, {image.parent}')
         montage = Montage(image.stem, working_dir=output_dir)
         montage.raw = image
-        montage.load_or_process()
-        output, _ , _ , additional_outputs = find_targets(montage, [plugin_name])
+        montage.metadata = parse_mdoc(montage.mdoc)
+        montage.build_montage()
+        montage.read_image()
+
+        # montage.load_or_process()
+        if kwargs is not None:
+            print(f'kwargs: {kwargs}')
+            kwargs = json.loads(kwargs)
+        else:
+            kwargs = {}
+
+        output, _ , _ , additional_outputs = find_targets(montage, [plugin_name], **kwargs)
         bit8_montage = auto_contrast(montage.image)
         bit8_color = cv2.cvtColor(bit8_montage, cv2.COLOR_GRAY2RGB)
         for i in output:
@@ -145,11 +165,26 @@ def test_protocol_command(microscope_id,detector_id,command, instance=None, inst
         instance = SquareModel.objects.get(pk=instance)
     microscope = Microscope.objects.get(pk=microscope_id)
     detector = Detector.objects.get(pk=detector_id)
-    scopeInterface = select_microscope_interface(microscope)
+    scopeInterface, additional_settings  = select_microscope_interface(microscope)
     with scopeInterface(microscope = micModels.Microscope.model_validate(microscope),
                               detector= micModels.Detector.model_validate(detector),
-                              atlas_settings= micModels.AtlasSettings.model_validate(detector)) as scope:
-        PROTOCOL_COMMANDS_FACTORY[command](scope,params,instance)
+                              atlas_settings= micModels.AtlasSettings.model_validate(detector),
+                              additional_settings=additional_settings) as scope:
+        PROTOCOL_COMMANDS_FACTORY[command](scope,params,instance,content={})
+
+def run_microscope_command(microscope_id, detector_id, command, *args):
+    from Smartscope.core.models import Microscope, Detector
+    from Smartscope.core.interfaces.microscope_methods import select_microscope_interface
+    import Smartscope.core.interfaces.microscope as micModels
+    microscope = Microscope.objects.get(pk=microscope_id)
+    detector = Detector.objects.get(pk=detector_id)
+    scopeInterface, additional_settings  = select_microscope_interface(microscope)
+    with scopeInterface(microscope = micModels.Microscope.model_validate(microscope),
+                              detector= micModels.Detector.model_validate(detector),
+                              atlas_settings= micModels.AtlasSettings.model_validate(detector),
+                              additional_settings=additional_settings) as scope:
+        args = [eval(arg) for arg in args]
+        getattr(scope, command)(*args)
 
 
 def list_plugins():
@@ -195,3 +230,19 @@ def test_find_hole_geometry(grid_id):
     grid = AutoloaderGrid.objects.get(pk=grid_id)
     rotation, spacing = save_hole_geometry(grid)
     print(f'Updated grid {grid} with rotation: {rotation} degrees and spacing: {spacing} pixels.')
+
+
+def test_image_to_stage_conversion(image_file, coords, coordinate_system:Literal['smartscope','serialem']='smartscope'):
+    from pathlib import Path
+    from Smartscope.lib.image.montage import Montage
+    from Smartscope.lib.image.target import Target
+
+    montage_file = Path(image_file)
+    montage = Montage(name=montage_file.stem)
+    montage.raw = montage_file
+    montage.load_or_process()
+    coords = [int(i) for i in coords.split(',')]
+    if coordinate_system == 'serialem':
+        coords = Target.flip_y(coords, montage.shape_x)
+    target = Target(coords, from_center=True)
+    target.convert_image_coords_to_stage(montage, compare=True)

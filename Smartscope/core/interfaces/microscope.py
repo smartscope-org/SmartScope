@@ -1,5 +1,5 @@
-from typing import Optional
-from dataclasses import dataclass
+from typing import Optional, Dict, Literal
+from dataclasses import dataclass, field
 from pydantic import BaseModel, Field
 import numpy as np
 import time
@@ -9,6 +9,8 @@ import time
 class MicroscopeState:
     defocusTarget: float = 0
     currentDefocus: float = 0
+    eucentricDefocus: float = None
+    lastFiveDefocus: list = field(default_factory=list)
     imageShiftX: float = 0
     imageShiftY: float = 0
     stageX: float = 0
@@ -19,10 +21,16 @@ class MicroscopeState:
     tiltAngle: float = None
     preAFISimageShiftX: float = 0
     preAFISimageShiftY: float = 0
+    apertureState: Dict = field(default_factory=dict)
+    last_autocenter_time: int= -1
+    last_refine_zlp_success: bool = True
+    current_mag: Optional[Literal['atlas','square', 'hole']] = None
 
-    def setStage(self,stageX,stageY,stageZ):
+    def setStage(self,stageX,stageY,stageZ=None):
         self.stageX = stageX
         self.stageY = stageY
+        if stageZ is None:
+            return
         self.stageZ = stageZ
 
     def set_last_autofocus_position(self):
@@ -34,10 +42,31 @@ class MicroscopeState:
     
     def getStage(self):
         return self.stageX, self.stageY, self.stageZ
+    
+    def add_to_last_five_defocus(self, defocus):
+        self.lastFiveDefocus.append(defocus)
+        if len(self.lastFiveDefocus) > 5:
+            self.lastFiveDefocus.pop(0)
+    
+    def last_five_defocus_ok(self) -> bool:
+        return set(self.lastFiveDefocus) != set([0.0])
+    
+    @property
+    def time_since_last_autocenter(self):
+        return time.time() - self.last_autocenter_time
 
     def reset_image_shift_values(self):
         self.imageShiftX = 0
         self.imageShiftY = 0
+
+    def get_aperture_state(self, aperture:int):
+        return self.apertureState.get(aperture, None)
+    
+    def set_aperature_state(self, aperture:int, value:float):
+        self.apertureState[aperture] = value
+
+    def is_run_away_focus(self, focus_limit_microns:float=20) -> bool:
+        return abs(self.currentDefocus - self.eucentricDefocus) > focus_limit_microns
 
 class AtlasSettings(BaseModel):
     mag:int = Field(alias='atlas_mag')
@@ -66,6 +95,7 @@ class Microscope(BaseModel):
     directory:str= Field(alias='windows_path')
     scopePath:str = Field(alias='scope_path')
     apertureControl:bool = Field(alias='aperture_control', default=False)
+    temperatureControl:bool = Field(alias='temperature_control', default=True)
     coldFEG:bool = Field(alias='cold_FEG', default=False)
 
     class Config:
@@ -73,29 +103,3 @@ class Microscope(BaseModel):
 
 class CartridgeLoadingError(Exception):
     pass
-
-# class ImagingState(BaseModel):
-#     mag: int = -1
-#     c2_perc: float = -1
-#     last_update: float = time.time()
-
-#     def set_mag(self, mag):
-#         self.mag = mag
-
-#     def set_c2_perc(self, c2_perc):
-#         self.c2_perc = c2_perc
-    
-
-
-#     def update(self, mag, c2_perc, exposure_time):
-#         self.mag = mag
-#         self.c2_perc = c2_perc
-#         self.exposure_time = exposure_time
-#         self.last_update = time.time()
-
-    
-
-# class ImagingStates(BaseModel):
-#     search: ImagingState = ImagingState()
-#     view: ImagingState = ImagingState()
-#     record: ImagingState = ImagingState()

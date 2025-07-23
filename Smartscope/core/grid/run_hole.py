@@ -10,10 +10,11 @@ from pathlib import Path
 logger = logging.getLogger(__name__)
 
 from .finders import find_targets
-from .transformations import register_to_other_montage, register_targets_by_proximity, recenter_targets
+from .transformations import register_to_other_montage, register_targets_by_proximity, register_to_other_montage_from_vectors
 from .diagnostics import generate_diagnostic_figure, Timer
 
 
+from Smartscope.core.settings.worker import FORCE_MDOC_TARGETING
 from Smartscope.core.models.hole import HoleModel
 from Smartscope.core.models.high_mag import HighMagModel
 from Smartscope.core.status import status
@@ -74,15 +75,17 @@ class RunHole:
                 working_dir=hole.grid_id.directory
             )
             square_montage.load_or_process()
-            image_coords = register_to_other_montage(np.array([x.coords for x in hole_group]),hole.coords, montage, square_montage)
+            if 'StageToImageMatrix' in montage.metadata.iloc[-1].keys() and not FORCE_MDOC_TARGETING:
+                image_coords = register_to_other_montage_from_vectors(np.array([x.stage_coords for x in hole_group]),hole.stage_coords, montage)
+            else:    
+                image_coords = register_to_other_montage(np.array([x.coords for x in hole_group]),hole.coords, montage, square_montage)
             timer.report_timer('Initial registration to the higher mag image')
             targets = []
             if protocol.targets.reregister:
-                finder_method = 'Registration'
                 classifier_method=None
                 if len(protocol.targets.finders) != 0:
                     targets, finder_method, classifier_method, additional_outputs = find_targets(
-                        montage, protocol.targets.finders
+                        montage, protocol.targets.finders, grid=grid
                     )
                     generate_diagnostic_figure(
                         montage.image,
@@ -90,16 +93,23 @@ class RunHole:
                         Path(montage.directory / f'hole_recenter_it.png')
                     )
                     
-                if len(protocol.targets.finders) == 0 or targets == []:
-                    targets = Targets.create_targets_from_center(image_coords, montage)
+                if targets == []:
+                    finder_method = 'Registration'
+                    logger.info('No targets found, registering points from square mag registration.')
+                    targets = Targets.create_targets_from_center(image_coords, montage, force_mdoc=FORCE_MDOC_TARGETING)
                 timer.report_timer('Identifying and registering targets')
+
                 
 
                 register = register_targets_by_proximity(
-                    image_coords,
-                    [target.coords for target in targets]
+                    image_coords-montage.center,
+                    np.asarray([target.coords for target in targets])-montage.center
                 )
                 for h, index in zip(hole_group,register):
+                    if index == -1:
+                        logger.warning(f'No target found for hole {h.name}. It may mean that the hole finder at medium mag did not perform well. This has been added to avoid aquiring the same hole twice.')
+                        continue
+                    # logger.info(f'Numer of holes in group: {len(hole_group)}, Numer of targets found: {len(targets)}, Index of target: {index}')
                     target = targets[index]
                     if not params.multishot_per_hole:
                         targets_to_register=[target]

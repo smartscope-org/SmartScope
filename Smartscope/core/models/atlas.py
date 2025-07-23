@@ -2,7 +2,6 @@ from .base_model import *
 from .extra_property_mixin import ExtraPropertyMixin
 from .grid import AutoloaderGrid
 
-
 from Smartscope.core.svg_plots import drawAtlas
 
 class AtlasModel(BaseModel, ExtraPropertyMixin):
@@ -34,6 +33,11 @@ class AtlasModel(BaseModel, ExtraPropertyMixin):
     @property
     def prefix(self):
         return 'Atlas'
+    
+    @classmethod
+    def target_model(cls):
+        from .square import SquareModel
+        return SquareModel
 
     @ property
     def api_viewset_name(self):
@@ -58,6 +62,13 @@ class AtlasModel(BaseModel, ExtraPropertyMixin):
     @ property
     def targets(self):
         return self.squaremodel_set.all()
+    
+    @property
+    def targets_export(self):
+        """
+        Alias for targets. Can be overridden for export purposes.
+        """
+        return self.targets
 
     # @cached_model_property(key_prefix='svg', extra_suffix_from_function=['method'], timeout=3600)
     def svg(self, display_type, method):

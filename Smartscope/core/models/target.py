@@ -49,6 +49,19 @@ class Target(BaseModel):
         raise NotImplementedError('Prefix must be implemented in the subclass')
     
     @property
+    def targets(self):
+        """
+        Returns the targets associated with this target.
+        This is a placeholder method and should be implemented in subclasses.
+        """
+        raise NotImplementedError('Targets must be implemented in the subclass')
+    
+    @property
+    def targets_export(self):
+        """ Alias for targets. Can be overriden for export purposes."""
+        return self.targets
+    
+    @property
     def prefix_lower(self):
         return self.prefix.lower()
 
@@ -89,7 +102,7 @@ class Target(BaseModel):
                 return False
         return True
 
-    def is_out_of_range(self) -> bool:
-        return not self.finders.first().is_position_within_stage_limits()
+    def is_position_within_stage_limits(self, stage_radius_limit:int = 975, offset_x:float=0, offset_y:float=0) -> bool:
+        return self.finders.first().is_position_within_stage_limits(stage_radius_limit, offset_x, offset_y)
 
 

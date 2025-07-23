@@ -29,7 +29,8 @@ class Microscope(BaseModel):
         primary_key=True,
         editable=False
     )
-    aperture_control = models.BooleanField(default=False,help_text='Check box if serialEM is able to control the aperture selection. Check only if you have JEOL CRYOARM, or a TFS autoloader system.')
+    aperture_control = models.BooleanField(default=False,help_text='Check box if serialEM is able to control the aperture selection. Check only if you have JEOL CRYOARM, or a TFS with automated apertures.')
+    temperature_control = models.BooleanField(default=True,help_text='Check if you have a scope with automated dewar refills.')
     vendor = models.CharField(
         max_length=30,
         default='TFS',
