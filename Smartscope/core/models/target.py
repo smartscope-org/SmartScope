@@ -23,6 +23,19 @@ class Target(BaseModel):
     shape_x = models.IntegerField(null=True)
     shape_y = models.IntegerField(null=True)
     selected = models.BooleanField(default=False)
+    selection_mode = models.CharField(
+        max_length=20,
+        choices=[
+            ('manual', 'User selected'),
+            ('automated', 'Automated selection'),
+        ],
+        null=True,
+    )
+    acquisition_priority = models.IntegerField(
+        default=0,
+        help_text='Priority for acquisition, lower number means higher priority.'
+    )
+    
     status = models.CharField(
         max_length=20,
         null=True,

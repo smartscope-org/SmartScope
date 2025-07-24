@@ -18,6 +18,7 @@ class status:
     PROCESSED='processed'
     TARGETS_PICKED='targets_picked'
     TARGETS_SELECTED='selected'
+    GROUPED='grouped'
     ERROR='error'
     SKIPPED='skipped'
     COMPLETED='completed'

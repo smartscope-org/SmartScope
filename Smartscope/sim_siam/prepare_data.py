@@ -19,7 +19,7 @@ def sim_siam_prepare_data(mag_level:Literal['square','hole'],grid_id_list:List[s
     
     if mag_level == 'square':
         from Smartscope.core.models import AtlasModel
-        queryset = list(AtlasModel.objects.filter(grid_id__in=grid_id_list, status=status.COMPLETED))
+        queryset = list(AtlasModel.objects.filter(grid_id__in=grid_id_list, status__in=[status.PROCESSED,status.COMPLETED]))
         if len(queryset) == 0:
             raise ValueError(f"No data found for grid IDs: {grid_id_list} at magnification level {mag_level}.")
         

@@ -182,7 +182,8 @@
 .processed,
 .targets_picked,
 .started,
-.selected {
+.selected,
+.grouped {
     stroke: Gold;
     /* fill: Gold; */
     color: Gold;

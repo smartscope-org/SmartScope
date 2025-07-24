@@ -73,6 +73,8 @@ def update_target_selection(model:models.BaseModel,objects_ids:List[str],value:s
     with transaction.atomic():
         for obj in objs:
             obj.selected = value
+            obj.selection_mode = 'manual'
+            obj.acquisition_priority = 0
             obj.status = status
             obj.save()  
 

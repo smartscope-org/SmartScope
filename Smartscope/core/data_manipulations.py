@@ -5,7 +5,7 @@ import random
 from functools import partial
 from Smartscope.lib.image.target import Target
 from smartscope_connector.Datatypes.querylist import QueryList
-from Smartscope.core.selector_sorter import initialize_selector
+from Smartscope.core.selector_sorter import initialize_selector, initialize_selector_from_embeddings
 from Smartscope.core.settings.worker import PLUGINS_FACTORY
 import numpy as np
 
@@ -74,6 +74,7 @@ def add_selector_to_score_string(score, selector_class):
 def filter_targets(grid, targets, stage_radius_limit:int = 975, offset_x:float=0, offset_y:float=0):
     classifiers = get_target_methods(targets, 'classifiers')
     selectors = get_target_methods(targets, 'selectors')
+    emdbedding_methods = ['Sim Siam Clustering']
 
     ##Filter out of range targets
     filter_oor_partial = partial(filter_out_of_range, stage_radius_limit=stage_radius_limit, offset_x=offset_x, offset_y=offset_y)
@@ -101,6 +102,17 @@ def filter_targets(grid, targets, stage_radius_limit:int = 975, offset_x:float=0
     for selector in selectors:
         sorter = initialize_selector(grid, selector, targets)
         filtered = list(map(add_selector_to_score_string, filtered, sorter.classes))
+
+    filtered = list(map(lambda x: x + "_", filtered))
+    
+    for plugin in emdbedding_methods:
+        sorter = initialize_selector_from_embeddings(grid, plugin, targets)
+        if sorter is None:
+            logger.warning(f'No selector found for {plugin} in grid {grid.grid_id}. Skipping.')
+            continue
+        filtered = list(map(add_selector_to_score_string, filtered, sorter.classes))
+    
+    
     logger.debug(f'Filtered classes against classifiers {classifiers} and selectors {selectors}: {filtered}')
     
     return filtered

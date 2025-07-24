@@ -58,7 +58,10 @@ class AutoloaderGrid(BaseModel):
         on_delete=models.SET_NULL,
         to_field='params_id'
     )
-    collection_mode = models.CharField(max_length=30, null=True, default=None)
+    collection_mode = models.CharField(max_length=30, null=True, choices=[
+        ('collection', 'Collection'),
+        ('screening', 'Screening')
+    ], default=None)
 
     objects = GridManager()
     # aliases
