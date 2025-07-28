@@ -1,7 +1,7 @@
 #! /bin/bash
 
 readonly cmd_file="dockerCmd.txt"
-readonly dockerRepo="ghcr.io/niehs/smartscope"
+readonly dockerRepo="ghcr.io/smartscope-org/smartscope"
 composeCmd="docker compose"
 dockerCmd="docker"
 
@@ -26,7 +26,7 @@ start                   Start SmartScope
 stop                    Stop smartscope
 restart                 Restart smartscope
 setup                   Setup the smartscope directories
-update \e[3mversion\e[0m                 Update smartscope to the specified version. Choices: ['latest','stable'] (default: latest)
+update \e[3mversion\e[0m                 Update smartscope to the specified version. Choices: ['latest','stable','dev'] (default: latest)
 run \e[3mcommand\e[0m             Run a smartscope command in the smartscope container
 exec \e[3mcommand\e[0m            Run any shell command in the smartscope container
 python                  Runs an interactive ipython shell inside the smartscope container
@@ -114,10 +114,6 @@ case $argument in
         $composeCmd exec smartscope ${@:2};;
     setup)
         version=${2:-latest}
-        echo "Setting up the latest version of smartscope"
-        if [ "$version" == 'latest' ]; then
-            version='main'
-        fi
         echo "Setting up the smartscope directories"
         mkdir -p logs shared/nginx shared/auth shared/smartscope db data backups
         for file in docker-compose.yml smartscope.yml smartscope.conf database.conf; do
@@ -126,10 +122,10 @@ case $argument in
                 echo "$file already exists. Skipping."
                 continue
             fi
-            wget https://raw.githubusercontent.com/NIEHS/SmartScope/$version/Docker/SmartScope/$file
+            wget https://raw.githubusercontent.com/smartscope-org/SmartScope/$version/Docker/SmartScope/$file
         done
         echo "Pulling initialdb.sql from $version"
-        wget https://raw.githubusercontent.com/NIEHS/SmartScope/$version/Docker/SmartScope/shared/initialdb.sql -O shared/initialdb.sql 
+        wget https://raw.githubusercontent.com/smartscope-org/SmartScope/$version/Docker/SmartScope/shared/initialdb.sql -O shared/initialdb.sql 
         ;;
     update)
         version=${2:-latest}
@@ -149,7 +145,7 @@ case $argument in
         mkdir $backupDir
         cp docker-compose.yml smartscope.yml smartscope.conf database.conf smartscope.sh $backupDir
         echo "Pulling updated docker-compose.yml"
-        repo_url="https://raw.githubusercontent.com/NIEHS/SmartScope/$version/Docker/SmartScope"
+        repo_url="https://raw.githubusercontent.com/smartscope-org/SmartScope/$version/Docker/SmartScope"
         wget $repo_url/docker-compose.yml -O docker-compose.yml
         echo "Pulling docker image"
         $composeCmd pull smartscope
