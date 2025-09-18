@@ -52,6 +52,8 @@ class AutoloaderGrid(BaseModel):
     status = models.CharField(max_length=10, null=True, default=None)
     start_time = models.DateTimeField(default=None, null=True)
     last_update = models.DateTimeField(default=None, null=True)
+    loading_time = models.DateTimeField(default=None, null=True)
+    unloading_time = models.DateTimeField(default=None, null=True)
     params_id = models.ForeignKey(
         GridCollectionParams,
         null=True,

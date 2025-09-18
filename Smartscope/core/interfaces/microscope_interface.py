@@ -217,6 +217,9 @@ class MicroscopeInterface(ABC):
     def loadGrid(self, position):
         pass
 
+    def unload_grid(self):
+        pass
+
     def refineZLP(self, zerolossDelay):
         pass
 

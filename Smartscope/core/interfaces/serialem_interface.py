@@ -459,6 +459,10 @@ class SerialemInterface(MicroscopeInterface):
                 raise CartridgeLoadingError('Cartridge did not load properly. Stopping')
         sem.SetColumnOrGunValve(1)
 
+    def unload_grid(self):
+        self.logger.info(f'Unloading finished grid.')
+        return sem.UnloadCartridge()
+
     def zero_image_shift(self):
         return sem.SetImageShift(0,0)
 

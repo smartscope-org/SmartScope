@@ -38,10 +38,10 @@ def autoscreen(session_id:str, screening_mode: bool):
     write_sessionLock(session, microscope.lockFile)
 
     try:
-        grids = list(session.autoloadergrid_set.all().order_by('position'))
+        # grids = list(session.autoloadergrid_set.all().order_by('position'))
         logger.info(f'Process: {process}')
         logger.info(f'Session: {session}')
-        logger.info(f"Grids: {', '.join([grid.__str__() for grid in grids])}")
+        # logger.info(f"Grids: {', '.join([grid.__str__() for grid in grids])}")
         scopeInterface, additional_settings = select_microscope_interface(microscope)
 
         with scopeInterface(
@@ -55,7 +55,11 @@ def autoscreen(session_id:str, screening_mode: bool):
             logger.debug(scope.__dict__)
             logger.debug(scope.microscope.__dict__)
             # RUN grid
-            for grid in grids:
+            while True:
+                grids = list(session.autoloadergrid_set.all().order_by('position'))
+                grid = next(filter(lambda g: g.status not in [GridStatus.COMPLETED], grids), None)
+                if grid is None:
+                    break
                 status = run_grid(grid, scope, screening_mode=screening_mode) #processing_queue,
             status = 'complete'
     except Exception as e:

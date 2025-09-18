@@ -38,7 +38,7 @@ logger = logging.getLogger(__name__)
 def run_grid(
         grid:AutoloaderGrid,
         scope:MicroscopeInterface,
-        screening_mode: bool = False
+        screening_mode: bool = False,
     ): 
     """Main logic for the SmartScope process
     Args:
@@ -93,6 +93,7 @@ def run_grid(
         GridIO.create_grid_frames_directory(session.detector_id.frames_directory, grid.frames_dir(prefix=prefix))
         logger.debug(f'Saving the frames in {grid_dir}')
     scope.loadGrid(grid.position)
+    update(grid, load_time=timezone.now())
     check_stop_flag(session_id)
     scope.setup(params.save_frames,grid_dir=grid_dir,framesName=f'{session.date}_{grid.name}')
     scope.reset_state()
@@ -278,6 +279,8 @@ def run_grid(
     else:
         update(grid, status=GridStatus.COMPLETED)
         logger.info('Grid finished')
+        scope.unload_grid()
+        update(grid, unload_time=timezone.now())
         return 'finished'
 
 # class TargetPriority(Enum):
