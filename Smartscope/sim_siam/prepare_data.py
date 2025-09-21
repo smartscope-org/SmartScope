@@ -31,7 +31,7 @@ def sim_siam_prepare_data(mag_level:Literal['square','hole'],grid_id_list:List[s
 
     elif mag_level == 'hole':
         from Smartscope.core.models import SquareModel
-        queryset = list(SquareModel.display.filter(grid_id__in=grid_id_list, status=status.COMPLETED))
+        queryset = list(SquareModel.display.filter(grid_id__in=grid_id_list, status__in=[status.PROCESSED,status.COMPLETED]))
         if len(queryset) == 0:
             raise ValueError(f"No data found for grid IDs: {grid_id_list} at magnification level {mag_level}.")
         item_sizes_microns = [grid.holeType.hole_size * extract_size_factor for grid in grid_id_list]
@@ -86,16 +86,16 @@ def sim_siam_prepare_data(mag_level:Literal['square','hole'],grid_id_list:List[s
     return file_list
 
 def sim_siam_copy_to_scratch_directory(directory_name, file_list):
-    scratch = Scratch(scratch=Path('../scratch/'), max_size_gb=10)
+    scratch = Scratch(max_size_gb=10)
     # scratch.check_size(file_list, directory_name)
     return scratch.copy_to_scratch(file_list, directory_name)
 
 def sim_siam_copy_output_file_from_scratch(file, output_directory):
-    scratch = Scratch(scratch=Path('../scratch/'), max_size_gb=10)
+    scratch = Scratch(max_size_gb=10)
     scratch.copy_file_from_scratch(Path(file), output_directory)
 
 def sim_siam_copy_output_directory_from_scratch(directory_name, output_directory):
-    scratch = Scratch(scratch=Path('../scratch/'), max_size_gb=10)
+    scratch = Scratch(max_size_gb=10)
     scratch.copy_directory_from_scratch(Path(directory_name), output_directory)
 
 
@@ -117,7 +117,7 @@ def sim_siam_transfer_trained_model(process_id:str):
         sim_siam_copy_output_file_from_scratch(file, weights.weights_directory)
 
 
-def sim_siam_find_checkpoint(mag_level:Literal['square','hole'], grid:AutoloaderGrid) -> SimSiamWeights:
+def sim_siam_find_checkpoint(mag_level:Literal['square','hole'], grid:AutoloaderGrid) -> SimSiamWeights | None :
     """
     Find the SimSiam model weights for a given magnification level and grid.
     Args:
@@ -128,7 +128,7 @@ def sim_siam_find_checkpoint(mag_level:Literal['square','hole'], grid:Autoloader
     """
     weights = SimSiamWeights.objects.filter(mag_level=mag_level, grid_id=grid).first()
     if weights is not None:
-        return weights
+        return
     sample_tags = grid.sample_tags.all()
     if len(sample_tags) > 0:
         weights = SimSiamWeights.objects.filter(mag_level=mag_level, sample_tag__in=sample_tags).all()

@@ -6,6 +6,9 @@ import shutil
 import json
 import time
 
+from Smartscope.core.settings.worker import SCRATCH_DIR
+
+
 class ScratchHistoryItem(BaseModel):
     """
     A class to represent a scratch history item.
@@ -18,7 +21,7 @@ class Scratch(BaseModel):
     """
     A class to represent a scratch object with a single attribute `scratch`.
     """
-    scratch: Path = Path("/mnt/scratch/")
+    scratch: Path = SCRATCH_DIR
     max_size_gb: int = 10
 
     @property
@@ -130,6 +133,7 @@ class Scratch(BaseModel):
             if not file.exists():
                 raise FileNotFoundError(f"File {file} does not exist.")
             destination = dataset_path / dest
+            print(f'Copying {file} to {dataset_path / dest}')
             if not destination.parent.exists():
                 destination.parent.mkdir(parents=True, exist_ok=True)
             shutil.copy(file, destination)

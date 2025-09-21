@@ -120,6 +120,7 @@ def sim_siam_inference(mag_level:Literal['square','hole'], grid_id:str, **kwargs
     config_path = None
 
     weights = sim_siam_find_checkpoint(mag_level, grid)
+    print(f'Found weights {weights} for mag level {mag_level} and grid {grid_id}')
     if weights is not None:
         training_process = SimSiamTrainingProcess.objects.filter(sim_siam_weights=weights).first()
         checkpoint_path = (weights.checkpoint_file,Path(*training_process.training_results_weights.parts[1:]))
@@ -146,7 +147,7 @@ def sim_siam_inference(mag_level:Literal['square','hole'], grid_id:str, **kwargs
     res = AsyncResult(task_id, app=app)
     final_result = res.get(interval=1, timeout=120)
     print(final_result)
-
+    
     sim_siam_copy_output_file_from_scratch(final_result, grid.directory)
 
 def sim_siam_training(mag_level:Literal['square','hole'], grid_id:str, dataset_name=None,**kwargs):
