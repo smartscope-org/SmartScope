@@ -192,6 +192,14 @@ class MicroscopeInterface(ABC):
     @abstractmethod
     def zero_image_shift(self):
         pass
+
+    @abstractmethod
+    def get_mag_area_in_microns(self, magSet='V'):
+        pass
+
+    @abstractmethod
+    def medium_mag_montage(self, size, file=''):
+        pass
     
     @abstractmethod
     def highmag(self, isXi, isYi, isX, isY, currentDefocus, tiltAngle, file='', frames=True):

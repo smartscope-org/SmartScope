@@ -62,6 +62,14 @@ def square(scope:MicroscopeInterface,params,instance, content:Dict, *args, **kwa
     """Acquires and save the square image using the Search preset."""
     scope.square(file=instance.raw)
 
+def squareInMediumMag(scope:MicroscopeInterface,params,instance, content:Dict, *args, **kwargs)  -> None:
+    """Acquires and save the square image using the View preset."""
+    size_x, size_y = scope.get_mag_area_in_microns(magSet='V')
+    total_area_size = np.sqrt(instance.area)
+    n_tiles_x = int(np.ceil(total_area_size / size_x))
+    n_tiles_y = int(np.ceil(total_area_size / size_y))
+    scope.medium_mag_montage(size=[n_tiles_x, n_tiles_y], file=instance.raw)
+
 def moveStage(scope:MicroscopeInterface,params,instance, content:Dict, *args, **kwargs)  -> None:
     """Moves the stage to the instance position"""
     finder = instance.finders.first()

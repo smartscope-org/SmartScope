@@ -231,6 +231,26 @@ class SerialemInterface(MicroscopeInterface):
         sem.Search()
         self.save_image(file)
         self.logger.info('Square acquisition finished')
+
+    def get_mag_area_in_microns(self, magSet='V'):
+        area_x_pix, area_y_pix = sem.ReportCameraSetArea(magSet)[:2]
+        pixel_size = sem.ReportCurrentPixelSize(magSet)
+        area_x_um = area_x_pix * pixel_size
+        area_y_um = area_y_pix * pixel_size
+        return area_x_um, area_y_um
+
+    def medium_mag_montage(self, size, file=''):
+        self.state.current_mag = 'medium_mag_montage'
+        sem.OpenNewMontage(size[0],size[1], file)
+        sem.SetMontageParams(2)
+        sem.ParamSetToUseForMontage(2)
+        self.checkDewars()
+        self.checkPump()
+        self.logger.info('Starting medium mag montage acquisition')
+        sem.Montage()
+        self._add_vectors_to_mdoc(buffer='B')
+        sem.CloseFile()
+        self.logger.info('Medium mag montage acquisition finished')
     
     def buffer_to_numpy(self, buffer:str='A') -> Tuple[np.array, int, int, int, float, float]:
         sem.Delay(1)
