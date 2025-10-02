@@ -18,10 +18,9 @@ class TargetSelectionStrategy(ABC):
     name: str = 'target_selection_strategy'
     ordered_priority_in_selection: bool = False
     target_priority: Optional[TargetPriority] = None
-    # form = 
 
     @abstractmethod
-    def select(self, item:Target):
+    def select(self, item:Target, **kwargs):
         """Select target areas from the data."""
         pass
 
@@ -34,9 +33,21 @@ class TargetSelectionStrategy(ABC):
 class OriginalTargetSelectionStrategy(TargetSelectionStrategy):
     name: str = 'Original'
 
-    def select(self, item:Target):
+    def select_squares(self, item:Target):
         selection = select_n_areas(item, self.n_targets)
         return selection, [1] * len(selection)
+    
+    def select_holes(self, item:Target, is_bis=False):
+        selection = select_n_areas(item, self.n_targets, is_bis=is_bis)
+        return selection, [1] * len(selection)          
+
+    def select(self, item:Target, is_bis=False, **kwargs):
+        if item.prefix_lower == 'atlas':
+            return self.select_squares(item)
+        if item.prefix_lower == 'square':
+            return self.select_holes(item, is_bis=is_bis)
+
+
 
 
 @dataclass
@@ -181,7 +192,7 @@ class ThoroughTargetSelectionStrategy(TargetSelectionStrategy):
         print(selection.index.to_list(), selected)
         return selected, grouped.index.to_list()
 
-    def select(self, item:Target):
+    def select(self, item:Target, **kwargs):
         if item.prefix_lower == 'atlas':
             return self.select_squares(item.grid_id)
         if item.prefix_lower == 'square':
@@ -205,7 +216,7 @@ class NoLabelsCollectionTargetSelectionStrategy(TargetSelectionStrategy):
 
 
 
-    def select(self, item:Target):
+    def select(self, item:Target, **kwargs):
         pass
 
 
