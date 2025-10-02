@@ -45,6 +45,12 @@ class FakeScopeInterface(MicroscopeInterface):
     def checkPump(self, wait=30):
         pass
 
+    def get_mag_area_in_microns(self, magSet='V'):
+        pass
+
+    def medium_mag_montage(self, size, file=''):
+        pass
+
     def eucentricHeight(self, tiltTo=10, increments=-5) -> float:
         pass
 
