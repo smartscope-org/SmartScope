@@ -91,7 +91,10 @@ case $argument in
         fi        
         if checkForUpdates 'stable'; then
             echo "A new beta version is available. Run 'smartscope.sh update stable' to update to the new beta version."
-        fi 
+        fi
+        if checkForUpdates 'dev'; then
+            echo "A new development version is available. Run 'smartscope.sh update dev' to update to the new development version."
+        fi
         start;;
     stop)
         stop;;
@@ -115,9 +118,6 @@ case $argument in
     setup)
         version=${2:-latest}
         echo "Setting up the latest version of smartscope"
-        if [ "$version" == 'latest' ]; then
-            version='main'
-        fi
         echo "Setting up the smartscope directories"
         mkdir -p logs shared/nginx shared/auth shared/smartscope db data backups
         for file in docker-compose.yml smartscope.yml smartscope.conf database.conf; do
@@ -126,10 +126,10 @@ case $argument in
                 echo "$file already exists. Skipping."
                 continue
             fi
-            wget https://raw.githubusercontent.com/NIEHS/SmartScope/$version/Docker/SmartScope/$file
+            wget https://raw.githubusercontent.com/smartscope-org/SmartScope/$version/Docker/SmartScope/$file
         done
         echo "Pulling initialdb.sql from $version"
-        wget https://raw.githubusercontent.com/NIEHS/SmartScope/$version/Docker/SmartScope/shared/initialdb.sql -O shared/initialdb.sql 
+        wget https://raw.githubusercontent.com/smartscope-org/SmartScope/$version/Docker/SmartScope/shared/initialdb.sql -O shared/initialdb.sql
         ;;
     update)
         version=${2:-latest}
@@ -149,7 +149,7 @@ case $argument in
         mkdir $backupDir
         cp docker-compose.yml smartscope.yml smartscope.conf database.conf smartscope.sh $backupDir
         echo "Pulling updated docker-compose.yml"
-        repo_url="https://raw.githubusercontent.com/NIEHS/SmartScope/$version/Docker/SmartScope"
+        repo_url="https://raw.githubusercontent.com/smartscope-org/SmartScope/$version/Docker/SmartScope"
         wget $repo_url/docker-compose.yml -O docker-compose.yml
         echo "Pulling docker image"
         $composeCmd pull smartscope

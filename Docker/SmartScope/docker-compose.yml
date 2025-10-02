@@ -13,6 +13,7 @@ services:
       - ./testfiles/:/mnt/testfiles/:rw
       - ./logs/:/opt/logs/
       - ./backups/:/mnt/backups/
+      - ./scratch/:/mnt/scratch/
     env_file:
       - smartscope.conf
       - database.conf
@@ -22,12 +23,14 @@ services:
     networks:
       - smartscopenet
   smartscope_ai:
-    image: ghrc.io/smartscope-org/smartscopeai:latest-cpu
+    image: ghcr.io/smartscope-org/smartscopeai:dev-cpu
     restart: always
     env_file:
       - smartscope.conf
     networks:
       - smartscopenet
+    volumes:
+      - ./scratch/:/mnt/scratch/
     command: ["celery", "-A", "SmartscopeAI.interfaces.celery.app", "worker", "--loglevel=DEBUG", "--pool=solo"]
   db:
     image: mariadb:10.5

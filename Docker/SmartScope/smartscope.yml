@@ -15,6 +15,8 @@ services:
       # - /mnt/gatan_Raid_X/smartscope/:/mnt/arctica/
   db:
     user: ${UID}:${GID}
+  smartscope_ai:
+    user: ${UID}:${GID}
   nginx:
     ports:
       #### BROADCASTED PORT ####
