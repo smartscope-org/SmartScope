@@ -125,10 +125,12 @@ class SimSiamEmbedding(Embedding):
         else:
             grid = grid_id
         data = self.load_data(grid, mag_level)
+        clusters = data['assignments'].tolist()
         pks = [obj.pk for obj in queryset]
         data = data[data.index.isin(pks)]
         data = data.reindex(pks)
-        clusters = data['assignments'].tolist()
+        
+
         
         return clusters, len(set(clusters))
 

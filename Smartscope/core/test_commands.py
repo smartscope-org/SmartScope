@@ -169,7 +169,8 @@ def test_protocol_command(microscope_id,detector_id,command, instance=None, inst
     with scopeInterface(microscope = micModels.Microscope.model_validate(microscope),
                               detector= micModels.Detector.model_validate(detector),
                               atlas_settings= micModels.AtlasSettings.model_validate(detector),
-                              additional_settings=additional_settings) as scope:
+                              additional_settings=additional_settings,
+                              close_valves_on_disconnect=False) as scope:
         PROTOCOL_COMMANDS_FACTORY[command](scope,params,instance,content={})
 
 def run_microscope_command(microscope_id, detector_id, command, *args):
@@ -182,7 +183,8 @@ def run_microscope_command(microscope_id, detector_id, command, *args):
     with scopeInterface(microscope = micModels.Microscope.model_validate(microscope),
                               detector= micModels.Detector.model_validate(detector),
                               atlas_settings= micModels.AtlasSettings.model_validate(detector),
-                              additional_settings=additional_settings) as scope:
+                              additional_settings=additional_settings,
+                              close_valves_on_disconnect=False) as scope:
         args = [eval(arg) for arg in args]
         getattr(scope, command)(*args)
 

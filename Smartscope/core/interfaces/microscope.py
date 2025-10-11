@@ -22,6 +22,8 @@ class MicroscopeState:
     preAFISimageShiftX: float = 0
     preAFISimageShiftY: float = 0
     apertureState: Dict = field(default_factory=dict)
+    lastSquareCenteringShiftX: float = 0
+    lastSquareCenteringShiftY: float = 0
     last_autocenter_time: int= -1
     last_refine_zlp_success: bool = True
     current_mag: Optional[Literal['atlas','square', 'hole']] = None

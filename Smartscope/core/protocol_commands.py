@@ -65,7 +65,9 @@ def square(scope:MicroscopeInterface,params,instance, content:Dict, *args, **kwa
 def squareInMediumMag(scope:MicroscopeInterface,params,instance, content:Dict, *args, **kwargs)  -> None:
     """Acquires and save the square image using the View preset."""
     size_x, size_y = scope.get_mag_area_in_microns(magSet='V')
-    total_area_size = np.sqrt(instance.area)
+    
+    total_area_size = np.sqrt(instance.area) / 10 * 1.4
+    logger.debug(f'Medium mag size in A: {size_x} x {size_y}, total area size: {total_area_size}')
     n_tiles_x = int(np.ceil(total_area_size / size_x))
     n_tiles_y = int(np.ceil(total_area_size / size_y))
     scope.medium_mag_montage(size=[n_tiles_x, n_tiles_y], file=instance.raw)
@@ -280,6 +282,7 @@ protocolCommandsFactory = dict(
     atlasInLowDoseSearch=atlasInLowDoseSearch,
     realignToSquare=realignToSquare,
     square=square,
+    squareInMediumMag=squareInMediumMag,
     moveStage=moveStage,
     moveStageWithAtlasToSearchOffset=moveStageWithAtlasToSearchOffset,
     eucentricSearch=eucentricSearch,

@@ -235,15 +235,16 @@ class SerialemInterface(MicroscopeInterface):
     def get_mag_area_in_microns(self, magSet='V'):
         area_x_pix, area_y_pix = sem.ReportCameraSetArea(magSet)[:2]
         pixel_size = sem.ReportCurrentPixelSize(magSet)
-        area_x_um = area_x_pix * pixel_size
-        area_y_um = area_y_pix * pixel_size
+        area_x_um = area_x_pix * pixel_size / 1000
+        area_y_um = area_y_pix * pixel_size / 1000
         return area_x_um, area_y_um
 
     def medium_mag_montage(self, size, file=''):
         self.state.current_mag = 'medium_mag_montage'
+        sem.ParamSetToUseForMontage(2)
         sem.OpenNewMontage(size[0],size[1], file)
         sem.SetMontageParams(2)
-        sem.ParamSetToUseForMontage(2)
+        
         self.checkDewars()
         self.checkPump()
         self.logger.info('Starting medium mag montage acquisition')
@@ -270,6 +271,7 @@ class SerialemInterface(MicroscopeInterface):
 
     def realign_to_square(self):
         self.tiltTo(0)
+        init_x, init_y, init_z = sem.ReportStageXYZ()
         while True:
             self.logger.info('Running square realignment')
             sem.Search()
@@ -286,7 +288,70 @@ class SerialemInterface(MicroscopeInterface):
                 sem.Search()
                 break
             self.logger.info('Iterating.')
-        return sem.ReportStageXYZ()
+        final_x, final_y, final_z = sem.ReportStageXYZ()
+        self.state.lastSquareCenteringShiftX = final_x - init_x
+        self.state.lastSquareCenteringShiftY = final_y - init_y
+        return final_x, final_y, final_z
+
+    def realign_to_square_medium_mag(self, max_image_shift:float=7.0):
+        self.tiltTo(0)
+        init_x, init_y, init_z = sem.ReportStageXYZ()
+        sem.GoToLowDoseArea('V')
+        image_shift_steps = [(0,0), 
+                             (max_image_shift,0), 
+                             (np.cos(0.78)*max_image_shift, np.sin(0.78)*max_image_shift), 
+                             (0,max_image_shift),
+                             (np.cos(2.26)*max_image_shift, np.sin(2.26)*max_image_shift), 
+                             (-max_image_shift,0),
+                             (np.cos(3.83)*max_image_shift, np.sin(3.83)*max_image_shift), 
+                             (0,-max_image_shift),
+                             (np.cos(5.41)*max_image_shift, np.sin(5.41)*max_image_shift),]
+        #image shift around to find signal
+        self.logger.info(f'Image shifting around to find square in medium mag. Max image shift {max_image_shift} um.')
+        self.logger.debug(f'Image shift steps: {image_shift_steps}')
+        while True:
+            found_square = False
+            for shift in image_shift_steps:
+                self.logger.info(f'Image shifting to {shift}')
+                sem.ImageShiftByMicrons(shift[0], shift[1])
+                # sem.ResetImageShift()
+                sem.View()
+                mean, std, min, max = sem.ReportMeanCounts('A', 2)
+                self.logger.debug(f'Mean: {mean}, Std: {std}, Min: {min}, Max: {max}')
+                if mean < 20:
+                    self.logger.info(f'Image seems to be mostly empty. Trying next image shift.')
+                    continue
+                self.logger.info(f'Image seems to have signal.')
+                found_square = True
+                break
+            if found_square:
+                sem.ResetImageShift()
+                break
+            self.logger.info('Could not find square in medium mag with the current image shift range. Trying again.')
+
+        while True:
+            sem.View()
+            self.logger.info('Running square realignment')
+            square, shape_x, shape_y, _, _, _ = self.buffer_to_numpy()
+            _, square_center, _ = find_square(square)
+            im_center = (square.shape[1] // 2, square.shape[0] // 2)
+            diff = (square_center - np.array(im_center))*2
+            self.logger.info(f'Found square center: {square_center}. Image-shifting by {diff} pixels')
+            sem.ImageShiftByPixels(int(diff[0]), -int(diff[1]))
+            sem.ResetImageShift()
+            shift_lenght_in_pixels = np.linalg.norm(diff)
+            max_image_size = np.max(square.shape)
+            self.logger.debug(f'Shift length in pixels: {shift_lenght_in_pixels}. Max image size: {max_image_size}, quarter max image size: {max_image_size//4}, {shift_lenght_in_pixels < max_image_size // 4}')
+            if shift_lenght_in_pixels < max_image_size // 4:
+                self.logger.info('Done.')
+                sem.View()
+                break
+            self.logger.info('Iterating.')
+        final_x, final_y, final_z = sem.ReportStageXYZ()
+        self.state.lastSquareCenteringShiftX = final_x - init_x
+        self.state.lastSquareCenteringShiftY = final_y - init_y
+        return final_x, final_y, final_z
+            
 
     def align_to_hole_ref(self):
         sem.View()
@@ -441,10 +506,10 @@ class SerialemInterface(MicroscopeInterface):
         if harwareDarkDelay > 0:
             sem.UpdateHWDarkRef(harwareDarkDelay)
 
-    def disconnect(self, close_valves=True):
+    def disconnect(self):
         
         self.logger.info("Closing Valves and disconnecting from SerialEM")
-        if close_valves:
+        if self.close_valves_on_disconnect:
             try:
                 sem.SetColumnOrGunValve(0)
             except:
