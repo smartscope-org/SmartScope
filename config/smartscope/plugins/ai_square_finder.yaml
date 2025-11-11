@@ -5,7 +5,7 @@ kwargs:
   device: '0'
   imgsz: 1280
   conf_thres: 0.5
-  iou_thres: 0.7
+  iou_thres: 0.3
   weights_circle: square_weights/20250307_yolo_square_finder.pth
 targetClass:
   - Finder
