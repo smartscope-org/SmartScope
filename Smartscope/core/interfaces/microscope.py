@@ -91,6 +91,7 @@ class Detector(BaseModel):
         from_attributes=True
 
 class Microscope(BaseModel):
+    microscopeId:str = Field(alias='microscope_id')
     loaderSize:int = Field(alias='loader_size')
     ip:str = Field(alias='serialem_IP')
     port:int = Field(alias='serialem_PORT')
