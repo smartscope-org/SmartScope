@@ -129,14 +129,14 @@ class Scratch(BaseModel):
             self.make_space(total_size_mb)
         print(f'Scratch ready to copy {dataset_name} with size {total_size_mb:.2f} MB')
         dataset_path.mkdir(parents=True, exist_ok=True)
-        for (file, dest) in file_list:
+        for ind, (file, dest) in enumerate(file_list):
             if not file.exists():
                 raise FileNotFoundError(f"File {file} does not exist.")
             destination = dataset_path / dest
-            print(f'Copying {file} to {dataset_path / dest}')
-            if not destination.parent.exists():
+            if ind == 0:
                 destination.parent.mkdir(parents=True, exist_ok=True)
-            shutil.copy(file, destination)
+            print(f'Copying {file} to {dataset_path / dest}')
+            shutil.copyfile(file, destination)
 
         item = ScratchHistoryItem(
             timestamp=time.strftime("%Y-%m-%d %H:%M:%S"),
