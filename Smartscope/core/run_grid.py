@@ -280,7 +280,7 @@ def run_grid(
         update(grid, status=GridStatus.COMPLETED)
         logger.info('Grid finished')
         scope.unload_grid()
-        update(grid, unload_time=timezone.now())
+        update(grid, unloading_time=timezone.now())
         return 'finished'
 
 # class TargetPriority(Enum):
