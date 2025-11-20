@@ -1,12 +1,15 @@
 from celery.result import AsyncResult
+from celery.exceptions import TimeoutError
 import json
 from typing import Dict, Literal, List
 import logging
 import numpy as np
 from pydantic import BaseModel
 from pathlib import Path
+from django.core.cache import cache
 
 from Smartscope.tasks.app import app
+from Smartscope.tasks.settings import QUEUES, TRANSIENT_QUEUES, TRANSIENT_QUEUES_CACHE_TIMEOUT
 from Smartscope.lib.image.montage import Montage
 from Smartscope.lib.image_manipulations import encode_image
 from Smartscope.lib.image_manipulations import convert_to_png, auto_contrast_sigma, fourier_crop, auto_contrast, extract_box_from_radius
@@ -32,6 +35,27 @@ TEST_NOTIFICATION = """
 }
 """
 
+def get_queue()->str:
+    for queue in QUEUES:
+        if queue in TRANSIENT_QUEUES:
+            cache_key = f'transient_queue_{queue}'
+            in_use = cache.get(cache_key, False)
+            if in_use:
+                logger.info(f'Transient queue {queue} deemed availble from cache.')
+                return queue
+
+            res = app.send_task('SmartscopeAI.interfaces.celery.tasks.ping', queue=queue)
+            try:
+                _ = res.get(timeout=3, interval=0.1)
+                cache.set(cache_key, True, timeout=TRANSIENT_QUEUES_CACHE_TIMEOUT)
+                logger.info(f'Transient queue {queue} deemed availble from ping. Caching for {TRANSIENT_QUEUES_CACHE_TIMEOUT} seconds.')
+                return queue
+            except TimeoutError:
+                
+                logger.warning(f'Transient queue {queue} did not respond to ping, trying next queue.')
+                continue
+        return queue
+
 def send_find_squares_from_montage(montage, class_map:Dict[str,BaseModel], **kwargs):
     def class_map_to_yolo(class_map):
         yolo_class_map = dict()
@@ -45,7 +69,7 @@ def send_find_squares_from_montage(montage, class_map:Dict[str,BaseModel], **kwa
     data['kwargs'] = kwargs
     data['kwargs']['class_mapping'] = {k:v.model_dump() for k,v in class_map.items()}
     
-    result = app.send_task('SmartscopeAI.interfaces.celery.tasks.find_squares', args=[json.dumps(data)], queue='celery')
+    result = app.send_task('SmartscopeAI.interfaces.celery.tasks.find_squares', args=[json.dumps(data)], queue=get_queue())
     task_id = result.id
     res = AsyncResult(task_id, app=app)
     coords, labels = res.get(interval=1, timeout=120)
@@ -65,7 +89,7 @@ def send_find_holes_from_montage(montage:Montage, class_map:Dict[str,BaseModel],
     data['kwargs']['scaling_factor'] = scaling_factor
     data['kwargs']['class_mapping'] = {k:v.model_dump() for k,v in class_map.items()}
     
-    result = app.send_task('SmartscopeAI.interfaces.celery.tasks.find_holes', args=[json.dumps(data)], queue='celery')
+    result = app.send_task('SmartscopeAI.interfaces.celery.tasks.find_holes', args=[json.dumps(data)], queue=get_queue())
     task_id = result.id
     res = AsyncResult(task_id, app=app)
     final_result = res.get(interval=1, timeout=120)
@@ -142,7 +166,7 @@ def sim_siam_inference(mag_level:Literal['square','hole'], grid_id:str, **kwargs
     ))
 
     print(f'Sending SimSiam inference request for grid {grid_id} with magnification level {mag_level} and checkpoint {checkpoint_path}')
-    result = app.send_task('SmartscopeAI.interfaces.celery.tasks.sim_siam_data', args=[data], queue='celery')
+    result = app.send_task('SmartscopeAI.interfaces.celery.tasks.sim_siam_data', args=[data], queue=get_queue())
     task_id = result.id
     res = AsyncResult(task_id, app=app)
     final_result = res.get(interval=1, timeout=120)
@@ -180,7 +204,7 @@ def sim_siam_training(mag_level:Literal['square','hole'], grid_id:str, dataset_n
         checkpoint_path = str(checkpoint_path)
     ))
     print(f'Sending SimSiam inference request for grid {grid_id} with magnification level {mag_level} and checkpoint {checkpoint_path}')
-    result = app.send_task('SmartscopeAI.interfaces.celery.tasks.sim_siam_training', args=[data], queue='celery')
+    result = app.send_task('SmartscopeAI.interfaces.celery.tasks.sim_siam_training', args=[data], queue=get_queue())
     return result.id
     # res = AsyncResult(task_id, app=app)
     # final_result = res.get(interval=1, timeout=120)
