@@ -87,7 +87,8 @@ class NextPYPPreprocessingPipeline(PreprocessingPipeline):
             self.token = f.read().strip()
             
         self.frames_directory = self.cmd_data.frames_directory
-        self.pixel_size = self.cmd_data.pixel_size
+        self.pixel_size = self.cmd_data.scope_pixel
+        
         self.client = self.initialize_client()
         self.session = None
         self.session_path = None
@@ -100,7 +101,7 @@ class NextPYPPreprocessingPipeline(PreprocessingPipeline):
         
     def initialize_client(self):
         return Client(
-            url_base='https://research-bartesaghilab-08.oit.duke.edu',
+            url_base=self.cmd_data.url_base,
             credentials=Credentials(
                 userid=self.nextpyp_userid,
                 token=self.token,
@@ -110,29 +111,29 @@ class NextPYPPreprocessingPipeline(PreprocessingPipeline):
     def configure_session_args(self):
         self.pyp_args = PypArgValues(block_args(PypBlock.SESSION_SINGLE_PARTICLE))
 
-        self.pyp_args.data_path = self.frames_directory
-        self.pyp_args.gain_reference = '/nfs/bartesaghilab/nextpyp/spr/Gain.mrc'
-        self.pyp_args.gain_flipv = True
+        self.pyp_args.data_path = self.cmd_data.frames_directory
+        self.pyp_args.gain_reference = self.cmd_data.gain_reference
+        self.pyp_args.gain_flipv = self.cmd_data.gain_flipv
 
-        self.pyp_args.scope_pixel = self.pixel_size
-        self.pyp_args.scope_voltage = 300
-        self.pyp_args.scope_cs = self.microscope.spherical_abberation
+        self.pyp_args.scope_pixel = self.cmd_data.scope_pixel
+        self.pyp_args.scope_voltage = self.cmd_data.scope_voltage
+        self.pyp_args.scope_cs = self.cmd_data.scope_cs
 
-        self.pyp_args.stream_transfer_operation = "link"
-        self.pyp_args.stream_transfer_restart = True
+        self.pyp_args.stream_transfer_operation = self.cmd_data.stream_transfer_operation
+        self.pyp_args.stream_transfer_restart = self.cmd_data.stream_transfer_restart
 
-        self.pyp_args.detect_rad = 65.0
-        self.pyp_args.detect_method = "all"
-        self.pyp_args.detect_dist = 40
+        self.pyp_args.detect_rad = self.cmd_data.detect_rad
+        self.pyp_args.detect_method = self.cmd_data.detect_method
+        self.pyp_args.detect_dist = self.cmd_data.detect_dist
 
-        self.pyp_args.class2d_num = 50
-        self.pyp_args.class2d_box = 96
-        self.pyp_args.class2d_bin = 4
+        self.pyp_args.class2d_num = self.cmd_data.class2d_num
+        self.pyp_args.class2d_box = self.cmd_data.class2d_box
+        self.pyp_args.class2d_bin = self.cmd_data.class2d_bin
 
-        self.pyp_args.slurm_verbose = True
-        self.pyp_args.slurm_tasks = 7
-        self.pyp_args.slurm_memory = 14
-        self.pyp_args.slurm_daemon_walltime = "0-01:00:00"
+        self.pyp_args.slurm_verbose = self.cmd_data.slurm_verbose
+        self.pyp_args.slurm_tasks = self.cmd_data.slurm_tasks
+        self.pyp_args.slurm_memory = self.cmd_data.slurm_memory
+        self.pyp_args.slurm_daemon_walltime = self.cmd_data.slurm_daemon_walltime
 
     def start(self):
         self.incomplete_processes = self.list_incomplete_processes()

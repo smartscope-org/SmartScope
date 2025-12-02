@@ -26,10 +26,17 @@ def load_preprocessing_pipeline(file:Path):
     # for default in DEFAULT_PREPROCESSING_PIPELINE:
     #     if default.exists():
     #         return PreprocessingPipelineCmd.parse_file(default)
+    # for nextpyp in NEXTPYP_PREPROCESSING_PIPELINE:
+    #     if nextpyp.exists():
+    #         logger.info(f'Loading nextPYP preprocessing pipeline from {nextpyp}.')
+    #         return NextPYPPreprocessingCmdKwargs.parse_file(nextpyp)
     for nextpyp in NEXTPYP_PREPROCESSING_PIPELINE:
         if nextpyp.exists():
-            logger.info(f'Loading nextPYP preprocessing pipeline from {nextpyp}.')
-            return NextPYPPreprocessingCmdKwargs.parse_file(nextpyp)
+            data = PreprocessingPipelineCmd(
+                pipeline="nextpypPipeline",
+                kwargs=NextPYPPreprocessingCmdKwargs.parse_file(nextpyp).model_dump()
+            )
+            return data
     logger.info(f'nextPYP preprocessing pipeline not found.')
     return None 
     
