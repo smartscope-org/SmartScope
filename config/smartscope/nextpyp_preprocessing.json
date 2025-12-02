@@ -1,0 +1,10 @@
+{
+"pipeline": "nextpypPipeline",  
+"kwargs": {
+    "n_processes": 1, 
+    "frames_directory": null,
+    "pixel_size": 1.0,
+    "path_to_token": "/root/nextpyp_token",
+    "nextpyp_userid": ""
+    }
+}
