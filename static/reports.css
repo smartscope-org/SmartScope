@@ -104,7 +104,6 @@
 .clicked {
     stroke-width: 10;
     fill-opacity: 0.9;
-
 }
 
 .good {
@@ -183,7 +182,8 @@
 .processed,
 .targets_picked,
 .started,
-.selected {
+.selected,
+.grouped {
     stroke: Gold;
     /* fill: Gold; */
     color: Gold;
@@ -461,4 +461,26 @@
 .modal-body select {
     pointer-events: auto;
     z-index: 1000;
+}
+
+/* Define the animation */
+@keyframes draw-outline {
+  0% {
+    stroke-dashoffset: 251.2;
+  }
+  50% {
+    stroke-dashoffset: 0;
+  }
+  100% {
+    stroke-dashoffset: -251.2;
+  }
+}
+
+.suggestion {
+    /* stroke-width: 80px; */
+    stroke: white;
+    stroke-dasharray: 251.2;  /* circumference of the circle */
+    stroke-dashoffset: 0;
+    animation: draw-outline 2s linear infinite;
+
 }

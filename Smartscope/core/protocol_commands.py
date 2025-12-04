@@ -12,7 +12,8 @@ def setAtlasOptics(scope:MicroscopeInterface,params,instance, content:Dict, *arg
 
 def setAtlasOpticsDelay(scope:MicroscopeInterface,params,instance, content:Dict, *args, **kwargs)  -> None:
     """Same as setAtlasOptics with delays between each commands."""
-    scope.set_atlas_optics_delay(delay=1)
+    delay=content.get('delay',1)
+    scope.set_atlas_optics_delay(delay=delay)
 
 def setAtlasOpticsImagingState(scope:MicroscopeInterface,params,instance, content:Dict, *args, **kwargs) :
     """Sets the atlas optics from an Imaging State named "Atlas"."""
@@ -60,6 +61,16 @@ def square(scope:MicroscopeInterface,params,instance, content:Dict, *args, **kwa
     """Acquires and save the square image using the Search preset."""
     scope.square(file=instance.raw)
 
+def squareInMediumMag(scope:MicroscopeInterface,params,instance, content:Dict, *args, **kwargs)  -> None:
+    """Acquires and save the square image using the View preset."""
+    size_x, size_y = scope.get_mag_area_in_microns(magSet='V')
+    
+    total_area_size = np.sqrt(instance.area) / 10 * 1.4
+    logger.debug(f'Medium mag size in A: {size_x} x {size_y}, total area size: {total_area_size}')
+    n_tiles_x = int(np.ceil(total_area_size / size_x))
+    n_tiles_y = int(np.ceil(total_area_size / size_y))
+    scope.medium_mag_montage(size=[n_tiles_x, n_tiles_y], file=instance.raw)
+
 def moveStage(scope:MicroscopeInterface,params,instance, content:Dict, *args, **kwargs)  -> None:
     """Moves the stage to the instance position"""
     finder = instance.finders.first()
@@ -68,8 +79,8 @@ def moveStage(scope:MicroscopeInterface,params,instance, content:Dict, *args, **
 
 def moveStageWithAtlasToSearchOffset(scope:MicroscopeInterface,params,instance, content:Dict, *args, **kwargs)  -> None:
     """Moves the stage to the instance position with an offset"""
-    offset_x = scope.atlas_settings.atlas_to_search_offset_x
-    offset_y = scope.atlas_settings.atlas_to_search_offset_y
+    offset_x = scope.atlas_settings.atlas_to_search_offset_x + scope.state.lastSquareCenteringShiftX
+    offset_y = scope.atlas_settings.atlas_to_search_offset_y + scope.state.lastSquareCenteringShiftY
     finder = instance.finders.first()
     stage_args = [finder.stage_x + offset_x, finder.stage_y + offset_y]
     if instance.prefix.lower() != 'square':
@@ -296,6 +307,7 @@ protocolCommandsFactory = dict(
     atlasInLowDoseSearch=atlasInLowDoseSearch,
     realignToSquare=realignToSquare,
     square=square,
+    squareInMediumMag=squareInMediumMag,
     moveStage=moveStage,
     moveStageWithAtlasToSearchOffset=moveStageWithAtlasToSearchOffset,
     eucentricSearch=eucentricSearch,

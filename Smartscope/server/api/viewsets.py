@@ -566,7 +566,7 @@ class AutoloaderGridViewSet(viewsets.ModelViewSet, GeneralActionsMixin, ExtraAct
         except Exception as err:
             logger.exception(f'Error while updating parameters, {err}.')
             return Response(dict(success=False))
-    
+
     @action(detail=True, methods=['post'])
     def write_grid_geometry(self, request, pk=None):
         ### write the grid_geometry.json file from extend lattice form

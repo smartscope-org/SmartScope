@@ -57,4 +57,3 @@ class Selector(TargetLabel):
 
     class Meta(BaseModel.Meta):
         db_table = 'selector'
-            

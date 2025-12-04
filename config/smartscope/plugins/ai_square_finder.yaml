@@ -1,12 +1,12 @@
 name: AI square finder
-method: find_squares
-module: Smartscope.lib.Finders.AIFinder.wrapper
+method: send_find_squares_from_montage
+module: Smartscope.tasks.base_tasks
 kwargs: 
   device: '0'
-  imgsz: 2048
-  thresh: 0.2
-  iou: 0.3
-  weights: square_weights/model_large_atlas.pth
+  imgsz: 1280
+  conf_thres: 0.5
+  iou_thres: 0.3
+  weights_circle: square_weights/20250307_yolo_square_finder.pth
 targetClass:
   - Finder
   - Classifier

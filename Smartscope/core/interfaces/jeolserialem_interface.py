@@ -21,7 +21,7 @@ class JEOLExtraApertures(Apertures):
     OBJECTIVE_LOWER:int = 3
 
 class JEOLadditionalSettings(BaseModel):
-    transfer_cartridge_path: str = 'C:\Program Data\SerialEM\PyTool\Transfer_Cartridge.bat'
+    transfer_cartridge_path: str = r'C:\Program Data\SerialEM\PyTool\Transfer_Cartridge.bat'
 
 class JEOLSerialemInterface(SerialemInterface):
     additional_settings: JEOLadditionalSettings = JEOLadditionalSettings()

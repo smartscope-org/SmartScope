@@ -1,5 +1,5 @@
 from abc import ABC, abstractmethod
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 import logging
 
 import serialem as sem
@@ -40,12 +40,13 @@ class MicroscopeInterface(ABC):
     microscope: Microscope
     detector: Detector
     atlas_settings:AtlasSettings
-    state: MicroscopeState = MicroscopeState()
+    state: MicroscopeState = field(default_factory=MicroscopeState)
     apertures: Apertures = None
     additional_settings: dict = None 
     has_hole_ref: bool = False
     hole_crop_size: int = 0
     focus_position_set: bool = False
+    close_valves_on_disconnect: bool = True
 
     def __enter__(self):
         logger.debug(f'Additional settings set: {self.additional_settings}')
@@ -192,6 +193,14 @@ class MicroscopeInterface(ABC):
     @abstractmethod
     def zero_image_shift(self):
         pass
+
+    @abstractmethod
+    def get_mag_area_in_microns(self, magSet='V'):
+        pass
+
+    @abstractmethod
+    def medium_mag_montage(self, size, file=''):
+        pass
     
     @abstractmethod
     def highmag(self, isXi, isYi, isX, isY, currentDefocus, tiltAngle, file='', frames=True):
@@ -215,6 +224,9 @@ class MicroscopeInterface(ABC):
 
     @abstractmethod
     def loadGrid(self, position):
+        pass
+
+    def unload_grid(self):
         pass
 
     def refineZLP(self, zerolossDelay):

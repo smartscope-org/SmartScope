@@ -1,7 +1,8 @@
 name: SPA
 atlas:
   acquisition:
-      - setAtlasOptics
+      - setAtlasOpticsDelay:
+          delay: 10
       - setAperturesForLowMag
       - resetStage
       - removeSlit

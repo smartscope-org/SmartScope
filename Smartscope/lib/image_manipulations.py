@@ -259,3 +259,21 @@ def embed_image(path):
         data = f.read()
     encData = base64.b64encode(data).decode(encoding='ascii')
     return 'data:{};base64,{}'.format(mimeType, encData)
+
+def get_png_size(file_path):
+    with open(file_path, 'rb') as f:
+        # Verify PNG signature (first 8 bytes)
+        signature = f.read(8)
+        if signature != b'\x89PNG\r\n\x1a\n':
+            raise ValueError("Not a valid PNG file")
+
+        # Read IHDR chunk (next 25 bytes: 4 for length, 4 for 'IHDR', 13 for data, 4 for CRC)
+        ihdr_chunk = f.read(25)
+        if ihdr_chunk[4:8] != b'IHDR':
+            raise ValueError("IHDR chunk not found")
+
+        # Extract width and height (4 bytes each, big-endian)
+        width = int.from_bytes(ihdr_chunk[8:12], 'big')
+        height = int.from_bytes(ihdr_chunk[12:16], 'big')
+
+        return width, height

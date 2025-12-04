@@ -75,8 +75,8 @@ def plot_hist_gauss(image, thresh, mu=None, sigma=None, a=None, size=254):
     ax.set_ylabel('Counts')
     ax.legend()
     fig.canvas.draw()
-    hist = np.fromstring(fig.canvas.tostring_rgb(), dtype=np.uint8, sep='')
-    hist = hist.reshape(fig.canvas.get_width_height()[::-1] + (3,))
+    hist = np.fromstring(fig.canvas.tostring_argb(), dtype=np.uint8, sep='')
+    hist = hist.reshape(fig.canvas.get_width_height()[::-1] + (4,))[:,:,1:]
     hist = imutils.resize(hist, height=size)
     plt.close(fig='all')
     return hist
@@ -270,7 +270,7 @@ def regular_pattern(montage, spacing_in_um=3, diameter_in_um=1.2, **kwargs):
     return output, True, dict()
 
 
-def find_square_center(img):
+def find_square_center(img, return_mask = False):
     img = auto_contrast(img)
     thresh = np.mean(img)
     # hist = plot_hist_gauss(montage.montage, thresh, size=montage.montage.shape[0])
@@ -280,7 +280,11 @@ def find_square_center(img):
     M = cv2.moments(largest_contour)
     cX = int(M["m10"] / M["m00"])
     cY = int(M["m01"] / M["m00"])
-    return np.array([cX, cY])
+    if not return_mask:
+        return np.array([cX, cY])
+    mask = np.zeros(img.shape, dtype="uint8")
+    cv2.drawContours(mask, [largest_contour], -1, 1, cv2.FILLED)
+    return np.array([cX, cY]), mask
 
 def create_square_mask(image):
     cnts, center, _ = find_square(image)

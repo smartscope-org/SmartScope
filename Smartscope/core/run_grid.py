@@ -10,6 +10,8 @@ from django.conf import settings
 from django.db import transaction
 
 from Smartscope.lib.image_manipulations import export_as_png
+from Smartscope.sim_siam.plugin import SimSiamEmbedding
+
 
 from .grid.grid_status import GridStatus
 from .grid.finders import find_targets
@@ -26,7 +28,9 @@ from .status import status
 from .protocols import get_or_set_protocol
 from .preprocessing_pipelines import load_preprocessing_pipeline
 from .db_manipulations import update, queue_atlas, add_targets
-from .data_manipulations import select_n_areas
+from .selection.strategies import TARGET_SELECTION_STRATEGIES
+from .navigation import get_queue, get_target_priority, NAVIGATION_STRATEGIES, TargetPriority
+# from .data_manipulations import select_n_areas
 from .stats import count_completed
 
 logger = logging.getLogger(__name__)
@@ -97,6 +101,8 @@ def run_grid(
     scope.setup(params.save_frames,grid_dir=grid_dir,framesName=f'{session.date}_{grid.name}')
     scope.reset_state()
 
+    SELECTION_STRATEGY = TARGET_SELECTION_STRATEGIES['original']
+    NAVIGATION_STRATEGY = NAVIGATION_STRATEGIES['original']
     # run acquisition
     if atlas.status == status.QUEUED or atlas.status == status.STARTED:
         atlas = update(atlas, status=status.STARTED)
@@ -148,10 +154,13 @@ def run_grid(
             montage = Montage(name=atlas.name)
             montage.load_or_process()
         selector_wrapper(protocol.atlas.targets.selectors, atlas, montage=montage)
-        selected = select_n_areas(atlas, grid.params_id.squares_num)
+        SimSiamEmbedding().run(mag_level='square', grid_id=grid.grid_id)
+        selection_strategy = SELECTION_STRATEGY(n_targets=params.squares_num)
+        selected = selection_strategy.select(atlas)
+        print(f'Selected {len(selected)} targets from atlas')
         with transaction.atomic():
-            for obj in selected:
-                update(obj, selected=True, status='queued')
+            for obj,priority in zip(*selected):
+                update(obj, selected=True, status='queued', acquisition_priority=priority)
         atlas = update(atlas, status=status.COMPLETED)
 
         #Release atlas items from memory.
@@ -179,13 +188,14 @@ def run_grid(
         if grid.status == GridStatus.ABORTING:
             running = False
             continue
-        square, hole = get_queue(grid)
-        priority = get_target_priority(grid, (square, hole))
-        logger.debug(f'Priority: {priority}')
 
-        logger.info(f'Queued => Square: {square}, Hole: {hole}')
+        priority = get_target_priority(grid, SELECTION_STRATEGY.target_priority)
+        queue, priority  = get_queue(grid, priority, NAVIGATION_STRATEGY)
+
+        
         logger.info(f'Targets done: {is_done}')
         if priority == TargetPriority.HOLE:
+            hole = queue[0]
             is_done = False
             logger.info(f'Running Hole {hole}')
             # process medium image
@@ -232,6 +242,7 @@ def run_grid(
             scope.recenter_beam(params.beam_centering_delay)
         elif priority == TargetPriority.SQUARE:
             is_done = False
+            square = queue[0]
             logger.info(f'Running Square {square}')
             # process square
             if square.status == status.QUEUED or square.status == status.STARTED:
@@ -245,7 +256,6 @@ def run_grid(
                 )
                 square = update(square, status=status.ACQUIRED, completion_time=timezone.now())
             RunSquare.process_square_image(square, grid, microscope)
-            # calculate_hole_geometry(grid)
         elif is_done:
             microscope_id = microscope.pk
             tmp_file = os.path.join(settings.TEMPDIR, f'.pause_{microscope_id}')
@@ -272,38 +282,35 @@ def run_grid(
     else:
         update(grid, status=GridStatus.COMPLETED)
         logger.info('Grid finished')
+        scope.unload_grid()
+        update(grid, unloading_time=timezone.now())
         return 'finished'
 
-class TargetPriority(Enum):
-    HOLE = 'hole'
-    SQUARE = 'square'
+# class TargetPriority(Enum):
+    # HOLE = 'hole'
+    # SQUARE = 'square'
 
 
-def get_target_priority(grid, queue):
-    square, hole = queue
-    if hole is None and square is None:
-        return
-    if hole is None:
-        return TargetPriority.SQUARE
-    if square is None:
-        return TargetPriority.HOLE
-    if grid.collection_mode == 'screening' and grid.session_id.microscope_id.vendor != 'JEOL':
-        return TargetPriority.HOLE
-    return TargetPriority.SQUARE
+# def get_target_priority(grid, queue):
+#     square, hole = queue
+#     if hole is None and square is None:
+#         return
+#     if hole is None:
+#         return TargetPriority.SQUARE
+#     if square is None:
+#         return TargetPriority.HOLE
+#     if grid.collection_mode == 'screening' and grid.session_id.microscope_id.vendor != 'JEOL':
+#         return TargetPriority.HOLE
+#     return TargetPriority.SQUARE
 
-    
-
-def get_queue(grid):
-    square = grid.squaremodel_set.filter(selected=True).\
-        exclude(status__in=[status.SKIPPED, status.COMPLETED]).\
-        order_by('number').first()
-    hole = grid.holemodel_set.filter(selected=True, square_id__status=status.COMPLETED).\
-        exclude(status__in=[status.SKIPPED, status.COMPLETED]).\
-        order_by('square_id__completion_time', 'number').first()
-    return square, hole#[h for h in holes if not h.bisgroup_acquired]
-
-
-
+# def get_queue(grid):
+#     square = grid.squaremodel_set.filter(selected=True).\
+#         exclude(status__in=[status.SKIPPED, status.COMPLETED]).\
+#         order_by('number').first()
+#     hole = grid.holemodel_set.filter(selected=True, square_id__status=status.COMPLETED).\
+#         exclude(status__in=[status.SKIPPED, status.COMPLETED]).\
+#         order_by('square_id__completion_time', 'number').first()
+#     return square, hole#[h for h in holes if not h.bisgroup_acquired]
 
 def get_stop_file(session_id: str, default=None) -> Union[Path,None]:
     stop_file = Path(settings.TEMPDIR, f'{session_id}.stop')

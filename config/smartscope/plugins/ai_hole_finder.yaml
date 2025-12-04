@@ -1,26 +1,31 @@
 name: AI hole finder
-method: find_holes_from_square
-module: Smartscope.lib.Finders.AIFinder.wrapper
+method: send_find_holes_from_montage
+module: Smartscope.tasks.base_tasks
 kwargs: 
   imgsz: 1280
-  thresh: 0.2
-  iou: 0.15
+  conf_thres: 0.7
+  iou_thres: 0.8
   device: '0'
-  weights_circle: circle_weights/circle_weight_12_7_21.pt
-  method: yolo
+  weights_circle: circle_weights/20250129_best.pt
 targetClass:
   - Finder
 description: |
   Hole finder that uses the YOLO architecture to identify the holes.
   Has a built-in classifier to sort out the dark contamination spots that are often labeled as holes on carbon mesh grids.
 classes:
-  "1":
-    label_training: "1"
+  "0":
+    label_training: "0"
     value: -1
     name: Contamination
     color: LightGrey
-  "0":
+  "2":
     label_training: "0"
     value: 1
     name: Hole
     color: blue
+  "1":
+    label_training: "1"
+    value: -1
+    name: Crack
+    color: LightGrey
+

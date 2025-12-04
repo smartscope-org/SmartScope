@@ -66,8 +66,8 @@ class Montage(BaseImage):
         montage = np.empty(np.flip(montsize), dtype='int16')
         for ind, piece in enumerate(self.metadata.piece_limits):
             montage[piece[0, 1]: piece[-2, 1], piece[0, 0]: piece[-2, 0]] = img[ind, :, :]
-        montage = montage[~np.all(montage == 0, axis=1)]
-        montage = montage[:, ~(montage == 0).all(0)]
+        # montage = montage[~np.all(montage == 0, axis=1)]
+        # montage = montage[:, ~(montage == 0).all(0)]
 
         self._image = montage
 

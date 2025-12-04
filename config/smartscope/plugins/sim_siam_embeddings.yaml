@@ -1,0 +1,2 @@
+name: Sim Siam Clustering
+pluginClass: Smartscope.sim_siam.plugin.SimSiamEmbedding

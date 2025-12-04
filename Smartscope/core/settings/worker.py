@@ -7,12 +7,16 @@ from Smartscope.core.config import register_protocols, \
 
 PROTOCOLS_MINIMAL_VERSION = '0.1'
 
-SMARTSCOPE_CUSTOM_CONFIG = Path(os.getenv('CONFIG'))
+SCRATCH_DIR = Path(os.getenv('SCRATCH_DIR','/mnt/scratch/')).resolve()
+if not SCRATCH_DIR.exists():
+    raise ValueError(f'Scratch directory {SCRATCH_DIR} does not exist. Please create it and ensure it is writable.')
+
+SMARTSCOPE_CUSTOM_CONFIG = Path(os.getenv('CONFIG',''))
 SMARTSCOPE_DEFAULT_CONFIG = Path(__file__).parents[3] / 'config' / 'smartscope'
 
 SMARTSCOPE_DEFAULT_PLUGINS = SMARTSCOPE_DEFAULT_CONFIG / 'plugins'
 SMARTSCOPE_CUSTOM_PLUGINS = SMARTSCOPE_CUSTOM_CONFIG / 'plugins'
-EXTERNAL_PLUGINS_DIRECTORY = Path(os.getenv('EXTERNAL_PLUGINS_DIRECTORY'))
+EXTERNAL_PLUGINS_DIRECTORY = Path(os.getenv('EXTERNAL_PLUGINS_DIRECTORY',''))
 EXTERNAL_PLUGINS_LIST_FILE = SMARTSCOPE_CUSTOM_CONFIG / 'external_plugins.txt'
 sys.path.append(str(EXTERNAL_PLUGINS_DIRECTORY))
 EXTERNAL_PLUGINS_LIST:list = get_active_plugins_list(

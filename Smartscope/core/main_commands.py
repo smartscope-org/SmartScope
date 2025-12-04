@@ -450,11 +450,11 @@ def reload_plugins():
     from Smartscope.core.settings.worker import PLUGINS_FACTORY
     PLUGINS_FACTORY.reload_plugins()
 
-def list_plugins():
-    from Smartscope.core.settings.worker import PLUGINS_FACTORY
-    plugins = PLUGINS_FACTORY.get_plugins()
-    print(plugins)
-    return plugins
+# def list_plugins():
+#     from Smartscope.core.settings.worker import PLUGINS_FACTORY
+#     plugins = PLUGINS_FACTORY.get_plugins()
+#     print(plugins)
+#     return plugins
 
 def reload_protocols():
     from Smartscope.core.settings.worker import PROTOCOLS_FACTORY

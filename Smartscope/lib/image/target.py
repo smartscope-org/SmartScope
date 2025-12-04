@@ -3,7 +3,6 @@ used by class Montage
 '''
 from typing import List, Union
 import numpy as np
-from torch import Tensor
 
 from .process_image import ProcessImage
 # from .montage import Montage
@@ -16,7 +15,7 @@ class Target:
 
     _x: Union[int,None] = None
     _y: Union[int,None] = None
-    shape: Union[list, Tensor]
+    shape: Union[list]
     quality: Union[str, None] = None
     area: Union[float, None] = None
     radius: Union[float, None] = None
@@ -48,6 +47,9 @@ class Target:
             self._x = int(value[0] + (value[2] - value[0]) // 2)
             return 
         if value is None:
+            print(self.shape)
+            if isinstance(self.shape, list):
+                self.shape = np.array(self.shape)
             self._x = int(self.shape[0] + (self.shape[2] - self.shape[0]) // 2)
             return
         self._x = value    

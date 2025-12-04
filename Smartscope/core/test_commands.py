@@ -2,7 +2,7 @@ import os
 import sys
 from pathlib import Path
 from typing import List, Tuple, Literal
-import torch
+# import torch
 import logging
 import time
 from django.conf import settings
@@ -15,8 +15,8 @@ logger = logging.getLogger(__name__)
 # logger.info(settings)
 # logger.info(settings.AUTOSCREENDIR)
 
-def is_gpu_enabled():
-    print('GPU enabled:', torch.cuda.is_available())
+# def is_gpu_enabled():
+#     print('GPU enabled:', torch.cuda.is_available())
 
 
 def test_serialem_connection(ip: str, port: int):
@@ -169,7 +169,8 @@ def test_protocol_command(microscope_id,detector_id,command, instance=None, inst
     with scopeInterface(microscope = micModels.Microscope.model_validate(microscope),
                               detector= micModels.Detector.model_validate(detector),
                               atlas_settings= micModels.AtlasSettings.model_validate(detector),
-                              additional_settings=additional_settings) as scope:
+                              additional_settings=additional_settings,
+                              close_valves_on_disconnect=False) as scope:
         PROTOCOL_COMMANDS_FACTORY[command](scope,params,instance,content={})
 
 def run_microscope_command(microscope_id, detector_id, command, *args):
@@ -182,14 +183,15 @@ def run_microscope_command(microscope_id, detector_id, command, *args):
     with scopeInterface(microscope = micModels.Microscope.model_validate(microscope),
                               detector= micModels.Detector.model_validate(detector),
                               atlas_settings= micModels.AtlasSettings.model_validate(detector),
-                              additional_settings=additional_settings) as scope:
+                              additional_settings=additional_settings,
+                              close_valves_on_disconnect=False) as scope:
         args = [eval(arg) for arg in args]
         getattr(scope, command)(*args)
 
 
 def list_plugins():
     from Smartscope.core.settings.worker import PLUGINS_FACTORY
-    [print(f"{'#'*60}\n{name}:\n\n\t{plugin}\n{'#'*60}\n") for name,plugin in PLUGINS_FACTORY.items()]
+    [print(f"{'#'*60}\n{name}:\n\n\t{plugin}\n{'#'*60}\n") for name,plugin in PLUGINS_FACTORY.get_plugins().items()]
 
 
 def list_protocols():

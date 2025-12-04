@@ -1,8 +1,10 @@
-import numpy as np
-from django.db import transaction
-import cv2
 from typing import Optional, List
 
+import numpy as np
+import cv2
+from scipy.ndimage import distance_transform_edt
+
+from django.db import transaction
 from django.contrib.contenttypes.models import ContentType
 from django.db.models.query import prefetch_related_objects
 
@@ -10,7 +12,7 @@ from Smartscope.core.models import Selector
 from Smartscope.lib.image.montage import Montage
 from Smartscope.core.settings.worker import PLUGINS_FACTORY
 from Smartscope.lib.image_manipulations import extract_box_from_radius
-from Smartscope.lib.Finders.basic_finders import find_square_center
+from Smartscope.lib.Finders.basic_finders import find_square_center, create_square_mask
 
 import logging
 logger = logging.getLogger(__name__)
@@ -71,16 +73,19 @@ def gray_level_selector(parent, montage=None):
 
 def distance_from_center_selector(parent, montage=None):
     targets, montage = prepare_selector(parent, montage)
-    if len(targets) == 0:
-        logger.warning('No targets found for distance selector.')
-        return []
-    montage_center = find_square_center(montage.image)
+    mask = create_square_mask(montage.image)
     distances = []
+    distances_arr, (inds_y, inds_x) = distance_transform_edt(mask, return_indices=True)
     for target in targets:
         finder = list(target.finders.all())[0]
         x, y = finder.x, finder.y
-        distances.append(np.sqrt((x - montage_center[0])**2 + (y - montage_center[1])**2))
-    relative_distances = np.array(distances) / np.max(distances)
+        
+        # Find nearest 0 to the point
+        nearest_zero = (inds_y[y,x], inds_x[y,x])
+        print(f'Nearest zero for ({x}, {y}) is {nearest_zero}')
+        distances.append(np.sqrt((x - nearest_zero[1])**2 + (y - nearest_zero[0])**2))
+        # distances.append(np.sqrt((x - montage_center[0])**2 + (y - montage_center[1])**2))
+    relative_distances = 1 - (np.array(distances) / np.max(distances))
     for target, distance in zip(targets, relative_distances):
         target.distance = distance
     return generate_selectors(targets, 'distance')
