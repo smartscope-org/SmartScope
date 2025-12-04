@@ -542,6 +542,10 @@ class SerialemInterface(MicroscopeInterface):
                 slot_status = slot_status[0]
             if  slot_status != 0:
                 raise CartridgeLoadingError('Cartridge did not load properly. Stopping')
+        # sem.SetColumnOrGunValve(1)
+
+    def open_valves(self):
+        sem.Delay(2)
         sem.SetColumnOrGunValve(1)
 
     def unload_grid(self):

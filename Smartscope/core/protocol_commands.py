@@ -1,5 +1,4 @@
 from typing import Dict
-from math import cos, radians
 from random import random
 import numpy as np
 import logging
@@ -253,6 +252,32 @@ def createHoleRef(scope,params,instance, content:Dict, *args, **kwargs):
     scope.hole_crop_size = average.shape[0]
     scope.has_hole_ref = True
 
+def alignToHoleNoTemplate(scope,params,instance, content:Dict, *args, **kwargs):
+    """
+    Aligns the hole using Ptolemy instead of a hole reference image. Slower but very precise
+    """
+
+    from Smartscope.lib.image.base_image import BaseImage
+    from Smartscope.core.grid.finders import find_targets
+    from Smartscope.core.db_manipulations import set_or_update_refined_finder
+    iteration = 0
+    while iteration < 2:
+        scope.acquire_medium_mag()
+        pixel_size = scope.get_image_settings()
+        image, _, _, _, _, pixel_size = scope.buffer_to_numpy()
+        montage = BaseImage('recentering')
+        montage.image = image
+        targets = find_targets(montage, ['Medium Mag AI hole finder'], convert_to_stage=False)[0]
+
+        coords_from_center = np.array([[target.x,target.y] for target in targets]) - np.array([montage.shape_x,montage.shape_y])//2
+        dist_to_center = np.sqrt(np.sum(np.power(coords_from_center,2),axis=1))
+        closest_index = np.argmin(dist_to_center)
+        if dist_to_center[closest_index] * pixel_size < 500: # 500 nm
+            set_or_update_refined_finder(instance.pk,*scope.report_stage())
+            break
+        iteration += 1
+        scope.align_to_coord(coords_from_center[closest_index])
+
 def refineOpticsForHighMag(scope,params,instance, content:Dict, *args, **kwargs):
     if scope.state.current_mag in ['atlas','square']:
         scope.recenter_beam(interval_in_minutes=0)
@@ -292,6 +317,7 @@ protocolCommandsFactory = dict(
     mediumMagHole=mediumMagHole,
     tiltToAngle=tiltToAngle,
     alignToHoleRef=alignToHoleRef,
+    alignToHoleNoTemplate=alignToHoleNoTemplate,
     loadHoleRef=loadHoleRef,
     highMag=highMag,
     setFocusPosition=setFocusPosition,

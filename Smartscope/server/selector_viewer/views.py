@@ -104,10 +104,14 @@ def save_selector_limits_json(request, grid_id, selector):
     return Response({'success': True}, status=200)
 
 @api_view(['GET'])
-def get_selector_limits(request, grid_id, selector):
+def get_selector_limits(request, grid_id, selector, maglevel='square'):
     logger.debug(f'Request received: {request.__dict__}')
+    maglevel = parse_maglevel(maglevel)
+    if maglevel is None:
+        return Response({'error': "Invalid maglevel. Should be 'atlas' or 'square'. "}, status=400)
     grid_id = AutoloaderGrid.objects.get(grid_id=grid_id)
-    selector_sorter = initialize_selector(grid_id, selector)
+    selector_sorter = initialize_selector(grid_id, selector, queryset=maglevel.target_model().display.filter(grid_id=grid_id))
+
     return Response({'low_limit': selector_sorter.limits[0], 'high_limit': selector_sorter.limits[1]}, status=200)
 
 # class CollectionStatsView(TemplateView):

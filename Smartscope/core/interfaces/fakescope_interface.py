@@ -50,6 +50,9 @@ class FakeScopeInterface(MicroscopeInterface):
 
     def medium_mag_montage(self, size, file=''):
         pass
+    
+    def open_valves(self):
+        pass
 
     def eucentricHeight(self, tiltTo=10, increments=-5) -> float:
         pass
