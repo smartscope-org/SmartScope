@@ -84,6 +84,10 @@ Local sha: $local_sha"
 }
 cd $(dirname "$(readlink -f "$0")")
 
+createDirs () {
+    mkdir -p logs shared/nginx shared/auth shared/smartscope db data backups scratch
+}
+
 case $argument in
     start)
         if checkForUpdates 'latest'; then
@@ -115,7 +119,7 @@ case $argument in
     setup)
         version=${2:-latest}
         echo "Setting up the smartscope directories"
-        mkdir -p logs shared/nginx shared/auth shared/smartscope db data backups
+        createDirs
         for file in docker-compose.yml smartscope.yml smartscope.conf database.conf; do
             echo "Pulling $file from $version"
             if [ -e "$file" ]; then
@@ -147,8 +151,9 @@ case $argument in
         echo "Pulling updated docker-compose.yml"
         repo_url="https://raw.githubusercontent.com/smartscope-org/SmartScope/$version/Docker/SmartScope"
         wget $repo_url/docker-compose.yml -O docker-compose.yml
-        echo "Pulling docker image"
-        $composeCmd pull smartscope
+        createDirs
+        # echo "Pulling docker image"
+        # $composeCmd pull
         if promptYesNo  "Files updated, do you want to restart smartscope"; then
             exec $0 restart
         fi
@@ -159,4 +164,3 @@ case $argument in
         helpText
         exit 1;;
 esac
-
