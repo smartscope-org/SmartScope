@@ -7,21 +7,22 @@ class TargetPlugins(BaseModel):
     finders: List[str] = Field(default_factory=list)
     selectors: List[str] = Field(default_factory=list)
 
-class MagLevel(BaseModel):
-    acquisition: List[Union[str,Dict]]
+class ScopeActions(BaseModel):
+    steps: List[Union[str,Dict]] = Field(default_factory=list)
+
+class MagLevel(ScopeActions):
     targets: Optional[TargetPlugins] = TargetPlugins()
     postActions: List[Union[str,Dict]] = Field(default_factory=list)
 
-class PostActions(BaseModel):
-    acquisition: List[Union[str,Dict]] = Field(default_factory=list)
-
 class BaseProtocol(BaseModel):
-    version: str = '0.1'
+    version: str = '0.2'
     name: str
+    preImaging: ScopeActions
     atlas: MagLevel
     square: MagLevel
     mediumMag: MagLevel
     highMag: MagLevel
+    postHighMag: ScopeActions
     description: str = ''
 
     def is_version_supported(self, supported_version:str) -> bool:

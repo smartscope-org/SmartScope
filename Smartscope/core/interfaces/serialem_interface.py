@@ -516,7 +516,7 @@ class SerialemInterface(MicroscopeInterface):
                 logger.warning("Could not close the column valves, still disconnecting from SerialEM")
         sem.Exit(1)
 
-    def loadGrid(self, position):
+    def load_grid(self, position):
         if self.microscope.loaderSize > 1:
             slot_status = sem.ReportSlotStatus(position)
 
@@ -668,4 +668,14 @@ class SerialemInterface(MicroscopeInterface):
         if defocus_change != 0:
             sem.ChangeFocus(defocus_change)
             return
+        
+    def set_highmag_counting_mode(self):
+        if self.detector.detector_model in ['K2','Ceta']:
+            return
+        sem.SetK2ReadMode('Record', 1)
+        sem.SetK2ReadMode('Preview', 1)
+        sem.SetK2ReadMode('Focus', 1)
+
+
+
 

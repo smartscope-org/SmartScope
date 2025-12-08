@@ -139,6 +139,7 @@ def alignToHoleRef(scope:MicroscopeInterface,params,instance, content:Dict, *arg
 
 def zeroImageShift(scope:MicroscopeInterface,params,instance, content:Dict, *args, **kwargs):
     scope.zero_image_shift()
+    scope.reset_image_shift_values(afis=params.afis)
 
 def loadHoleRef(scope:MicroscopeInterface,params,instance, content:Dict, *args, **kwargs) :
     """Loads the references/holeref.mrc image into buffer T to be used as hole template for the alignToHoleRef command."""
@@ -294,6 +295,44 @@ def rollDefocus(scope,params,instance, content:Dict, *args, **kwargs):
 def autofocusByZ(scope,params,instance, content:Dict, *args, **kwargs):
     scope.autofocus_by_z()
 
+def loadGrid(scope,params,instance, content:Dict, *args, **kwargs):
+    scope.load_grid(instance.position)
+
+def unloadGrid(scope,params,instance, content:Dict, *args, **kwargs):
+    scope.unload_grid()
+
+def setHighmagCountingMode(scope,params,instance, content:Dict, *args, **kwargs):
+    scope.set_highmag_counting_mode()
+
+def resetAFISimageShift(scope,params,instance, content:Dict, *args, **kwargs):
+    scope.reset_AFIS_image_shift(afis=params.afis)
+
+def refineZLP(scope,params,instance, content:Dict, *args, **kwargs):
+    scope.refineZLP(params.zeroloss_delay)
+
+def collectHardwareDark(scope,params,instance, content:Dict, *args, **kwargs):
+    scope.collectHardwareDark(params.hardwaredark_delay)
+
+def flashColdFEG(scope,params,instance, content:Dict, *args, **kwargs):
+    scope.flash_cold_FEG(params.coldfegflash_delay)
+
+def recenterBeam(scope,params,instance, content:Dict, *args, **kwargs):
+    scope.recenter_beam(params.beam_centering_delay)
+
+def setupFrames(scope,params,instance, content:Dict, *args, **kwargs):
+    from .frames import get_frames_prefix, parse_frames_prefix
+    from .grid.grid_io import GridIO
+    prefix = parse_frames_prefix(get_frames_prefix(instance),instance)
+    grid_dir = instance.frames_dir(prefix=prefix)
+    session = instance.session_id
+    if params.save_frames:
+        GridIO.create_grid_frames_directory(session.detector_id.frames_directory, instance.frames_dir(prefix=prefix))
+        logger.debug(f'Saving the frames in {grid_dir}')
+    scope.setup(params.save_frames,grid_dir=grid_dir,framesName=f'{session.date}_{instance.name}')
+
+def resetState(scope,params,instance, content:Dict, *args, **kwargs):
+    scope.reset_state()
+
 
 protocolCommandsFactory = dict(
     setAtlasOptics=setAtlasOptics,
@@ -330,4 +369,15 @@ protocolCommandsFactory = dict(
     zeroImageShift=zeroImageShift,
     rollDefocus=rollDefocus,
     autofocusByZ=autofocusByZ,
+    loadGrid=loadGrid,
+    unloadGrid=unloadGrid,
+    setHighmagCountingMode=setHighmagCountingMode,
+    resetAFISimageShift=resetAFISimageShift,
+    refineZLP=refineZLP,
+    collectHardwareDark=collectHardwareDark,
+    flashColdFEG=flashColdFEG,
+    recenterBeam=recenterBeam,
+    setupFrames=setupFrames,
+    resetState=resetState,
+
 )

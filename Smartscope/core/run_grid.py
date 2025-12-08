@@ -23,14 +23,12 @@ from .interfaces.microscope_interface import MicroscopeInterface
 from .selectors import selector_wrapper
 from .models import SquareModel, AutoloaderGrid
 from .settings.worker import PROTOCOL_COMMANDS_FACTORY, SKIP_WEBSOCKET_DURING_DATACOLLECTION
-from .frames import get_frames_prefix, parse_frames_prefix
 from .status import status
 from .protocols import get_or_set_protocol
 from .preprocessing_pipelines import load_preprocessing_pipeline
 from .db_manipulations import update, queue_atlas, add_targets
 from .selection.strategies import TARGET_SELECTION_STRATEGIES
 from .navigation import get_queue, get_target_priority, NAVIGATION_STRATEGIES, TargetPriority
-# from .data_manipulations import select_n_areas
 from .stats import count_completed
 
 logger = logging.getLogger(__name__)
@@ -87,19 +85,14 @@ def run_grid(
     atlas = queue_atlas(grid)
 
     # scope
-
-    # create frames directory
-    prefix = parse_frames_prefix(get_frames_prefix(grid),grid)
-    grid_dir = grid.frames_dir(prefix=prefix)
-    if params.save_frames:
-        GridIO.create_grid_frames_directory(session.detector_id.frames_directory, grid.frames_dir(prefix=prefix))
-        logger.debug(f'Saving the frames in {grid_dir}')
-    if not skip_loading:
-        scope.loadGrid(grid.position)
-    scope.open_valves()
+    runScopeProtocolSteps(
+        scope,
+        protocol.preImaging.steps,
+        params,
+        grid
+    )
+    update(grid, loading_time=timezone.now())
     check_stop_flag(session_id)
-    scope.setup(params.save_frames,grid_dir=grid_dir,framesName=f'{session.date}_{grid.name}')
-    scope.reset_state()
 
     SELECTION_STRATEGY = TARGET_SELECTION_STRATEGIES['original']
     NAVIGATION_STRATEGY = NAVIGATION_STRATEGIES['original']
@@ -107,7 +100,7 @@ def run_grid(
     if atlas.status == status.QUEUED or atlas.status == status.STARTED:
         atlas = update(atlas, status=status.STARTED)
         logger.info('Waiting on atlas file')
-        runAcquisition(
+        runScopeProtocolSteps(
             scope,
             protocol.atlas.acquisition,
             params,
@@ -200,7 +193,7 @@ def run_grid(
             logger.info(f'Running Hole {hole}')
             # process medium image
             hole = update(hole, status=status.STARTED)
-            runAcquisition(
+            runScopeProtocolSteps(
                 scope,
                 protocol.mediumMag.acquisition,
                 params,
@@ -216,12 +209,12 @@ def run_grid(
             if hole.status == status.SKIPPED:
                 continue
 
-            scope.reset_image_shift_values(afis=params.afis)
+
             for hm in hole.targets.exclude(status__in=[status.ACQUIRED,status.COMPLETED]).order_by('hole_id__number'):
                 hm = update(hm, refresh_from_db=False, status=status.STARTED)
                 if hm.hole_id.status == status.SKIPPED:
                     break
-                hm = runAcquisition(
+                hm = runScopeProtocolSteps(
                     scope,
                     protocol.highMag.acquisition,
                     params,
@@ -235,11 +228,12 @@ def run_grid(
                 if hm.hole_id.bis_type != 'center':
                     update(hm.hole_id, status=status.ACQUIRED, completion_time=timezone.now())
             update(hole, status=status.COMPLETED)
-            scope.reset_AFIS_image_shift(afis=params.afis)
-            scope.refineZLP(params.zeroloss_delay)
-            scope.collectHardwareDark(params.hardwaredark_delay)
-            scope.flash_cold_FEG(params.coldfegflash_delay)
-            scope.recenter_beam(params.beam_centering_delay)
+            runScopeProtocolSteps(
+                scope,
+                protocol.postHighMag.steps,
+                params,
+                hole
+            )
         elif priority == TargetPriority.SQUARE:
             is_done = False
             square = queue[0]
@@ -248,7 +242,7 @@ def run_grid(
             if square.status == status.QUEUED or square.status == status.STARTED:
                 square = update(square, status=status.STARTED)
                 logger.info('Waiting on square file')
-                runAcquisition(
+                runScopeProtocolSteps(
                     scope,
                     protocol.square.acquisition,
                     params,
@@ -345,7 +339,7 @@ def parse_method(method):
     return method_name, content, args, kwargs
     
 
-def runAcquisition(
+def runScopeProtocolSteps(
         scope,
         methods,
         params,

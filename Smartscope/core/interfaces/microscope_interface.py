@@ -223,7 +223,7 @@ class MicroscopeInterface(ABC):
         pass
 
     @abstractmethod
-    def loadGrid(self, position):
+    def load_grid(self, position):
         pass
 
     def unload_grid(self):
@@ -275,4 +275,7 @@ class MicroscopeInterface(ABC):
 
     @abstractmethod
     def set_apertures_for_lowmag(self):
+        pass
+
+    def set_highmag_counting_mode(self):
         pass
