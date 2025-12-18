@@ -2,10 +2,10 @@
 # For details about the docker-compose file, please refer to           #
 # https://docs.smartscope.org/installation/docker-compose_details.html #
 ########################################################################
+
 services:
   smartscope:
     image: ghcr.io/smartscope-org/smartscope:dev
-    user: ${UID}:${GID}
     restart: always
     volumes:
       - ./shared/auth/:/opt/auth/:rw
@@ -23,16 +23,19 @@ services:
       - cache
     networks:
       - smartscopenet
+  smartscope_worker:
+    extends:
+      service: smartscope
+    command: ["celery", "-A", "Smartscope.tasks.app", "worker", "--loglevel=DEBUG", "--concurrency=4"]
   smartscope_ai:
-    user: ${UID}:${GID}
-    image: ghcr.io/smartscope-org/smartscopeai:dev-cpu
+    image: ghrc.io/smartscope-org/smartscopeai:latest-cpu
     restart: always
     env_file:
       - smartscope.conf
+    volumes:
+      - ./scratch/:/mnt/scratch/:rw
     networks:
       - smartscopenet
-    volumes:
-      - ./scratch/:/mnt/scratch/
     command: ["celery", "-A", "SmartscopeAI.interfaces.celery.app", "worker", "--loglevel=DEBUG", "--pool=solo"]
   db:
     image: mariadb:10.5
@@ -46,6 +49,9 @@ services:
   cache:
     image: redis:6.2-alpine
     restart: always
+    volumes:
+      - ./tmp:/var/lib/redis
+    command: ["redis-server", "--save", "", "--appendonly", "no"]
     networks:
       - smartscopenet
   nginx:

@@ -20,6 +20,7 @@ for queue in QUEUES:
     tasks_routes['Smartscope.tasks.*'] = {'queue': 'celery'}
 
 
+task_default_queue = 'smartscope'
 
 
 print(result_backend, broker_url)

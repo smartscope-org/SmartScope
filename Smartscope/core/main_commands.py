@@ -147,25 +147,35 @@ def select_areas(mag_level, object_id, n_areas):
             update(obj, selected=True, status='queued')
     print('Done.')
 
-def regroup_bis(grid_id, square_id, reset_groups=True):
+
+def reset_hole_selection(grid_id, square_id):
     from Smartscope.core.models import AutoloaderGrid, SquareModel, HoleModel
     from Smartscope.core.db_manipulations import group_holes_from_square_for_BIS
     from Smartscope.core.status import status
-    grid = AutoloaderGrid.objects.get(grid_id=grid_id)
+    
     if square_id == 'all':
         queryparams = dict(grid_id=grid_id)
     else:
         queryparams = dict(grid_id=grid_id, square_id=square_id)
     logger.debug(f"{grid_id} {square_id}")
-    collection_params = grid.params_id
-    if reset_groups:
-        logger.debug(f"Removing all holes from queue")
-        HoleModel.objects.filter(**queryparams,status__isnull=True)\
-            .update(selected=False,status=status.NULL,bis_group=None,bis_type=None)
-        HoleModel.objects.filter(**queryparams,status='queued',)\
-            .update(selected=False,status=status.NULL,bis_group=None,bis_type=None)
+
+
+    logger.debug(f"Removing all holes from queue")
+    HoleModel.objects.filter(**queryparams,status__isnull=True)\
+        .update(selected=False,status=status.NULL,bis_group=None,bis_type=None)
+    HoleModel.objects.filter(**queryparams,status='queued',)\
+        .update(selected=False,status=status.NULL,bis_group=None,bis_type=None)
     
     squares = SquareModel.display.filter(status=status.COMPLETED,**queryparams)
+    return squares
+
+def regroup_bis(grid_id, square_id):
+    from Smartscope.core.models import AutoloaderGrid
+    from Smartscope.core.db_manipulations import group_holes_from_square_for_BIS
+    
+    grid = AutoloaderGrid.objects.get(grid_id=grid_id)
+    squares = reset_hole_selection(grid_id, square_id)
+    collection_params = grid.params_id
     for square in squares:
         group_holes_from_square_for_BIS(square, 
                                         max_radius=collection_params.bis_max_distance,

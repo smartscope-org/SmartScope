@@ -3,7 +3,6 @@ import sys
 import time
 import logging
 from typing import Union
-from enum import Enum
 from pathlib import Path
 from django.utils import timezone
 from django.conf import settings

@@ -50,3 +50,37 @@ class MetadataConsumer(AsyncWebsocketConsumer):
         await self.send(
             {"type": "websocket.close"}
         )
+
+
+class ProgressConsumer(AsyncWebsocketConsumer):
+    async def connect(self):
+        self.job_id = self.scope["url_route"]["kwargs"]["job_id"]
+        self.group_name = f"job_{self.job_id}"
+
+        await self.channel_layer.group_add(
+            self.group_name,
+            self.channel_name
+        )
+        await self.accept()
+
+    async def disconnect(self, close_code):
+        await self.channel_layer.group_discard(
+            self.group_name,
+            self.channel_name
+        )
+
+    async def progress_update(self, event):
+        print(f"Progress update received: {event}")
+        await self.send(text_data=json.dumps({
+            "progress": event["progress"],
+            "step": event["step"],
+            "message": event["message"],
+            "completed": event["completed"]
+        }))
+
+    async def progress_reload(self, event):
+        # print(f"Progress reload received: {event}")
+        await self.send(text_data=json.dumps({
+            "type": "progress_reload",
+            "reload": True
+        }))

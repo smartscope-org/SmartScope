@@ -81,6 +81,14 @@ function createHTMXloadingMessage(event, message) {
     event.target.setAttribute('messageid', messageID)
 }
 
+function createLongHTMXloadingMessage(event,message) {
+    console.log('Creating long htmx loading message')
+    messageID = createLoadingMessage(message)
+    event.target.setAttribute('messageid', messageID)
+    // event.target.setAttribute('hx-target', `#${messageID}`)
+    event.target.setAttribute("hx-vals", JSON.stringify({message_id:messageID}))
+}
+
 function processHTMXloadingMessage(event) {
     console.log('Processing htmx loading message')
     const responseCode = event.detail.xhr.status;
@@ -89,12 +97,12 @@ function processHTMXloadingMessage(event) {
 }
 
 let processLoadingMessage = (response, id) => {
-    let elem = $(`#loadingMessages #${id}`)
+    let elem = $(`#loadingMessages [id="${id}"]`)
     if (response.ok) {
         elem.removeClass('alert-primary').addClass('alert-success')
         setTimeout(function() {
-            $(`#loadingMessages #${id}`).alert('close');
-            $(`#loadingMessages #${id}`).parent().remove()
+            $(`#loadingMessages [id="${id}"]`).alert('close');
+            $(`#loadingMessages [id="${id}"]`).parent().remove()
         }, 2000);
     } else {
         elem.removeClass('alert-primary').addClass('alert-danger')
