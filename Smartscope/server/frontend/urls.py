@@ -31,6 +31,7 @@ urlpatterns = [
     path('longactions/start_job/', long_actions.start_job, name='start_long_action_job'),
     path('longactions/regroup_bis_select/<grid_id>/', long_actions.regroup_bis_and_select_htmx, name='regroup_bis_select_job'),
     path('longactions/regroup_bis_select/<grid_id>/<square_id>/', long_actions.regroup_bis_and_select_htmx, name='regroup_bis_select_job'),
+    path('longactions/extend_lattice_global/<grid_id>/', long_actions.extend_lattice_global_htmx, name='extend_lattice_global_job'),
 ]
 if settings.USE_MICROSCOPE:
     urlpatterns += [

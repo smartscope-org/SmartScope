@@ -2,6 +2,7 @@ from .app import app
 import time
 from channels.layers import get_channel_layer
 from asgiref.sync import async_to_sync
+import numpy as np
 
 
 def send_websocket_progress(job_id: str, step: int, progress: int, message: str, completed: bool):
@@ -88,3 +89,63 @@ def regroup_bis_and_select(job_id: str, grid_id: str, square_id: str = 'all'):
         message="Regrouping and selection completed",
         completed=True
     )
+
+@app.task
+def extend_lattice_global(job_id: str, grid_id: str):
+    from Smartscope.core.models import AutoloaderGrid
+    from Smartscope.core.models import SquareModel
+    from Smartscope.lib.Datatypes.grid_geometry import GridGeometry, GridGeometryLevel
+    from Smartscope.core.mesh_rotation import calculate_hole_geometry
+    from Smartscope.lib.Finders.lattice_extension import lattice_extension
+    from Smartscope.lib.image.montage import Montage
+    from Smartscope.core.main_commands import add_single_targets, add_holes
+    from Smartscope.core.status import status
+    
+    grid = AutoloaderGrid.objects.get(grid_id=grid_id)
+
+    rotation, spacing = None, None
+
+    geometry = GridGeometry.load(directory=grid.directory)
+    rotation, spacing = geometry.get_geometry(level=GridGeometryLevel.SQUARE)
+    if any([rotation is None, spacing is None]):
+        rotation, spacing = calculate_hole_geometry(grid)
+
+
+    squares = SquareModel.objects.filter(grid_id=grid, status=status.COMPLETED)
+    total_squares = squares.count()
+    successful_extensions = 0
+    failed_extensions = 0
+    failed_items = []
+    for i, square in enumerate(squares, start=1):
+        send_websocket_progress(
+            job_id,
+            step=f"{i}/{total_squares}",
+            progress=round(i / total_squares * 100),
+            message=f"Regrouping BIS and selecting holes in square {square.name}",
+            completed=False
+        )
+        montage = Montage(name=square.name, working_dir=grid.directory)
+        montage.read_image()
+        targets = square.holemodel_set.all()
+        if targets.count() == 0:
+            print('No targets found. The square needs at least one target to center the lattice on.')
+            failed_extensions += 1
+            failed_items.append(square)
+            continue
+        coords = np.array([t.coords for t in targets])
+        new_targets = lattice_extension(coords, montage.image, rotation, spacing)
+        add_holes(square.pk, new_targets)
+        regroup_bis_and_select.run(job_id, grid_id, square.pk)
+        successful_extensions += 1
+    
+    send_websocket_reload(job_id)
+    send_websocket_progress(
+        job_id,
+        step=f"{total_squares}/{total_squares}",
+        progress=100,
+        message=f"Lattice extension completed: {successful_extensions} successful, {failed_extensions} failed.",
+        completed=True
+    )
+
+
+

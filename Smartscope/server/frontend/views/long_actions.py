@@ -35,3 +35,11 @@ def regroup_bis_and_select_htmx(request, grid_id, square_id='all'):
     long_actions_tasks.regroup_bis_and_select.delay(job_id, grid_id, square_id)
     # Return the progress card HTML
     return render(request, "general/progress_card.html", {"job_id": job_id, "job_name": "Regroup BIS and Select"})
+
+def extend_lattice_global_htmx(request, grid_id):
+    job_id = str(uuid.uuid4())
+    print(f"Starting extend lattice global job with id: {job_id}")
+    # Trigger async job
+    long_actions_tasks.extend_lattice_global.delay(job_id, grid_id)
+    # Return the progress card HTML
+    return render(request, "general/progress_card.html", {"job_id": job_id, "job_name": "Extend Lattice Whole Grid"})

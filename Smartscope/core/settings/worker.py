@@ -1,8 +1,7 @@
 import os
 import sys
 from pathlib import Path
-from Smartscope.core.config import register_protocols, \
-    register_external_protocols, get_active_plugins_list, get_protocol_commands, PluginFactory, ProtocolsFactory
+from Smartscope.core.config import get_active_plugins_list, get_protocol_commands, PluginFactory, ProtocolsFactory
 # from Smartscope.core.ctf.ctf_fit_viewer import CTFFitViewer
 
 PROTOCOLS_MINIMAL_VERSION = '0.1'

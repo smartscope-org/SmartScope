@@ -68,7 +68,7 @@ def add_holes(id, targets):
     instance = SquareModel.objects.get(pk=id)
     montage = Montage(name=instance.name, working_dir=instance.grid_id.directory)
     montage.load_or_process()
-    targets = np.array(targets) 
+    targets = np.array(targets) if not isinstance(targets, np.ndarray) else targets
     hole_size = holeSize if (holeSize := instance.grid_id.holeType.hole_size) is not None else 1.2
     targets = list(map(lambda t: convert_centers_to_boxes(
         t, montage.pixel_size, montage.shape_x, montage.shape_y, hole_size), targets))
@@ -101,8 +101,13 @@ def add_single_targets(id_, *args):
     logger.info(f'Adding {len(args)} targets to square {id_}')
     targets = []
     for i in args:
-        j = i.split(',')
-        j = [float(k) for k in j]
+        if isinstance(i, str):
+            j = i.split(',')
+            j = [float(k) for k in j]
+            j = np.array(j)
+        else:
+            j = i
+        
 
         targets.append(j)
     logger.debug(targets)

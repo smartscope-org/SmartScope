@@ -17,6 +17,7 @@ def convert_centers_to_boxes(
         max_y: float,
         diameter_in_um: float = 1.2
     ) -> np.ndarray:
+    print(f'Working on {center} with type {type(center)}')
     radius_in_pix = int(diameter_in_um * 10000 / pixel_size_in_angst // 2)
     left = max([0, center[1] - radius_in_pix])
     up = max([0, center[0] - radius_in_pix])
