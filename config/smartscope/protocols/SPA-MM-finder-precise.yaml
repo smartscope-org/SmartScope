@@ -1,11 +1,11 @@
 name: SPA MM Finder Precise
-preImaging:
-  steps:
-    - setHighmagCountingMode
-    - loadGrid
-    - setupFrames
-    - openColumnValve
-    - resetState
+# preImaging:
+#   steps:
+#     - setHighmagCountingMode
+#     - loadGrid
+#     - setupFrames
+#     - openColumnValve
+#     - resetState
 atlas:
   acquisition:
       - setAtlasOptics
@@ -51,11 +51,11 @@ mediumMag:
 highMag:
   acquisition:
     - highMag
-postHighMag:
-  steps:
-    - resetAFISimageShift
-    - refineZLP
-    - collectHardwareDark
-    - flashColdFEG
-    - recenterBeam
+# postHighMag:
+#   steps:
+#     - resetAFISimageShift
+#     - refineZLP
+#     - collectHardwareDark
+#     - flashColdFEG
+#     - recenterBeam
 
