@@ -1,22 +1,22 @@
-import os
-import json
-import subprocess as sub
-import psutil
-from datetime import datetime
-import logging
-import plotly.graph_objs as go
+# import os
+# import json
+# import subprocess as sub
+# import psutil
+# from datetime import datetime
+# import logging
+# import plotly.graph_objs as go
 import uuid
 
 
 from django.shortcuts import render
-from django.contrib.auth import logout, authenticate, login
-from django.contrib.auth.mixins import LoginRequiredMixin
-from django.conf import settings
-from django.http import JsonResponse, HttpResponse
-from django.template.response import TemplateResponse
-from django.views.generic import TemplateView
-from django.shortcuts import redirect
-from django.utils.timezone import now
+# from django.contrib.auth import logout, authenticate, login
+# from django.contrib.auth.mixins import LoginRequiredMixin
+# from django.conf import settings
+# from django.http import JsonResponse, HttpResponse
+# from django.template.response import TemplateResponse
+# from django.views.generic import TemplateView
+# from django.shortcuts import redirect
+# from django.utils.timezone import now
 
 from Smartscope.tasks import long_actions_tasks
 
