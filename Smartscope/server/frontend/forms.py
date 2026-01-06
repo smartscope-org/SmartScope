@@ -125,7 +125,8 @@ class AutoloaderGridReportForm(forms.ModelForm):
         from Smartscope.core.models.grid import AutoloaderGrid
         model = AutoloaderGrid
         exclude = ['session_id', 'position', 'name', 'quality', 'notes', 'last_update',
-                   'status', 'params_id', 'hole_angle', 'mesh_angle', 'start_time']
+                   'status', 'params_id', 'hole_angle', 'mesh_angle', 'start_time', 
+                   'loading_time', 'unloading_time']
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
