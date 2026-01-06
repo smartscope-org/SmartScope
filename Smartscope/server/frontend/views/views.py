@@ -98,7 +98,7 @@ class AutoScreenSetup(LoginRequiredMixin, TemplateView):
             num_grids = set([k.split('-')[0] for k in request.POST.keys() if k.split('-')[0].isnumeric()])
 
             if form_general.is_valid() and form_params.is_valid() and form_preprocess.is_valid():
-
+                mode = form_general.cleaned_data.pop('mode','screening')
                 session, created = ScreeningSession.objects.get_or_create(
                     **form_general.cleaned_data,
                     date=datetime.today().strftime('%Y%m%d')
@@ -565,6 +565,15 @@ def getMicroscopeDetectors(request):
     detectors = Detector.objects.filter(microscope_id=microscope, deprecated=False)
     options = [{"value":d.pk,"field":d} for d in detectors]
     return render(request, "general/options_fields.html", {"options": options})
+
+def getCollectionParamsForm(request):
+    detector_id = request.GET.get('detector_id','')
+    mode = request.GET.get('mode','screening')
+    if detector_id == '':
+        return HttpResponse('Detector not specified')
+    form = GridCollectionParamsForm(initial={'detector': detector_id, 'mode': mode})
+    return TemplateResponse(request=request,template="forms/formFieldsBase.html",context=dict(form=form, row=True, id='formParams'))
+
 
 def targetHistory(request, grid_id):
     # grid_id = request.GET.get('grid_id',None)

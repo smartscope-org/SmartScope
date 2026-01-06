@@ -11,6 +11,10 @@ from django.urls import reverse
 
 
 class ScreeningSessionForm(forms.ModelForm):
+    mode = forms.ChoiceField(choices=[('screening','screening'),('collection','collection')], initial='screening', label='Session Mode', 
+                             help_text='Select the session mode. Screening mode will use screening parameters and collection mode will use data collection parameters.',
+                             widget=forms.Select(attrs={"id": "id_mode"}))
+
     class Meta:
         from Smartscope.core.models.screening_session import ScreeningSession
         model = ScreeningSession
@@ -30,6 +34,7 @@ class ScreeningSessionForm(forms.ModelForm):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
+
         self.fields['session'].widget.attrs.update({
             "pattern": r"^[a-zA-Z0-9_\-]+$"
         })
@@ -42,18 +47,47 @@ class ScreeningSessionForm(forms.ModelForm):
         self.fields['microscope_id'].widget.attrs.update({
             "hx-get": reverse('getMicroscopeDetectors'),
             "hx-target":"#id_detector_id",
-            "hx-trigger":"change"
+            "hx-trigger":"change",
+        })
+        self.fields['detector_id'].widget.attrs.update({
+            "hx-get": reverse('getCollectionParamsForm'),
+            "hx-target":"#collection-params-form",
+            "hx-trigger":"change",
+            "hx-include":"#id_mode",
+            "hx-on": "htmx:afterSwap: const d = document.querySelector('#id_detector_id'); console.log(d); if (d) d.dispatchEvent(new Event('change', { bubbles: true }));"
+
+        })
+        self.fields['mode'].widget.attrs.update({
+            "hx-get": reverse('getCollectionParamsForm'),
+            "hx-target":"#collection-params-form",
+            "hx-trigger":"change",
+            "hx-include":"#id_detector_id",
         })
         for visible in self.visible_fields():
             visible.field.widget.attrs['class'] = 'form-control'
 
 
-def read_config(filename = 'default_collection_params.yaml'):
+def read_config_legacy(filename = 'default_collection_params.yaml'):
     collections_params = yaml.safe_load(Path(SMARTSCOPE_DEFAULT_CONFIG,filename).read_text())
     custom_collections_params = SMARTSCOPE_CUSTOM_CONFIG / filename
     if custom_collections_params.exists():
         collections_params.update(yaml.safe_load(custom_collections_params.read_text()))
     return collections_params
+
+def read_config(filename = 'default_collection_params.yaml', detector_id = 'default', mode='screening'):
+    try:
+        collections_params = yaml.safe_load(Path(SMARTSCOPE_DEFAULT_CONFIG,filename).read_text())
+        custom_collections_params = SMARTSCOPE_CUSTOM_CONFIG / filename
+        if custom_collections_params.exists():
+            yaml_data = yaml.safe_load(custom_collections_params.read_text())
+            detector_specific_data = yaml_data.get(detector_id, {})
+            mode_specific_data = detector_specific_data.get(mode, {})
+            collections_params.update(mode_specific_data)
+        return collections_params
+    except Exception as e:
+        logger.error(f'Error reading config file {filename}: {e}, trying legacy method.')
+        return read_config_legacy()
+
 
 class AutoloaderGridForm(forms.ModelForm):
     protocol = forms.ChoiceField(choices=[('auto','auto')] + [(protocol,protocol) for protocol in PROTOCOLS_FACTORY.get_protocols()])
@@ -146,9 +180,14 @@ class GridCollectionParamsForm(forms.ModelForm):
     multishot_per_hole_id = forms.CharField(label='Multishot per hole ID', required=False)
 
 
-    def __init__(self, *args, grid_id=None, **kwargs):
+    def __init__(self, *args, grid_id=None, detector_id=None, **kwargs):
 
         super().__init__(*args, **kwargs)
+
+        detector = self.initial.get('detector', None)
+        mode = self.initial.get('mode', 'screening')
+        print(f"Detector in form init: {detector}, mode: {mode}")
+
         self.fields['target_defocus_min'].widget.attrs.update({
             "max": 0,
             "step": 0.05
@@ -163,7 +202,7 @@ class GridCollectionParamsForm(forms.ModelForm):
         })
         self.fields['bis_max_distance'].widget.attrs.update({
             "min": 0,
-            "step": 0.5
+            "step": 0.1
         })
         self.fields['squares_num'].widget.attrs.update({
             "min": 0,
@@ -193,10 +232,16 @@ class GridCollectionParamsForm(forms.ModelForm):
                 visible.field.widget.attrs['class'] = 'form-control'
             visible.field.required = False
 
-        for field, data in read_config().items():
+        for field, data in read_config(detector_id=detector, mode=mode).items():
             if field not in self.fields.keys():
                 continue
             self.fields[field].initial = data.pop('initial')
+            hidden = data.pop('hidden', False)
+            print(f"Field: {field}, hidden: {hidden}")
+            if hidden:
+                self.fields[field].widget = forms.HiddenInput()
+                self.fields[field].widget.attrs['hidden'] = True
+            
             self.fields[field].widget.attrs.update(data)
 
 
