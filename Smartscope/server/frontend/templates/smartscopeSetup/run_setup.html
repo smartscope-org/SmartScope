@@ -9,7 +9,7 @@
     {% include "forms/formFieldsBase.html" with form=form_general row=True%}
     <h3 class="col-auto pr-1 mb-0">COLLECTION PARAMETERS</h3>
     <div id="collection-params-form">
-        Pick a detector to load collection parameters form.
+        {% include "forms/formFieldsBase.html" with form=form_params row=True id='formParams' %}
     </div>
 
     <h3 class="col-auto pr-1 mb-0">PREPROCESSING PIPELINE</h3>
