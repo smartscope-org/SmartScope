@@ -187,6 +187,8 @@ class GridCollectionParamsForm(forms.ModelForm):
 
         detector = self.initial.get('detector', None)
         mode = self.initial.get('mode', 'screening')
+
+
         print(f"Detector in form init: {detector}, mode: {mode}")
 
         self.fields['target_defocus_min'].widget.attrs.update({

@@ -219,7 +219,8 @@ class ReportPanel(APIView):
             context['grid'] = grid
             context['tagsFeatureFlag'] = settings.TAGS_FEATURE_FLAG
             context['gridform'] = AutoloaderGridReportForm(instance=context['grid'])
-            context['gridCollectionParamsForm'] = GridCollectionParamsForm(instance=context['grid'].params_id, grid_id=context['grid'].grid_id)
+            context['gridCollectionParamsForm'] = GridCollectionParamsForm(instance=context['grid'].params_id, grid_id=context['grid'].grid_id, 
+                                                                           initial={'detector': str(grid.session_id.detector_id.pk), 'mode': grid.collection_mode})
             context['useMicroscope'] = settings.USE_MICROSCOPE
             try:
                 context['atlas_id'] = context['grid'].atlasmodel_set.all().first().atlas_id
