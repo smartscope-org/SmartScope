@@ -24,7 +24,7 @@ def split_path(path):
     return splitted_path
 
 
-def copy_file(file, remove=True):
+def copy_file(file, target_directory='raw', remove=True):
     mdoc = file + '.mdoc'
     while not os.path.isfile(mdoc):
         logger.info('Waiting for ', mdoc)
@@ -37,10 +37,10 @@ def copy_file(file, remove=True):
     while not copied:
         try:
             logger.info(f'Copying {mdoc} ({os.path.getsize(mdoc)} bytes)...')
-            new_mdoc = shutil.copy2(mdoc, 'raw')
+            new_mdoc = shutil.copy2(mdoc, target_directory)
 
             logger.info(f'Copying {file} ({os.path.getsize(file)} bytes)...')
-            new_file = shutil.copy2(file, 'raw')
+            new_file = shutil.copy2(file, target_directory)
 
             logger.info('Checking files integrity...')
             mdoc_size, new_mdoc_size = os.path.getsize(mdoc), os.path.getsize(new_mdoc)

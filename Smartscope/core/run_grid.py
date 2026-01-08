@@ -2,6 +2,8 @@ import os
 import sys
 import time
 import logging
+import numpy as np
+from scipy.spatial.distance import cdist
 from typing import Union
 from pathlib import Path
 from django.utils import timezone
@@ -92,6 +94,11 @@ def run_grid(
     )
     update(grid, loading_time=timezone.now())
     check_stop_flag(session_id)
+
+    needs_reregistations = grid.unloading_time is not None and grid.loading_time > grid.unloading_time
+    if needs_reregistations:
+        logger.info('NOT IMPLEMENTED YET. Re-registering grid after re-loading')
+        # reregister_grid(scope, grid, protocol)
 
     SELECTION_STRATEGY = TARGET_SELECTION_STRATEGIES['original']
     NAVIGATION_STRATEGY = NAVIGATION_STRATEGIES['original']
@@ -350,3 +357,36 @@ def runScopeProtocolSteps(
         if output is not None:
             instance = output
     return output
+
+def reregister_grid(scope, grid, protocol):
+    logger.info('Re-registering grid')
+    completed_squares = list(grid.squaremodel_set.filter(status=status.COMPLETED))
+    if len(completed_squares) < 2:
+        logger.info('Not enough completed squares to re-register grid')
+        return
+    coords = []
+    for square in completed_squares:
+        coordinates = square.finders.first()
+        coords.append((coordinates.stage_x, coordinates.stage_y))
+
+    coords_np = np.asarray(coordinates, dtype=float)
+    # use scipy cdist to compute pairwise distances
+    D = cdist(coords_np, coords_np, metric='euclidean')
+
+    i, j = np.unravel_index(int(np.argmax(D)), D.shape)
+    maxd = float(D[i, j])
+    pair = (completed_squares[i], completed_squares[j])
+
+    logger.info(f'Farthest squares: {pair[0]} and {pair[1]}, distance={maxd}')
+
+    old_positions = []
+    new_positions = []
+    for square in pair:
+        new_positions.append(PROTOCOL_COMMANDS_FACTORY['reregister_square'](scope, grid.params_id, square))    
+        old_positions.append(square.stage_coords)
+    
+    # Compute rotation and translation
+    old_positions = np.array(old_positions)
+    new_positions = np.array(new_positions)
+    
+    

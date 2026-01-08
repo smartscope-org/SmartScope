@@ -15,10 +15,12 @@ from Smartscope.core.selectors import selector_wrapper
 from Smartscope.core.models import HoleModel
 from Smartscope.core.status import status
 from Smartscope.core.protocols import get_or_set_protocol
-from Smartscope.core.db_manipulations import update, add_targets, group_holes_from_square_for_BIS
+from Smartscope.core.db_manipulations import update, add_targets, group_holes_from_square_for_BIS, set_or_update_refined_finder
 from Smartscope.core.selection.strategies import TARGET_SELECTION_STRATEGIES
 from Smartscope.lib.image_manipulations import export_as_png
 from Smartscope.lib.image.montage import Montage
+from Smartscope.lib.Finders.basic_finders import find_square
+from Smartscope.lib.image.target import Target
 from Smartscope.sim_siam.plugin import SimSiamEmbedding
 
 class RunSquare:
@@ -36,6 +38,10 @@ class RunSquare:
                 directory=microscope_id.scope_path
             )
             export_as_png(montage.image, montage.png)
+            _, square_center, _ = find_square(montage.image)
+            t = Target(square_center,from_center=True)
+            t.convert_image_coords_to_stage(montage)
+            set_or_update_refined_finder(square.pk, t.stage_x, t.stage_y, t.stage_z)
             targets, finder_method, classifier_method, _ = find_targets(montage, protocol.finders)
             holes = add_targets(grid, square, targets, HoleModel, finder_method, classifier_method)
             square = update(square,

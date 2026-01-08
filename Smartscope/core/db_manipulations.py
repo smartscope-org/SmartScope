@@ -100,9 +100,9 @@ def update_target_status(model:models.BaseModel,objects_ids:List[str],value:str,
             obj.save()
 
 
-def set_or_update_refined_finder(object_id, stage_x, stage_y, stage_z):
+def set_or_update_refined_finder(object_id, stage_x, stage_y, stage_z, method_name='Recentering'):
 
-    refined = models.Finder.objects.filter(object_id=object_id, method_name='Recentering')
+    refined = models.Finder.objects.filter(object_id=object_id, method_name=method_name)
     if refined:
         refined.update(stage_x=stage_x,
                         stage_y=stage_y,
@@ -113,7 +113,7 @@ def set_or_update_refined_finder(object_id, stage_x, stage_y, stage_z):
         content_type=original.content_type,
         x=original.x,
         y=original.y,
-        method_name='Recentering',
+        method_name=method_name,
         object_id=object_id,
         stage_x=stage_x,
         stage_y=stage_y,

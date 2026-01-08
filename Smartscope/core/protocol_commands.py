@@ -52,9 +52,9 @@ def realignToSquare(scope:MicroscopeInterface,params,instance, content:Dict, *ar
     """Realigns to the square using the Search magnification. 
     Mainly useful when the alignement between the Atlas and the Square is off.
     """
-    from Smartscope.core.db_manipulations import set_or_update_refined_finder
+    # from Smartscope.core.db_manipulations import set_or_update_refined_finder
     stageX, stageY, stageZ = scope.realign_to_square()
-    set_or_update_refined_finder(instance.square_id, stageX, stageY, stageZ)
+    # set_or_update_refined_finder(instance.square_id, stageX, stageY, stageZ)
     scope.moveStage(stageX,stageY,stageZ)   
 
 def square(scope:MicroscopeInterface,params,instance, content:Dict, *args, **kwargs)  -> None:
@@ -333,6 +333,46 @@ def setupFrames(scope,params,instance, content:Dict, *args, **kwargs):
 def resetState(scope,params,instance, content:Dict, *args, **kwargs):
     scope.reset_state()
 
+def reregisterMediumMag(scope:MicroscopeInterface,params,instance, content:Dict, *args, **kwargs):
+    from Smartscope.core.grid.run_io import get_file_and_process
+    from Smartscope.lib.Finders.basic_finders import find_square
+    from Smartscope.lib.image.target import Target
+
+    microscope_id = instance.grid_id.session_id.microscope_id
+    finder = instance.finders.first()
+
+    moveStage(scope,params,instance, content, *args, **kwargs)
+    squareInMediumMag(scope,params,instance, content, *args, **kwargs)
+    montage = get_file_and_process(
+            raw=square.raw,
+            name=square.name,
+            target_directory=instance.name,
+            directory=microscope_id.scope_path
+        )
+    _, square_center, _ = find_square(montage.image)
+    t = Target(square_center,from_center=True)
+    t.convert_image_coords_to_stage(montage)
+    new_stage_x = t.stage_x
+    new_stage_y = t.stage_y
+    return(new_stage_x, new_stage_y)
+
+def reregisterSearchMag(scope:MicroscopeInterface,params,instance, content:Dict, *args, **kwargs):
+    finder = instance.finders.first()
+    stage_x = finder.stage_x
+    stage_y = finder.stage_y
+
+    moveStage(scope,params,instance, content, *args, **kwargs)
+    shift = scope.find_square_center_microns()
+    return (stage_x + shift[0], stage_y + shift[1])
+
+
+
+
+
+    
+
+
+
 
 protocolCommandsFactory = dict(
     setAtlasOptics=setAtlasOptics,
@@ -379,5 +419,6 @@ protocolCommandsFactory = dict(
     recenterBeam=recenterBeam,
     setupFrames=setupFrames,
     resetState=resetState,
-
+    reregisterMediumMag=reregisterMediumMag,
+    reregisterSearchMag=reregisterSearchMag,
 )

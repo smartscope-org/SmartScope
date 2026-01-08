@@ -268,13 +268,24 @@ class SerialemInterface(MicroscopeInterface):
     def numpy_to_buffer(self,image,buffer='T'):
         sem.PutImageInBuffer(image, buffer, *image.shape, 'A')
         
+    def find_square_center_microns(self):
+        sem.Search()
+        sem.Delay(0.2, 's')
+        square, shape_x, shape_y, _, _, _ = self.buffer_to_numpy()
+        _, square_center, _ = find_square(square)
+        im_center = (square.shape[1] // 2, square.shape[0] // 2)
+        diff = square_center - np.array(im_center)
+        self.logger.info(f'Found square center: {square_center}. Image-shifting by {diff} pixels')
+        sem.ImageShiftByPixels(int(diff[0]), -int(diff[1]))
+        shift = sem.ReportImageShift()[-2:]
+        return shift
 
     def realign_to_square(self):
         self.tiltTo(0)
         init_x, init_y, init_z = sem.ReportStageXYZ()
         while True:
             self.logger.info('Running square realignment')
-            sem.Search()
+            self.find_square_center()
             sem.Delay(0.2, 's')
             square, shape_x, shape_y, _, _, _ = self.buffer_to_numpy()
             _, square_center, _ = find_square(square)
