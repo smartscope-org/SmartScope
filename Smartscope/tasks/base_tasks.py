@@ -15,6 +15,7 @@ from Smartscope.lib.image_manipulations import encode_image
 from Smartscope.lib.image_manipulations import convert_to_png, auto_contrast_sigma, fourier_crop, auto_contrast, extract_box_from_radius
 from Smartscope.lib.mesh_operations import get_mesh_rotation_spacing, closest_to_center, filter_from_center
 from Smartscope.lib.Finders.lattice_extension import generic_lattice_extension
+from Smartscope.lib.Finders.basic_finders import mask_square
 from Smartscope.lib.image.targets import Targets
 
 from Smartscope.sim_siam.prepare_data import sim_siam_prepare_data, sim_siam_copy_to_scratch_directory, sim_siam_copy_output_file_from_scratch, sim_siam_copy_output_directory_from_scratch, sim_siam_find_checkpoint
@@ -81,6 +82,25 @@ def send_find_squares_from_montage(montage, class_map:Dict[str,BaseModel], **kwa
 def send_find_holes_from_montage(montage:Montage, class_map:Dict[str,BaseModel], success_threshold:int=10,  **kwargs):
     scaling_factor = montage.image.shape[0] / 1024
     image= convert_to_png(montage.image, height=1024, normalization=auto_contrast_sigma, binning_method=fourier_crop)
+
+    encoded = encode_image(image)
+
+    data = { 'image': encoded }
+    data['kwargs'] = kwargs
+    data['kwargs']['scaling_factor'] = scaling_factor
+    data['kwargs']['class_mapping'] = {k:v.model_dump() for k,v in class_map.items()}
+    
+    result = app.send_task('SmartscopeAI.interfaces.celery.tasks.find_holes', args=[json.dumps(data)], queue=get_queue())
+    task_id = result.id
+    res = AsyncResult(task_id, app=app)
+    final_result = res.get(interval=1, timeout=120)
+    print(final_result)
+    return final_result, True, dict()
+
+def send_find_holes_from_square(montage:Montage, class_map:Dict[str,BaseModel], success_threshold:int=10,  **kwargs):
+    scaling_factor = montage.image.shape[0] / 1024
+    image= convert_to_png(montage.image, height=1024, normalization=auto_contrast_sigma, binning_method=fourier_crop)
+    image = mask_square(image)
 
     encoded = encode_image(image)
 

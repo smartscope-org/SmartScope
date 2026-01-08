@@ -1,5 +1,5 @@
 name: AI hole finder
-method: send_find_holes_from_montage
+method: send_find_holes_from_square
 module: Smartscope.tasks.base_tasks
 kwargs: 
   imgsz: 1280
