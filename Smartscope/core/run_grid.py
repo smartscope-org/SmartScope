@@ -108,7 +108,7 @@ def run_grid(
         logger.info('Waiting on atlas file')
         runScopeProtocolSteps(
             scope,
-            protocol.atlas.acquisition,
+            protocol.atlas.steps,
             params,
             atlas
         )
@@ -201,7 +201,7 @@ def run_grid(
             hole = update(hole, status=status.STARTED)
             runScopeProtocolSteps(
                 scope,
-                protocol.mediumMag.acquisition,
+                protocol.mediumMag.steps,
                 params,
                 hole
             )
@@ -222,7 +222,7 @@ def run_grid(
                     break
                 hm = runScopeProtocolSteps(
                     scope,
-                    protocol.highMag.acquisition,
+                    protocol.highMag.steps,
                     params,
                     hm
                 )
@@ -250,7 +250,7 @@ def run_grid(
                 logger.info('Waiting on square file')
                 runScopeProtocolSteps(
                     scope,
-                    protocol.square.acquisition,
+                    protocol.square.steps,
                     params,
                     square
                 )

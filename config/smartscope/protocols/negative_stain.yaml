@@ -1,6 +1,6 @@
 name: NegativeStain
 atlas:
-  acquisition:
+  steps:
       - setAtlasOptics
       - setAperturesForLowMag
       - resetStage
@@ -12,7 +12,7 @@ atlas:
     selectors:
       - Size selector
 square:
-  acquisition:
+  steps:
     - setAperturesForLowMag
     - moveStageWithAtlasToSearchOffset
     - realignToSquare
@@ -25,7 +25,7 @@ square:
       - Graylevel selector
       - Distance from center selector
 mediumMag:
-  acquisition:
+  steps:
     - setAperturesForHighMag
     - tiltToAngle
     - moveStage
@@ -34,5 +34,5 @@ mediumMag:
     - autoFocus
     - waitDrift
 highMag:
-  acquisition:
+  steps:
     - highMag

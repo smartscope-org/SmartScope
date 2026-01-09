@@ -86,6 +86,7 @@ class AtlasSettings(BaseModel):
 class Detector(BaseModel):
     energyFilter:bool = Field(alias='energy_filter')
     framesDir:str = Field(alias='frames_windows_directory')
+    detectorModel:str = Field(alias='detector_model')
 
     class Config:
         from_attributes=True

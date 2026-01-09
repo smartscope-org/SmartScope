@@ -1,6 +1,6 @@
 name: SPA-hex
 atlas:
-  acquisition:
+  steps:
       - setAtlasOptics
       - setAperturesForLowMag
       - resetStage
@@ -13,7 +13,7 @@ atlas:
     selectors:
       - Size selector
 square:
-  acquisition:
+  steps:
     - setAperturesForLowMag
     - moveStageWithAtlasToSearchOffset
     - realignToSquare
@@ -26,7 +26,7 @@ square:
       - Graylevel selector
       - Distance from center selector
 mediumMag:
-  acquisition:
+  steps:
     - setAperturesForHighMag
     - setFocusPosition
     - tiltToAngle
@@ -42,5 +42,5 @@ mediumMag:
     finders:
       - AI hole finder
 highMag:
-  acquisition:
+  steps:
     - highMag

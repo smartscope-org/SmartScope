@@ -365,7 +365,8 @@ def reregisterSearchMag(scope:MicroscopeInterface,params,instance, content:Dict,
     shift = scope.find_square_center_microns()
     return (stage_x + shift[0], stage_y + shift[1])
 
-
+def openColumnValve(scope:MicroscopeInterface,params,instance, content:Dict, *args, **kwargs):
+    scope.open_valves()
 
 
 
@@ -421,4 +422,5 @@ protocolCommandsFactory = dict(
     resetState=resetState,
     reregisterMediumMag=reregisterMediumMag,
     reregisterSearchMag=reregisterSearchMag,
+    openColumnValve=openColumnValve,    
 )

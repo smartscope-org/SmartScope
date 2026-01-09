@@ -285,7 +285,7 @@ class SerialemInterface(MicroscopeInterface):
         init_x, init_y, init_z = sem.ReportStageXYZ()
         while True:
             self.logger.info('Running square realignment')
-            self.find_square_center()
+            sem.Search()
             sem.Delay(0.2, 's')
             square, shape_x, shape_y, _, _, _ = self.buffer_to_numpy()
             _, square_center, _ = find_square(square)
@@ -681,11 +681,11 @@ class SerialemInterface(MicroscopeInterface):
             return
         
     def set_highmag_counting_mode(self):
-        if self.detector.detector_model in ['K2','Ceta']:
+        if self.detector.detectorModel in ['K2','Ceta']:
             return
-        sem.SetK2ReadMode('Record', 1)
-        sem.SetK2ReadMode('Preview', 1)
-        sem.SetK2ReadMode('Focus', 1)
+        sem.SetK2ReadMode('R', 1)
+        sem.SetK2ReadMode('P', 1)
+        sem.SetK2ReadMode('F', 1)
 
 
 
