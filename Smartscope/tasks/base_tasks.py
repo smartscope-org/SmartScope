@@ -227,7 +227,7 @@ def sim_siam_training(mag_level:Literal['square','hole'], grid_id:str, dataset_n
         mag_level = mag_level,
         checkpoint_path = str(checkpoint_path)
     ))
-    print(f'Sending SimSiam inference request for grid {grid_id} with magnification level {mag_level} and checkpoint {checkpoint_path}')
+    print(f'Sending SimSiam training request for grid {grid_id} with magnification level {mag_level} and checkpoint {checkpoint_path}')
     result = app.send_task('SmartscopeAI.interfaces.celery.tasks.sim_siam_training', args=[data], queue=get_queue())
     return result.id
     # res = AsyncResult(task_id, app=app)
