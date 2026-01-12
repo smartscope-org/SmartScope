@@ -64,10 +64,14 @@ def send_find_squares_from_montage(montage, class_map:Dict[str,BaseModel], **kwa
             class_name = v.label_training
             yolo_class_map[class_name] = k
         return yolo_class_map
+    
+    scaling_factor = montage.image.shape[0] / kwargs.get('imgsz', 1024)
+    image= convert_to_png(montage.image, height=kwargs.get('imgsz', 1024))
 
-    encoded = encode_image(montage.image)
+    encoded = encode_image(image)
     data = { 'image': encoded }
     data['kwargs'] = kwargs
+    data['kwargs']['scaling_factor'] = scaling_factor
     data['kwargs']['class_mapping'] = {k:v.model_dump() for k,v in class_map.items()}
     
     result = app.send_task('SmartscopeAI.interfaces.celery.tasks.find_squares', args=[json.dumps(data)], queue=get_queue())
@@ -80,8 +84,8 @@ def send_find_squares_from_montage(montage, class_map:Dict[str,BaseModel], **kwa
     return (coords,labels_converted), True, dict()
 
 def send_find_holes_from_montage(montage:Montage, class_map:Dict[str,BaseModel], success_threshold:int=10,  **kwargs):
-    scaling_factor = montage.image.shape[0] / 1024
-    image= convert_to_png(montage.image, height=1024, normalization=auto_contrast_sigma, binning_method=fourier_crop)
+    scaling_factor = montage.image.shape[0] / kwargs.get('imgsz', 1024)
+    image= convert_to_png(montage.image, height=kwargs.get('imgsz', 1024), normalization=auto_contrast_sigma, binning_method=fourier_crop)
 
     encoded = encode_image(image)
 
@@ -98,8 +102,8 @@ def send_find_holes_from_montage(montage:Montage, class_map:Dict[str,BaseModel],
     return final_result, True, dict()
 
 def send_find_holes_from_square(montage:Montage, class_map:Dict[str,BaseModel], success_threshold:int=10,  **kwargs):
-    scaling_factor = montage.image.shape[0] / 1024
-    image= convert_to_png(montage.image, height=1024, normalization=auto_contrast_sigma, binning_method=fourier_crop)
+    scaling_factor = montage.image.shape[0] / kwargs.get('imgsz', 1024)
+    image= convert_to_png(montage.image, height=kwargs.get('imgsz', 1024), normalization=auto_contrast_sigma, binning_method=fourier_crop)
     image = mask_square(image)
 
     encoded = encode_image(image)

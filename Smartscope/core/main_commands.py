@@ -481,5 +481,7 @@ def list_protocols():
     print(protocols)
     return protocols
     
+def add_to_training_set(mag_level: str, id: str, dataset_name:str,export_type='yolo', output_directory=None):
+    from Smartscope.core.utils.training_data import add_to_training_set
+    add_to_training_set(mag_level, id, dataset_name,export_type, output_directory)
 
-            

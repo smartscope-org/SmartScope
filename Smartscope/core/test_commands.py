@@ -143,8 +143,12 @@ def test_finder(plugin_name: str, raw_image_path: str, output_dir: str, repeats=
         output, _ , _ , additional_outputs = find_targets(montage, [plugin_name], **kwargs)
         bit8_montage = auto_contrast(montage.image)
         bit8_color = cv2.cvtColor(bit8_montage, cv2.COLOR_GRAY2RGB)
+        quality_colors = {}
         for i in output:
-            cv2.circle(bit8_color, (i.x,i.y),20, (0, 0, 255), cv2.FILLED)
+            if i.quality not in quality_colors.keys():
+                quality_colors[i.quality] = (int.from_bytes(os.urandom(1), 'big'), int.from_bytes(os.urandom(1), 'big'), int.from_bytes(os.urandom(1), 'big'))
+            cv2.circle(bit8_color, (i.x,i.y),int(i.radius), quality_colors[i.quality], 20, lineType=cv2.LINE_AA)
+            # cv2.circle(bit8_color, (i.x,i.y),20, (0, 0, 255), cv2.FILLED)
         if 'lattice_angle' in additional_outputs.keys():
 
             cv2.line(bit8_color,tuple(montage.center),(int(3000*math.sin(math.radians(additional_outputs['lattice_angle']))+montage.center[0]), int(3000*math.cos(math.radians(additional_outputs['lattice_angle'])))+ montage.center[1]),(0,255,0),10)
