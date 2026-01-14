@@ -212,8 +212,8 @@ def stop_session(sessionid):
 def download_testfiles(overwrite=False):
     import subprocess as sub
     import shlex
-    # archive_name = 'smartscope_testfiles.tar.gz'
-    archive_name = 'SmartScopeInstallation.tar.gz'
+    archive_name = 'smartscope_testfiles.tar.gz'
+    # archive_name = 'SmartScopeInstallation.tar.gz'
     target_directory = '/mnt/testfiles/'
     archive_download_location = Path(target_directory,archive_name)
     print(archive_download_location)
