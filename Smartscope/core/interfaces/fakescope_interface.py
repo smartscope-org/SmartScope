@@ -50,6 +50,9 @@ class FakeScopeInterface(MicroscopeInterface):
 
     def medium_mag_montage(self, size, file=''):
         pass
+
+    def load_grid(self, position):
+        pass
     
     def open_valves(self):
         pass

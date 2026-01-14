@@ -67,7 +67,7 @@ class RunSquare:
             logger.info(f'Picking holes on {square}')
             square = update(square, status=status.GROUPED)
         if square.status == status.GROUPED:
-            selection_strategy = TARGET_SELECTION_STRATEGIES['original'](n_targets=params.squares_num)
+            selection_strategy = TARGET_SELECTION_STRATEGIES['original'](n_targets=params.holes_per_square)
             selected = selection_strategy.select(square,is_bis=is_bis)
             with transaction.atomic():
                 for obj,priority in zip(*selected):

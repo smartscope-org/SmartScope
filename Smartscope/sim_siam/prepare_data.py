@@ -11,7 +11,7 @@ from .models import SimSiamWeights, SimSiamTrainingProcess
 
 
 
-def sim_siam_prepare_data(mag_level:Literal['square','hole'],grid_id_list:List[str]):
+def sim_siam_prepare_data(mag_level:Literal['square','hole'],grid_id_list:List[str],raise_on_empty:bool=True) -> List:
     extract_size_factor = 1.4
     if mag_level not in ['square','hole']:
         raise ValueError(f"Invalid magnification level: {mag_level}. Must be 'square' or 'hole'.")
@@ -21,7 +21,9 @@ def sim_siam_prepare_data(mag_level:Literal['square','hole'],grid_id_list:List[s
         from Smartscope.core.models import AtlasModel
         queryset = list(AtlasModel.objects.filter(grid_id__in=grid_id_list, status__in=[status.PROCESSED,status.COMPLETED]))
         if len(queryset) == 0:
-            raise ValueError(f"No data found for grid IDs: {grid_id_list} at magnification level {mag_level}.")
+            if raise_on_empty:
+                raise ValueError(f"No data found for grid IDs: {grid_id_list} at magnification level {mag_level}.")
+            return []
         
         item_sizes_microns = [grid.meshSize.square_size * extract_size_factor for grid in grid_id_list]
         if len(set(item_sizes_microns)) > 1:
@@ -85,21 +87,21 @@ def sim_siam_prepare_data(mag_level:Literal['square','hole'],grid_id_list:List[s
         print(f'Skipped {skipped} images, extracted {extracted} images from {resized_image_path}.')
     return file_list
 
-def sim_siam_copy_to_scratch_directory(directory_name, file_list):
-    scratch = Scratch(max_size_gb=10)
+def sim_siam_copy_to_scratch_directory(directory_name, file_list, scratch_dir=None) -> str:
+    scratch = Scratch(max_size_gb=10, scratch=scratch_dir)
     # scratch.check_size(file_list, directory_name)
     return scratch.copy_to_scratch(file_list, directory_name)
 
-def sim_siam_copy_output_file_from_scratch(file, output_directory):
-    scratch = Scratch(max_size_gb=10)
+def sim_siam_copy_output_file_from_scratch(file, output_directory, scratch_dir=None):
+    scratch = Scratch(max_size_gb=10, scratch=scratch_dir)
     scratch.copy_file_from_scratch(Path(file), output_directory)
 
-def sim_siam_copy_output_directory_from_scratch(directory_name, output_directory):
-    scratch = Scratch(max_size_gb=10)
+def sim_siam_copy_output_directory_from_scratch(directory_name, output_directory, scratch_dir=None):
+    scratch = Scratch(max_size_gb=10, scratch=scratch_dir)
     scratch.copy_directory_from_scratch(Path(directory_name), output_directory)
 
 
-def sim_siam_transfer_trained_model(process_id:str):
+def sim_siam_transfer_trained_model(process_id:str,scratch_dir=None):
     """
     Retrieve the trained SimSiam model based on the training process ID.
     Args:
@@ -114,7 +116,7 @@ def sim_siam_transfer_trained_model(process_id:str):
     if weights is None:
         raise ValueError(f"No trained weights found for training process ID {process_id}.")
     for file in [training_process.training_results_weights, training_process.training_config_file]:
-        sim_siam_copy_output_file_from_scratch(file, weights.weights_directory)
+        sim_siam_copy_output_file_from_scratch(file, weights.weights_directory, scratch_dir=scratch_dir)
 
 
 def sim_siam_find_checkpoint(mag_level:Literal['square','hole'], grid:AutoloaderGrid) -> SimSiamWeights | None :

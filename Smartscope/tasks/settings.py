@@ -8,8 +8,11 @@ broker_url = f"{REDIS_URL}/0"
 
 QUEUES = os.getenv('QUEUES', 'celery').split(',')
 TRANSIENT_QUEUES = os.getenv('TRANSIENT_QUEUES', [])
+TRANSIENT_SCRATCH = os.getenv('TRANSIENT_SCRATCH', [])
 if isinstance(TRANSIENT_QUEUES, str):
     TRANSIENT_QUEUES = TRANSIENT_QUEUES.split(',')
+    TRANSIENT_SCRATCH = TRANSIENT_SCRATCH.split(',')
+    assert len(TRANSIENT_QUEUES) == len(TRANSIENT_SCRATCH), "TRANSIENT_QUEUES and TRANSIENT_SCRATCH must have the same length"
 
 TRANSIENT_QUEUES_CACHE_TIMEOUT = 300  # seconds
 

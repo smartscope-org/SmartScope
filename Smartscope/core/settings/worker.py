@@ -7,8 +7,7 @@ from Smartscope.core.config import get_active_plugins_list, get_protocol_command
 PROTOCOLS_MINIMAL_VERSION = '0.1'
 
 SCRATCH_DIR = Path(os.getenv('SCRATCH_DIR','/mnt/scratch/')).resolve()
-if not SCRATCH_DIR.exists():
-    raise ValueError(f'Scratch directory {SCRATCH_DIR} does not exist. Please create it and ensure it is writable.')
+assert SCRATCH_DIR.is_dir(), f'Scratch directory {SCRATCH_DIR} does not exist or is not a directory. Please create it and ensure it is writable.'
 
 SMARTSCOPE_CUSTOM_CONFIG = Path(os.getenv('CONFIG',''))
 SMARTSCOPE_DEFAULT_CONFIG = Path(__file__).parents[3] / 'config' / 'smartscope'

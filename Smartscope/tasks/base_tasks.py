@@ -9,7 +9,7 @@ from pathlib import Path
 from django.core.cache import cache
 
 from Smartscope.tasks.app import app
-from Smartscope.tasks.settings import QUEUES, TRANSIENT_QUEUES, TRANSIENT_QUEUES_CACHE_TIMEOUT
+from Smartscope.tasks.settings import QUEUES, TRANSIENT_QUEUES, TRANSIENT_QUEUES_CACHE_TIMEOUT, TRANSIENT_SCRATCH
 from Smartscope.lib.image.montage import Montage
 from Smartscope.lib.image_manipulations import encode_image
 from Smartscope.lib.image_manipulations import convert_to_png, auto_contrast_sigma, fourier_crop, auto_contrast, extract_box_from_radius
@@ -21,6 +21,7 @@ from Smartscope.lib.image.targets import Targets
 from Smartscope.sim_siam.prepare_data import sim_siam_prepare_data, sim_siam_copy_to_scratch_directory, sim_siam_copy_output_file_from_scratch, sim_siam_copy_output_directory_from_scratch, sim_siam_find_checkpoint
 from Smartscope.sim_siam.models import SimSiamWeights, SimSiamTrainingProcess
 from Smartscope.core.models import AutoloaderGrid
+from Smartscope.core.settings.worker import SCRATCH_DIR
 
 logger = logging.getLogger(__name__)
 
@@ -38,24 +39,26 @@ TEST_NOTIFICATION = """
 
 def get_queue()->str:
     for queue in QUEUES:
+        scratch_dir = SCRATCH_DIR
         if queue in TRANSIENT_QUEUES:
+            scratch_dir = TRANSIENT_SCRATCH[TRANSIENT_QUEUES.index(queue)]
             cache_key = f'transient_queue_{queue}'
             in_use = cache.get(cache_key, False)
             if in_use:
                 logger.info(f'Transient queue {queue} deemed availble from cache.')
-                return queue
+                return queue, scratch_dir
 
             res = app.send_task('SmartscopeAI.interfaces.celery.tasks.ping', queue=queue)
             try:
                 _ = res.get(timeout=3, interval=0.1)
                 cache.set(cache_key, True, timeout=TRANSIENT_QUEUES_CACHE_TIMEOUT)
                 logger.info(f'Transient queue {queue} deemed availble from ping. Caching for {TRANSIENT_QUEUES_CACHE_TIMEOUT} seconds.')
-                return queue
+                return queue, scratch_dir
             except TimeoutError:
                 
                 logger.warning(f'Transient queue {queue} did not respond to ping, trying next queue.')
                 continue
-        return queue
+        return queue, scratch_dir
 
 def send_find_squares_from_montage(montage, class_map:Dict[str,BaseModel], **kwargs):
     def class_map_to_yolo(class_map):
@@ -73,8 +76,11 @@ def send_find_squares_from_montage(montage, class_map:Dict[str,BaseModel], **kwa
     data['kwargs'] = kwargs
     data['kwargs']['scaling_factor'] = scaling_factor
     data['kwargs']['class_mapping'] = {k:v.model_dump() for k,v in class_map.items()}
+
+    queue, scratch_dir = get_queue()
+    print(f'Sending find_squares task to queue {queue} with scratch dir {scratch_dir}')
     
-    result = app.send_task('SmartscopeAI.interfaces.celery.tasks.find_squares', args=[json.dumps(data)], queue=get_queue())
+    result = app.send_task('SmartscopeAI.interfaces.celery.tasks.find_squares', args=[json.dumps(data)], queue=queue)
     task_id = result.id
     res = AsyncResult(task_id, app=app)
     coords, labels = res.get(interval=1, timeout=120)
@@ -94,7 +100,7 @@ def send_find_holes_from_montage(montage:Montage, class_map:Dict[str,BaseModel],
     data['kwargs']['scaling_factor'] = scaling_factor
     data['kwargs']['class_mapping'] = {k:v.model_dump() for k,v in class_map.items()}
     
-    result = app.send_task('SmartscopeAI.interfaces.celery.tasks.find_holes', args=[json.dumps(data)], queue=get_queue())
+    result = app.send_task('SmartscopeAI.interfaces.celery.tasks.find_holes', args=[json.dumps(data)], queue=get_queue()[0])
     task_id = result.id
     res = AsyncResult(task_id, app=app)
     final_result = res.get(interval=1, timeout=120)
@@ -113,7 +119,7 @@ def send_find_holes_from_square(montage:Montage, class_map:Dict[str,BaseModel], 
     data['kwargs']['scaling_factor'] = scaling_factor
     data['kwargs']['class_mapping'] = {k:v.model_dump() for k,v in class_map.items()}
     
-    result = app.send_task('SmartscopeAI.interfaces.celery.tasks.find_holes', args=[json.dumps(data)], queue=get_queue())
+    result = app.send_task('SmartscopeAI.interfaces.celery.tasks.find_holes', args=[json.dumps(data)], queue=get_queue()[0])
     task_id = result.id
     res = AsyncResult(task_id, app=app)
     final_result = res.get(interval=1, timeout=120)
@@ -166,6 +172,8 @@ def sim_siam_inference(mag_level:Literal['square','hole'], grid_id:str, **kwargs
 
     checkpoint_path = None
     config_path = None
+    queue, scratch_dir = get_queue()
+    print(f'Sending find_squares task to queue {queue} with scratch dir {scratch_dir}')
 
     weights = sim_siam_find_checkpoint(mag_level, grid)
     print(f'Found weights {weights} for mag level {mag_level} and grid {grid_id}')
@@ -181,7 +189,7 @@ def sim_siam_inference(mag_level:Literal['square','hole'], grid_id:str, **kwargs
         file_list.append(checkpoint_path)
         file_list.append(config_path)
 
-    sim_siam_copy_to_scratch_directory(dataset_name, file_list)
+    sim_siam_copy_to_scratch_directory(dataset_name, file_list, scratch_dir=scratch_dir)
 
     data = json.dumps(dict(
         dataset_name = dataset_name,
@@ -190,15 +198,15 @@ def sim_siam_inference(mag_level:Literal['square','hole'], grid_id:str, **kwargs
     ))
 
     print(f'Sending SimSiam inference request for grid {grid_id} with magnification level {mag_level} and checkpoint {checkpoint_path}')
-    result = app.send_task('SmartscopeAI.interfaces.celery.tasks.sim_siam_data', args=[data], queue=get_queue())
+    result = app.send_task('SmartscopeAI.interfaces.celery.tasks.sim_siam_data', args=[data], queue=queue)
     task_id = result.id
     res = AsyncResult(task_id, app=app)
     final_result = res.get(interval=1, timeout=120)
     print(final_result)
     
-    sim_siam_copy_output_file_from_scratch(final_result, grid.directory)
+    sim_siam_copy_output_file_from_scratch(final_result, grid.directory, scratch_dir=scratch_dir)
 
-def sim_siam_training(mag_level:Literal['square','hole'], grid_id:str, dataset_name=None,**kwargs):
+def sim_siam_training(mag_level:Literal['square','hole'], grid_id:str, related_grids:list = [], dataset_name=None,**kwargs):
     """
     Sends a task to the Celery queue to process data for SimSiam training.
     Parameters:
@@ -209,18 +217,23 @@ def sim_siam_training(mag_level:Literal['square','hole'], grid_id:str, dataset_n
     """
     if mag_level not in ['square','hole']:
         raise ValueError(f"Invalid magnification level: {mag_level}. Must be 'square' or 'hole'.")
+    if related_grids != [] and dataset_name is None:
+        raise ValueError("When providing related_grids, dataset_name must also be provided to avoid ambiguity.")
+
     grid = AutoloaderGrid.objects.get(grid_id=grid_id)
+    queue, scratch_dir = get_queue()
 
     checkpoint_path= Path(grid.directory) / f"model_best_{mag_level}.pth"
     if not checkpoint_path.is_file():
         checkpoint_path = None
 
-    grid_ids = [grid_id]  # Replace with actual grid IDs
+    grid_ids = [grid_id] + related_grids  # Replace with actual grid IDs
     if dataset_name is None:
         dataset_name = '_'.join(grid_ids) + "_" + mag_level
-    file_list = sim_siam_prepare_data(mag_level, grid_ids)
 
-    sim_siam_copy_to_scratch_directory(dataset_name, file_list)
+    for grid in grid_ids:
+        file_list = sim_siam_prepare_data(mag_level, [grid], raise_on_empty=kwargs.get('raise_on_empty',True))
+        sim_siam_copy_to_scratch_directory(dataset_name, file_list, scratch_dir=scratch_dir)
 
     data = json.dumps(dict(
         dataset_name = dataset_name,
@@ -228,7 +241,7 @@ def sim_siam_training(mag_level:Literal['square','hole'], grid_id:str, dataset_n
         checkpoint_path = str(checkpoint_path)
     ))
     print(f'Sending SimSiam training request for grid {grid_id} with magnification level {mag_level} and checkpoint {checkpoint_path}')
-    result = app.send_task('SmartscopeAI.interfaces.celery.tasks.sim_siam_training', args=[data], queue=get_queue())
+    result = app.send_task('SmartscopeAI.interfaces.celery.tasks.sim_siam_training', args=[data], queue=queue)
     return result.id
     # res = AsyncResult(task_id, app=app)
     # final_result = res.get(interval=1, timeout=120)
