@@ -4,13 +4,13 @@ from pathlib import Path
 import asyncio
 
 from Smartscope.core.models.grid import AutoloaderGrid
-from Smartscope.core.settings.worker import DEFAULT_PREPROCESSING_PIPELINE
+from Smartscope.core.settings.worker import DEFAULT_PREPROCESSING_PIPELINE, NEXTPYP_PREPROCESSING_PIPELINE  
 from Smartscope.lib.logger import add_log_handlers
 
 
 logger = logging.getLogger(__name__)
 
-from .pipelines import PreprocessingPipelineCmd, SmartscopePreprocessingPipeline, CryoSPARCPipeline, NextPYPPreprocessingPipeline
+from .pipelines import PreprocessingPipelineCmd, SmartscopePreprocessingPipeline, CryoSPARCPipeline, NextPYPPreprocessingPipeline, NextPYPPreprocessingCmdKwargs
 
 
 PREPROCESSING_PIPELINE_FACTORY = {
@@ -23,10 +23,21 @@ def load_preprocessing_pipeline(file:Path):
     if file.exists():
         return PreprocessingPipelineCmd.parse_file(file)
     logger.info(f'Preprocessing file {file} does not exist. Loading default pipeline.')
-    for default in DEFAULT_PREPROCESSING_PIPELINE:
-        if default.exists():
-            return PreprocessingPipelineCmd.parse_file(default)
-    logger.info(f'Default preprocessing pipeline not found.')
+    # for default in DEFAULT_PREPROCESSING_PIPELINE:
+    #     if default.exists():
+    #         return PreprocessingPipelineCmd.parse_file(default)
+    # for nextpyp in NEXTPYP_PREPROCESSING_PIPELINE:
+    #     if nextpyp.exists():
+    #         logger.info(f'Loading nextPYP preprocessing pipeline from {nextpyp}.')
+    #         return NextPYPPreprocessingCmdKwargs.parse_file(nextpyp)
+    for nextpyp in NEXTPYP_PREPROCESSING_PIPELINE:
+        if nextpyp.exists():
+            data = PreprocessingPipelineCmd(
+                pipeline="nextpypPipeline",
+                kwargs=NextPYPPreprocessingCmdKwargs.parse_file(nextpyp).model_dump()
+            )
+            return data
+    logger.info(f'nextPYP preprocessing pipeline not found.')
     return None 
     
 
