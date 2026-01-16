@@ -76,7 +76,7 @@ def update_target_selection(model:models.BaseModel,objects_ids:List[str],value:s
             obj.selection_mode = 'manual'
             obj.acquisition_priority = 0
             obj.status = status
-            obj.save()  
+            obj.save(update_fields=['selected','selection_mode','acquisition_priority','status'])  
 
 def update_target_label(model:models.BaseModel,objects_ids:List[str],value:str,method:str, *args, **kwargs):
 
