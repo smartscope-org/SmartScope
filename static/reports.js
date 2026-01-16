@@ -174,14 +174,14 @@ function checkSelection(type = 'square') {
 }
 
 
-function clearSelection(selection, type) {
-    console.log(`Clearing Selection`)
-
-    if (type == 'hole') {
+function clearSelection(type) {
+    console.log(`Clearing Selection, ${type} `)
+    const normalizedType = (type === 'holes' || type === 'hole') ? 'hole' : type;
+    if (normalizedType == 'hole') {
         button = $('#holeClearSele')
         selection = holeSelection
         suggestion = holeSuggestion
-    } else if (type == 'targets') {
+    } else if (normalizedType == 'targets') {
         button = $('#clearTargets')
     } else {
         selection = squareSelection
@@ -191,7 +191,7 @@ function clearSelection(selection, type) {
     while (selection.length != 0) {
         if (type != 'targets') {
             document.getElementById(selection[0]).classList.remove('clicked')  
-    } else {
+        } else {
             selection[0][0].remove()
         }
         selection.shift()
@@ -207,6 +207,10 @@ function clearSelection(selection, type) {
     }
     button.prop("disabled", true)
     popup_sele = null
+    console.log(`Selection cleared:`, selection)
+    console.log(`suggestion cleared:`, suggestion)
+
+    console.log(`Original squareSelection and holeSelection arrays:`, squareSelection, holeSelection)
     checkSelection(type)
 }
 
@@ -547,7 +551,7 @@ async function updateTargets(model, display_type, method, key, new_value, ids = 
     updateData(resp)
     // resp = await websocketSend('update.target', request)
     console.log('updateClassifier response: ', resp)
-    clearSelection(sele, model)
+    clearSelection(model)
 }
 
 async function loadMeta() {
