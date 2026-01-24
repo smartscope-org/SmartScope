@@ -7,7 +7,7 @@ kwargs:
   conf_thres: 0.2
   iou_thres: 0.1
   agnostic: True
-  weights_circle: square_weights/20250307_yolo_square_finder.pth
+  weights_circle: square_weights/best.pt
 targetClass:
   - Finder
   - Classifier
