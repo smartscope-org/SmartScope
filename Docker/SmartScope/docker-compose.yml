@@ -28,7 +28,7 @@ services:
       service: smartscope
     command: ["celery", "-A", "Smartscope.tasks.app", "worker", "--loglevel=DEBUG", "--concurrency=4"]
   smartscope_ai:
-    image: ghcr.io/smartscope-org/smartscopeai:latest-cpu
+    image: ghcr.io/smartscope-org/smartscopeai:dev-cpu
     restart: always
     env_file:
       - smartscope.conf
