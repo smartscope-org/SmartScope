@@ -90,7 +90,7 @@ class JEOLSerialemInterface(SerialemInterface):
         self.logger.info('Flashing the cold FEG.')
         sem.LongOperation('FF', str(ffDelay))
 
-    def loadGrid(self, position):
+    def load_grid(self, position):
         if self.microscope.loaderSize > 1:
             slot_status = sem.ReportSlotStatus(position)
 
