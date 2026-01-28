@@ -15,7 +15,7 @@ import pandas as pd
 from django.db import transaction
 
 from Smartscope.core.db_manipulations import websocket_update
-from Smartscope.core.frames import get_frames_prefix, parse_frames_prefix
+# from Smartscope.core.frames import get_frames_prefix, parse_frames_prefix
 from Smartscope.core.models.grid import AutoloaderGrid
 from Smartscope.core.models.models_actions import update_fields
 from Smartscope.core.models.high_mag import HighMagModel

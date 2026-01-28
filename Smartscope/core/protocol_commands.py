@@ -4,6 +4,7 @@ import numpy as np
 import logging
 from Smartscope.core.interfaces.microscope_interface import MicroscopeInterface
 
+
 logger = logging.getLogger(__name__)
 
 def setAtlasOptics(scope:MicroscopeInterface,params,instance, content:Dict, *args, **kwargs)  -> None:
@@ -320,13 +321,12 @@ def recenterBeam(scope,params,instance, content:Dict, *args, **kwargs):
     scope.recenter_beam(params.beam_centering_delay)
 
 def setupFrames(scope,params,instance, content:Dict, *args, **kwargs):
-    from .frames import get_frames_prefix, parse_frames_prefix
+    from .frames import generate_frames_dir
     from .grid.grid_io import GridIO
-    prefix = parse_frames_prefix(get_frames_prefix(instance),instance)
-    grid_dir = instance.frames_dir(prefix=prefix)
+    grid_dir = generate_frames_dir(instance.grid_id)
     session = instance.session_id
     if params.save_frames:
-        GridIO.create_grid_frames_directory(session.detector_id.frames_directory, instance.frames_dir(prefix=prefix))
+        GridIO.create_grid_frames_directory(session.detector_id.frames_directory, grid_dir)
         logger.debug(f'Saving the frames in {grid_dir}')
     scope.setup(params.save_frames,grid_dir=grid_dir,framesName=f'{session.date}_{instance.name}')
 
