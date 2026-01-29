@@ -252,3 +252,20 @@ def test_image_to_stage_conversion(image_file, coords, coordinate_system:Literal
         coords = Target.flip_y(coords, montage.shape_x)
     target = Target(coords, from_center=True)
     target.convert_image_coords_to_stage(montage, compare=True)
+
+def validate_custom_paths(detector_id):
+    from Smartscope.core.models import AutoloaderGrid
+    from Smartscope.core.frames import generate_frames_dir, get_serialem_frames_dir, get_smartscope_frames_dir
+    from pathlib import PureWindowsPath
+
+    grid = AutoloaderGrid.objects.filter(session_id__detector_id=detector_id).first()
+    if grid is None:
+        logger.error(f'No grids found for detector {detector_id}')
+        return
+    logger.info(f'Validating custom paths for detector {detector_id} with grid {grid}')
+    path = generate_frames_dir(grid)
+    logger.info(f'Generated path for grid {grid}: {path}')
+    full_path_smartscope_pov = get_smartscope_frames_dir(grid)
+    logger.info(f'Full path from smartscope POV: {full_path_smartscope_pov}')
+    full_path_serialem_pov = get_serialem_frames_dir(grid)
+    logger.info(f'Full path from SerialEM POV: {full_path_serialem_pov}')

@@ -8,7 +8,7 @@ import logging
 from pathlib import Path
 
 from Smartscope.core.db_manipulations import websocket_update
-from Smartscope.core.frames import generate_frames_dir
+from Smartscope.core.frames import get_smartscope_frames_dir
 from Smartscope.core.models import AutoloaderGrid, HighMagModel, HoleModel
 from Smartscope.lib.preprocessing_methods import get_CTFFIND5_data, \
     process_hm_from_average, process_hm_from_frames, processing_worker_wrapper
@@ -42,7 +42,7 @@ class SmartscopePreprocessingPipeline(PreprocessingPipeline):
         self.detector = self.grid.session_id.detector_id
         self.cmd_data = self.cmdkwargs_handler.parse_obj(cmd_data)
         logger.debug(self.cmd_data)
-        self.frames_directory = [Path(self.detector.frames_directory, generate_frames_dir(self.grid))]
+        self.frames_directory = [Path(self.detector.frames_directory, get_smartscope_frames_dir(self.grid))]
         
         if self.cmd_data.frames_directory is not None:
             self.frames_directory.append(self.cmd_data.frames_directory)

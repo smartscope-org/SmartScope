@@ -321,14 +321,13 @@ def recenterBeam(scope,params,instance, content:Dict, *args, **kwargs):
     scope.recenter_beam(params.beam_centering_delay)
 
 def setupFrames(scope,params,instance, content:Dict, *args, **kwargs):
-    from .frames import generate_frames_dir
-    from .grid.grid_io import GridIO
-    grid_dir = generate_frames_dir(instance.grid_id)
+    from .frames import get_serialem_frames_dir, get_smartscope_frames_dir
     session = instance.session_id
     if params.save_frames:
-        GridIO.create_grid_frames_directory(session.detector_id.frames_directory, grid_dir)
-        logger.debug(f'Saving the frames in {grid_dir}')
-    scope.setup(params.save_frames,grid_dir=grid_dir,framesName=f'{session.date}_{instance.name}')
+        frames_dir = get_smartscope_frames_dir(instance)
+        logger.debug(f'Saving the frames in {frames_dir}')
+        frames_dir.mkdir(parents=True, exist_ok=True)
+    scope.setup(params.save_frames,frames_dir=get_serialem_frames_dir(instance),framesName=f'{session.date}_{instance.name}')
 
 def resetState(scope,params,instance, content:Dict, *args, **kwargs):
     scope.reset_state()

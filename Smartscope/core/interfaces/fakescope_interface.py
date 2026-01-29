@@ -178,8 +178,8 @@ class FakeScopeInterface(MicroscopeInterface):
     def connect(self):
         self.logger.info('Connecting to fake scope.')
 
-    def setup(self, saveframes:bool, grid_dir:str, framesName=None):
-        self.grid_dir = grid_dir
+    def setup(self, saveframes:bool, frames_dir:str, framesName=None):
+        self.grid_dir = frames_dir
 
     def disconnect(self, close_valves=True):
         self.logger.info('Disconnecting from fake scope.')

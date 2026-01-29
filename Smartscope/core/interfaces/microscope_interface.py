@@ -215,7 +215,7 @@ class MicroscopeInterface(ABC):
         pass
 
     @abstractmethod
-    def setup(self, saveframes, zerolossDelay):
+    def setup(self, saveframes:bool, frames_dir:str='', framesName=None):
         pass
 
     @abstractmethod

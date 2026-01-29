@@ -480,13 +480,12 @@ class SerialemInterface(MicroscopeInterface):
         sem.ClearPersistentVars()
         sem.AllowFileOverwrite(1)
 
-    def setup(self, saveframes:bool, grid_dir:str='', framesName=None):
+    def setup(self, saveframes:bool, frames_dir:str='', framesName=None):
         if saveframes:
             self.logger.info('Saving frames enabled')
             sem.SetDoseFracParams('P', 1, 1, 0)
-            movies_directory = PureWindowsPath(self.detector.framesDir, grid_dir).as_posix().replace('/', '\\')
-            self.logger.info(f'SerialEM will be saving frames to {movies_directory}')
-            sem.SetFolderForFrames(movies_directory)
+            self.logger.info(f'SerialEM will be saving frames to {frames_dir}')
+            sem.SetFolderForFrames(frames_dir)
             if framesName is not None:
                 sem.SetFrameBaseName(0, 1, 0, framesName)
         else:
