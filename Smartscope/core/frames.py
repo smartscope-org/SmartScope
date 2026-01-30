@@ -19,7 +19,7 @@ def get_frames_config(grid:AutoloaderGrid):
     custom_paths = SMARTSCOPE_CUSTOM_CONFIG / 'custom_paths.yaml'
     if not custom_paths.exists():
         logger.debug(f'No custom paths file found at {custom_paths}')
-        return None
+        return FramesConfig()
     file = yaml.safe_load(custom_paths.read_text())
     if file is None:
         logger.debug(f'Custom paths file at {custom_paths} is empty, using default settings')

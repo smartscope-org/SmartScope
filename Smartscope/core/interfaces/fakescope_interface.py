@@ -2,6 +2,7 @@ import mrcfile
 import time
 import logging
 import os
+from pathlib import Path
 from .microscope_interface import MicroscopeInterface
 from Smartscope.lib.file_manipulations.fake import Fake
 from Smartscope.lib.image_manipulations import export_as_png
@@ -165,7 +166,9 @@ class FakeScopeInterface(MicroscopeInterface):
                 destination_dir=self.microscope.scopePath
             )
             return
-        movies = os.path.join(self.microscope.scopePath, 'movies', self.grid_dir)
+        grid_dir = self.grid_dir.replace("\\", "/")
+        self.logger.debug(f"grid_dir {grid_dir}")
+        movies = os.path.join(self.microscope.scopePath, grid_dir)
         self.logger.info(f"High resolution movies are stored at {movies} in fake mode")
         frames = Fake.generate_fake_file(
             file,
