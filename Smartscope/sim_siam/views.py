@@ -8,7 +8,7 @@ from rest_framework.decorators import api_view, authentication_classes, permissi
 from rest_framework.response import Response
 
 from Smartscope.core.models import AutoloaderGrid, HoleModel, SquareModel, AtlasModel
-from Smartscope.core.selector_sorter import SelectorSorter, initialize_selector, save_selector_data, save_to_session_directory
+from Smartscope.core.selector_sorter import SelectorSorter, initialize_selector, save_selector_data, save_to_grid_type
 
 from Smartscope.core.svg_plots import drawSelector
 from Smartscope.core.status import status
