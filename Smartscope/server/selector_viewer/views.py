@@ -8,7 +8,7 @@ from rest_framework.decorators import api_view
 from rest_framework.response import Response
 
 from Smartscope.core.models import AutoloaderGrid, HoleModel, SquareModel, AtlasModel
-from Smartscope.core.selector_sorter import SelectorSorter, initialize_selector, save_selector_data, save_to_session_directory
+from Smartscope.core.selector_sorter import SelectorSorter, initialize_selector, save_selector_data, save_to_grid_type
 from Smartscope.core.settings.worker import PLUGINS_FACTORY
 from Smartscope.core.svg_plots import drawSelector
 from Smartscope.core.status import status
@@ -77,8 +77,8 @@ def extract_selector_limits(data:HttpRequest):
     low_limit = data.get('low_limit', None)
     high_limit = data.get('high_limit', None)
     apply_to = data.get('apply_to', 'grid')
-    if apply_to == 'session':
-        kwargs = {'save_to':save_to_session_directory}
+    if apply_to == 'grid_type':
+        kwargs = {'save_to':save_to_grid_type}
     return low_limit, high_limit, kwargs
 
 def save_selector_limits(request:HttpRequest, grid_id, selector):
