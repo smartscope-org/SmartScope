@@ -286,6 +286,10 @@ def refineOpticsForHighMag(scope,params,instance, content:Dict, *args, **kwargs)
         if params.zeroloss_delay != -1:
             scope.refineZLP(zerolossDelay=0)
 
+def callOnModeChange(scope,params,instance, content:Dict, *args, **kwargs):
+    if scope.state.current_mag in ['atlas','square']:
+        call(scope,params,instance,content,*args, **kwargs)
+
 def rollDefocus(scope,params,instance, content:Dict, *args, **kwargs):
     scope.roll_defocus(
         params.target_defocus_min,
@@ -421,5 +425,6 @@ protocolCommandsFactory = dict(
     resetState=resetState,
     reregisterMediumMag=reregisterMediumMag,
     reregisterSearchMag=reregisterSearchMag,
-    openColumnValve=openColumnValve,    
+    openColumnValve=openColumnValve,   
+    callOnModeChange=callOnModeChange, 
 )
