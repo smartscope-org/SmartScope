@@ -23,24 +23,33 @@ WEIGHT_DIR = os.path.join(os.getenv("TEMPLATE_FILES"), 'weights')
 IS_CUDA = False if eval(os.getenv('FORCE_CPU')) else torch.cuda.is_available() 
 
 
-def find_squares(montage, class_map:Dict=None, **kwargs):
+def find_squares(image, class_mapping:Dict=None, **kwargs):
+    if isinstance(image, bytes):
+        image = np.frombuffer(image, dtype=np.uint8)
+        image = cv2.imdecode(image, cv2.IMREAD_GRAYSCALE)
+
     logger.info('Running AI find_squares')
     kwargs['weights'] = os.path.join(WEIGHT_DIR, kwargs['weights'])
     if not IS_CUDA:
         kwargs['device'] = 'cpu'
-    squares, labels, _, _ = detect(montage.image, **kwargs)
-    success = True
-    if len(squares) < 20 and montage.image.shape[0] > 20000:
-        success = False
+    squares, labels, _, _ = detect(image, **kwargs)
+    # success = True
+    # if len(squares) < 20 and image.shape[0] > 20000:
+    #     success = False
     logger.info(f'AI square finder found {len(squares)} squares')
     logger.debug(f'{squares},{type(squares)}')
-    squares = [i.numpy() for i in squares]
-    return (squares, labels), success, dict()
+    squares = [i.tolist() for i in squares]
+    # return (squares, labels), success, dict()
+    return squares, labels
 
-def find_holes_from_image(image, class_map:Dict=None, success_threshold:int=10, scaling_factor=1,  **kwargs):
+def find_holes_from_image(image, class_mapping:Dict=None, success_threshold:int=10, scaling_factor=1,  **kwargs):
    
     def filter_hole_class(hole):
-        return class_map[hole[-1]].name == 'Hole'
+        return class_mapping[hole[-1]].name == 'Hole'
+    
+    if isinstance(image, bytes):
+        image = np.frombuffer(image, dtype=np.uint8)
+        image = cv2.imdecode(image, cv2.IMREAD_GRAYSCALE)
     
     center = np.array([image.shape[1]/2, image.shape[0]//2],dtype=int)
     logger.info('Running AI hole detection')
@@ -50,30 +59,34 @@ def find_holes_from_image(image, class_map:Dict=None, success_threshold:int=10, 
         kwargs['device'] = 'cpu'
 
     all_targets = detect_holes(image, **kwargs)
+    logger.info(f'Model response have {len(all_targets)} targets')
     holes = list(filter(lambda x: filter_hole_class(x), all_targets))
     holes = [np.array(hole[0:-1]) * scaling_factor for hole in holes]
 
     logger.info(f'AI hole detection found {len(holes)} holes')
-    success = True
-    if len(holes) < success_threshold:
-        success = False
-    logger.debug(f'{holes[0]},{type(holes[0])}')
+    if len(holes) > 0:
+        logger.debug(f'{holes[0]},{type(holes[0])}')
+    # success = True
+    # if len(holes) < success_threshold:
+    #     success = False
     
     holes = [(np.array(hole)-np.array(list(center)*2)) + np.array(list(center)*2) for hole in holes]
+    holes = [i.tolist() for i in holes]
     # logger.debug(f'{holes[0]},{type(holes[0])}')
-    return holes, success, dict()
+    # return holes, success, dict()
+    return holes
 
 
-def find_holes(montage:Montage, class_map:Dict=None, success_threshold:int=10,  **kwargs):
+def find_holes(montage:Montage, class_mapping:Dict=None, success_threshold:int=10,  **kwargs):
     scaling_factor = montage.image.shape[0] / 1024
     image= convert_to_png(montage.image, height=1024, normalization=auto_contrast_sigma, binning_method=fourier_crop)
-    return find_holes_from_image(image, class_map, success_threshold, scaling_factor=scaling_factor, **kwargs)
+    return find_holes_from_image(image, class_mapping, success_threshold, scaling_factor=scaling_factor, **kwargs)
 
-def find_holes_from_square(montage:Montage, class_map:Dict=None, success_threshold:int=10,  **kwargs):
+def find_holes_from_square(montage:Montage, class_mapping:Dict=None, success_threshold:int=10,  **kwargs):
     scaling_factor = montage.image.shape[0] / 1024
     image= convert_to_png(montage.image, height=1024)
     image = mask_square(image)
-    return find_holes_from_image(image, class_map, success_threshold, scaling_factor=scaling_factor, **kwargs)
+    return find_holes_from_image(image, class_mapping, success_threshold, scaling_factor=scaling_factor, **kwargs)
 
 def find_holes_with_lattice(montage, hole_spacing:float, lattice_radius:float, class_map:Dict=None, success_threshold:int=2, **kwargs):
     """
