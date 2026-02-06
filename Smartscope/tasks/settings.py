@@ -15,8 +15,6 @@ result_accept_content = ['json']
 result_backend = f"{REDIS_URL}/1"
 broker_url = f"{REDIS_URL}/0"
 
-tasks_routes = {
-    'Smartscope.tasks.*': {'queue': 'celery'},
-}
+
 include = ['Smartscope.tasks.ai_tasks']
 print(result_backend, broker_url)
