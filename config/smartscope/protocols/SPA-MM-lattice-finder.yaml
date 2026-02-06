@@ -8,7 +8,7 @@ atlas:
       - atlas
   targets:
     finders:
-      - AI square finder
+      - AI RCNN square finder
     selectors:
       - Size selector
 square:

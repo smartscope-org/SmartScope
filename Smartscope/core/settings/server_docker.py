@@ -27,8 +27,8 @@ TEMPDIR = os.getenv('TEMPDIR','/tmp/')
 # See https://docs.djangoproject.com/en/3.0/howto/deployment/checklist/
 
 SECRET_KEY = os.getenv('SECRET_KEY')
-DEBUG = eval(os.getenv('DEBUG', 'False'))
-DEPLOY = eval(os.getenv('DEPLOY', 'True'))
+DEBUG = os.getenv('DEBUG', 'False')
+DEPLOY = os.getenv('DEPLOY', 'True')
 
 ALTERNATE_LOGIN = eval(os.getenv('ALTERNATE_LOGIN', 'False'))
 ALTERNATE_LOGIN_URL = os.getenv('ALTERNATE_LOGIN_URL', '')

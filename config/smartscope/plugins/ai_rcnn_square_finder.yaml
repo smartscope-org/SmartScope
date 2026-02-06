@@ -1,0 +1,45 @@
+name: AI RCNN square finder
+method: send_find_squares
+module: Smartscope.tasks.ai_tasks_old_version
+kwargs: 
+  device: '0'
+  imgsz: 2048
+  thresh: 0.2
+  iou: 0.3
+  weights: square_weights/model_large_atlas.pth
+targetClass:
+  - Finder
+  - Classifier
+description: |
+  Square finder using RCNN identification and classification.
+classes:
+  square:
+    label_training: "5"
+    value: 1
+    name: Good
+    color: blue
+  small:
+    label_training: "4"
+    value: -1
+    name: Small
+    color: red
+  fraction:
+    label_training: "3"
+    value: -1
+    name: Partial
+    color: Silver     
+  dry:
+    label_training: "2"
+    value: -1
+    name: Dry
+    color: Gray
+  cracked:
+    label_training: "1"
+    value: -1
+    name: Cracked
+    color: DarkGrey
+  contaminated:
+    label_training: "0"
+    value: -1
+    name: Contaminated
+    color: LightGrey
