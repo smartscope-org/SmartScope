@@ -196,9 +196,9 @@
 }
 
 .queued {
-    stroke: orange;
-    /* fill: orange; */
-    color: orange;
+    stroke: Gold;
+    /* fill: Gold; */
+    color: Gold;
 }
 
 .completed.has_queued {

@@ -1168,3 +1168,91 @@ function clearExistingLines() {
     }
 }
 
+// ============================================================================
+// Manual Hole Target Addition
+// ============================================================================
+
+let manualHoleTargets = [];
+
+// Shift+Click handler for Hole Card
+$('#main').on("mousedown", '#Hole_im svg', function (event) {
+    if (!event.shiftKey) return;
+
+    event.preventDefault();
+
+    const svg = event.currentTarget;
+
+    // Get click position relative to SVG using SVG coordinate transform
+    const pt = svg.createSVGPoint();
+    pt.x = event.clientX;
+    pt.y = event.clientY;
+    const cursorpt = pt.matrixTransform(svg.getScreenCTM().inverse());
+
+    let x = Math.round(cursorpt.x);
+    let y = Math.round(cursorpt.y);
+
+    manualHoleTargets.push({x: x, y: y});
+    drawManualHoleTargetMarker(svg, x, y);
+    console.log('Added manual hole target at', x, y);
+
+    updateManualHoleTargetCount();
+});
+
+// Draw red cross marker at click position
+function drawManualHoleTargetMarker(svg, x, y) {
+    const ns = 'http://www.w3.org/2000/svg';
+
+    const path = document.createElementNS(ns, 'path');
+    path.setAttribute('d', `M${x - 10} ${y - 30} h20 v20 h20 v20 h-20 v20 h-20 v-20 h-20 v-20 h20 z`);
+    path.setAttribute('class', 'temporaryTarget manual-hole-target-marker');
+    path.setAttribute('style', 'fill: red');
+
+    svg.appendChild(path);
+}
+
+// Clear all manual hole targets
+function clearManualHoleTargets() {
+    manualHoleTargets = [];
+    document.querySelectorAll('.manual-hole-target-marker').forEach(el => el.remove());
+    updateManualHoleTargetCount();
+    console.log('Cleared all manual hole targets');
+}
+
+// Update target count and enable/disable dropdown
+function updateManualHoleTargetCount() {
+    const count = manualHoleTargets.length;
+    const dropdown = document.getElementById('manualHoleTargetsDropdown');
+    const addBtn = document.getElementById('addManualHoleTargets');
+
+    // Enable/disable dropdown based on target count
+    if (dropdown) {
+        if (count > 0) {
+            dropdown.classList.remove('disabled');
+        } else {
+            dropdown.classList.add('disabled');
+        }
+    }
+
+    // Update button text with count
+    if (addBtn) {
+        if (count > 0) {
+            addBtn.innerHTML = `<i class="bi bi-plus-circle me-2"></i>Add Targets (${count})`;
+        } else {
+            addBtn.innerHTML = `<i class="bi bi-plus-circle me-2"></i>Add Targets`;
+        }
+    }
+}
+
+// Submit manual hole targets to API
+async function submitManualHoleTargets(holeId) {
+    const targetData = manualHoleTargets.map(t => ({x: t.x, y: t.y}));
+
+    console.log(`Adding targets on hole: ${holeId}`, targetData);
+    clearManualHoleTargets();
+
+    const url = `/api/holes/${holeId}/add_hole_targets/`;
+    let res = await apifetchAsync(url, {targets: targetData}, 'POST', 'Adding targets');
+    console.log(res);
+    loadHole(holeId);
+}
+

@@ -30,11 +30,13 @@ from Smartscope.utils.system_monitor import disk_space
 from Smartscope.server.lib.worker_jobs import send_to_worker
 
 from Smartscope.core.models.models_actions import targets_methods
-from Smartscope.core.db_manipulations import viewer_only
+from Smartscope.core.db_manipulations import viewer_only, add_targets
 from Smartscope.core.cache import save_json_from_cache
 from Smartscope.core.models import *
 from Smartscope.core.settings.worker import PLUGINS_FACTORY
 from Smartscope.core.main_commands import check_pause
+from Smartscope.lib.image.montage import Montage
+from Smartscope.lib.image.targets import Targets
 
 logger = logging.getLogger(__name__)
 
@@ -825,6 +827,80 @@ class HoleModelViewSet(viewsets.ModelViewSet, GeneralActionsMixin, ExtraActionsM
         self.queryset = HoleModel.objects.filter(status='completed', quality__isnull=True, **extra_filters).order_by('?')[: numToLoad]
         serializer = self.get_serializer(self.get_queryset(), many=True)
         return Response(dict(data=serializer.data, count=count))
+
+    @action(detail=True, methods=['post'])
+    def add_hole_targets(self, request, pk=None):
+        """
+        Add manual high mag targets to a hole
+        POST /api/holes/{hole_id}/add_hole_targets/
+        Body: {"targets": [{"x": 150, "y": 200}, {"x": 300, "y": 180}]}
+
+        Creates HighMagModel + Finder entries that will be picked up by the acquisition loop.
+        Uses the same coordinate conversion as automated detection (ImageToStageMatrix).
+        """
+        hole = self.get_object()
+
+        # Get targets from request
+        targets_data = request.data.get('targets', [])
+        if not targets_data:
+            return Response(
+                {'status': 'error', 'message': 'No targets provided'},
+                status=rest_status.HTTP_400_BAD_REQUEST
+            )
+
+        try:
+            # Get working directory from session
+            working_dir = hole.grid_id.session_id.working_dir
+
+            # Load montage to get ImageToStageMatrix from .mdoc metadata
+            montage = Montage(name=hole.name, working_dir=working_dir)
+            montage.load_or_process()
+
+            # Convert click positions to list of (x, y) tuples
+            click_positions = [(t['x'], t['y']) for t in targets_data]
+
+            # Create Target objects using existing code (converts pixel → stage using ImageToStageMatrix)
+            targets = Targets.create_targets_from_center(click_positions, montage)
+
+            # Get starting number for new targets
+            existing_count = HighMagModel.objects.filter(hole_id=hole.hole_id).count()
+
+            # Use existing add_targets function (same as automated detection)
+            created_hm = add_targets(
+                grid=hole.grid_id,
+                parent=hole,
+                targets=targets,
+                model=HighMagModel,
+                finder='manual',
+                start_number=existing_count + 1,
+                status='queued'
+            )
+
+            # Build response with created target info
+            created_targets = []
+            for hm in created_hm:
+                finder = hm.finders.first()
+                created_targets.append({
+                    'hm_id': str(hm.hm_id),
+                    'number': hm.number,
+                    'stage_x': finder.stage_x if finder else None,
+                    'stage_y': finder.stage_y if finder else None,
+                    'status': hm.status
+                })
+                logger.info(f'Created manual target {hm.number} for hole {hole.hole_id}')
+
+            return Response({
+                'status': 'ok',
+                'count': len(created_targets),
+                'targets': created_targets
+            })
+
+        except Exception as err:
+            logger.exception(f'Error creating manual targets for hole {hole.hole_id}: {err}')
+            return Response(
+                {'status': 'error', 'message': str(err)},
+                status=rest_status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
 
 
 class HighMagModelViewSet(viewsets.ModelViewSet, GeneralActionsMixin, ExtraActionsMixin, TargetRouteMixin):

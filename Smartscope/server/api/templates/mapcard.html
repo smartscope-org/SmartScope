@@ -51,6 +51,30 @@
                     </a>
                 </li>
                 {% endif %}
+                <!-- New Targets dropdown for Hole Card -->
+                {% if instance.targets_prefix == 'high_mag' %}
+                <li class="nav-item dropdown">
+                    <a class="nav-link dropdown-toggle disabled" href="#" id="manualHoleTargetsDropdown" role="button"
+                       data-bs-toggle="dropdown" aria-haspopup="true" aria-expanded="false"
+                       title="Shift+Click on image to select targets, then Add Targets">
+                        New Targets
+                    </a>
+                    <ul class="dropdown-menu" aria-labelledby="manualHoleTargetsDropdown">
+                        <li>
+                            <button id="addManualHoleTargets" class="dropdown-item"
+                                    onclick="submitManualHoleTargets('{{instance.hole_id}}')">
+                                <i class="bi bi-plus-circle me-2"></i>Add Targets
+                            </button>
+                        </li>
+                        <li>
+                            <button id="clearManualHoleTargets" class="dropdown-item"
+                                    onclick="clearManualHoleTargets()">
+                                <i class="bi bi-x-circle me-2"></i>Clear Targets
+                            </button>
+                        </li>
+                    </ul>
+                </li>
+                {% endif %}
             </ul>
         </div>
     </nav>
