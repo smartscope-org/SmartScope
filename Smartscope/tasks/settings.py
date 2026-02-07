@@ -1,4 +1,6 @@
 import os
+from kombu import Queue
+
 from Smartscope.core.settings.server_docker import REDIS_URL
 
 accept_content = ['json']
@@ -16,11 +18,18 @@ if isinstance(TRANSIENT_QUEUES, str):
 
 TRANSIENT_QUEUES_CACHE_TIMEOUT = 300  # seconds
 
-tasks_routes = {}
+task_queues = (
+    Queue("celery"),
+    Queue("smartscope"),
+    Queue("smartscope_ai_rcnn"),
+    Queue("smartscope_ai_yolo"),
+)
 
-for queue in QUEUES:
-    print(f"Registered queue: {queue}")
-    tasks_routes['Smartscope.tasks.*'] = {'queue': 'celery'}
+task_routes = {
+    "Smartscope.tasks.long_actions_tasks.*": {"queue": "smartscope"},
+    "Smartscope.tasks.ai_tasks.*": {"queue": "smartscope_ai_rcnn"},
+    "SmartscopeAI.interfaces.celery.tasks.*": {"queue": "smartscope_ai_yolo"},
+}
 
 
 task_default_queue = 'smartscope'

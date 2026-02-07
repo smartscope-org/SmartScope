@@ -20,6 +20,8 @@ services:
     user: ${UID}:${GID}
   smartscope_ai:
     user: ${UID}:${GID}
+  smartscope_ai_rcnn:
+    user: ${UID}:${GID}
   nginx:
     ports:
       #### BROADCASTED PORT ####

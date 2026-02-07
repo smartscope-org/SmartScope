@@ -77,10 +77,10 @@ def send_find_squares_from_montage(montage, class_map:Dict[str,BaseModel], **kwa
     data['kwargs']['scaling_factor'] = scaling_factor
     data['kwargs']['class_mapping'] = {k:v.model_dump() for k,v in class_map.items()}
 
-    queue, scratch_dir = get_queue()
-    print(f'Sending find_squares task to queue {queue} with scratch dir {scratch_dir}')
+    # queue, scratch_dir = get_queue()
+    # print(f'Sending find_squares task to queue {queue} with scratch dir {scratch_dir}')
     
-    result = app.send_task('SmartscopeAI.interfaces.celery.tasks.find_squares', args=[json.dumps(data)], queue=queue)
+    result = app.send_task('SmartscopeAI.interfaces.celery.tasks.find_squares', args=[json.dumps(data)])
     task_id = result.id
     res = AsyncResult(task_id, app=app)
     coords, labels = res.get(interval=1, timeout=120)
@@ -100,7 +100,7 @@ def send_find_holes_from_montage(montage:Montage, class_map:Dict[str,BaseModel],
     data['kwargs']['scaling_factor'] = scaling_factor
     data['kwargs']['class_mapping'] = {k:v.model_dump() for k,v in class_map.items()}
     
-    result = app.send_task('SmartscopeAI.interfaces.celery.tasks.find_holes', args=[json.dumps(data)], queue=get_queue()[0])
+    result = app.send_task('SmartscopeAI.interfaces.celery.tasks.find_holes', args=[json.dumps(data)])
     task_id = result.id
     res = AsyncResult(task_id, app=app)
     final_result = res.get(interval=1, timeout=120)
@@ -119,7 +119,7 @@ def send_find_holes_from_square(montage:Montage, class_map:Dict[str,BaseModel], 
     data['kwargs']['scaling_factor'] = scaling_factor
     data['kwargs']['class_mapping'] = {k:v.model_dump() for k,v in class_map.items()}
     
-    result = app.send_task('SmartscopeAI.interfaces.celery.tasks.find_holes', args=[json.dumps(data)], queue=get_queue()[0])
+    result = app.send_task('SmartscopeAI.interfaces.celery.tasks.find_holes', args=[json.dumps(data)])
     task_id = result.id
     res = AsyncResult(task_id, app=app)
     final_result = res.get(interval=1, timeout=120)
