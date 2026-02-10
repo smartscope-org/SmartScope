@@ -142,9 +142,24 @@ def find_holes_with_lattice(montage, hole_spacing:float, lattice_radius:float, c
     if not success:
         return [], success, dict()
     targets = Targets.create_targets_from_box(targets, montage, force_mdoc=False) ###REPLACE WITH THE ENV VARIABLE
+
+    # Filter out targets near edges (within 1/4 of hole_spacing from any edge)
     expected_spacing = hole_spacing / montage.pixel_size_micron
+    edge_filter_distance = expected_spacing / 4
+    height, width = montage.image.shape[:2]
+
+    filtered_targets = []
+    for target in targets:
+        x, y = target.coords[0], target.coords[1]
+        # Check distance from all 4 edges
+        if (x >= edge_filter_distance and x <= width - edge_filter_distance and
+            y >= edge_filter_distance and y <= height - edge_filter_distance):
+            filtered_targets.append(target)
+
+    logger.debug(f'Filtered targets from {len(targets)} to {len(filtered_targets)} after removing edge targets within {edge_filter_distance} pixels from any edge')
+
     lattice_radius_in_pixels = lattice_radius / montage.pixel_size_micron
-    rotation, spacing = get_mesh_rotation_spacing(np.array([target.coords for target in targets]), expected_spacing)
+    rotation, spacing = get_mesh_rotation_spacing(np.array([target.coords for target in filtered_targets]), expected_spacing)
     logger.debug(f'Calculated hole geometry for grid {montage} with {len(targets)} holes and mesh spacing: {spacing} um. Pixel size of {montage}: {montage.pixel_size} A.\n Calculated rotation: {rotation}\n Calculated spacing: {spacing}')
     lattice = generic_lattice_extension([t.coords for t in targets], np.array([lattice_radius_in_pixels,lattice_radius_in_pixels]), rotation, spacing, offset=montage.center)
     transposed = lattice.T
