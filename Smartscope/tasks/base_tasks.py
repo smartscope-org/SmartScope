@@ -77,10 +77,10 @@ def send_find_squares_from_montage(montage, class_map:Dict[str,BaseModel], **kwa
     data['kwargs']['scaling_factor'] = scaling_factor
     data['kwargs']['class_mapping'] = {k:v.model_dump() for k,v in class_map.items()}
 
-    # queue, scratch_dir = get_queue()
-    # print(f'Sending find_squares task to queue {queue} with scratch dir {scratch_dir}')
+    queue, scratch_dir = get_queue()
+    print(f'Sending find_squares task to queue {queue} with scratch dir {scratch_dir}')
     
-    result = app.send_task('SmartscopeAI.interfaces.celery.tasks.find_squares', args=[json.dumps(data)])
+    result = app.send_task('SmartscopeAI.interfaces.celery.tasks.find_squares', args=[json.dumps(data)], queue=queue)
     task_id = result.id
     res = AsyncResult(task_id, app=app)
     coords, labels = res.get(interval=1, timeout=120)
@@ -100,7 +100,7 @@ def send_find_holes_from_montage(montage:Montage, class_map:Dict[str,BaseModel],
     data['kwargs']['scaling_factor'] = scaling_factor
     data['kwargs']['class_mapping'] = {k:v.model_dump() for k,v in class_map.items()}
     
-    result = app.send_task('SmartscopeAI.interfaces.celery.tasks.find_holes', args=[json.dumps(data)])
+    result = app.send_task('SmartscopeAI.interfaces.celery.tasks.find_holes', args=[json.dumps(data)], queue=get_queue()[0])
     task_id = result.id
     res = AsyncResult(task_id, app=app)
     final_result = res.get(interval=1, timeout=120)
@@ -119,7 +119,7 @@ def send_find_holes_from_square(montage:Montage, class_map:Dict[str,BaseModel], 
     data['kwargs']['scaling_factor'] = scaling_factor
     data['kwargs']['class_mapping'] = {k:v.model_dump() for k,v in class_map.items()}
     
-    result = app.send_task('SmartscopeAI.interfaces.celery.tasks.find_holes', args=[json.dumps(data)])
+    result = app.send_task('SmartscopeAI.interfaces.celery.tasks.find_holes', args=[json.dumps(data)], queue=get_queue()[0])
     task_id = result.id
     res = AsyncResult(task_id, app=app)
     final_result = res.get(interval=1, timeout=120)
@@ -142,24 +142,9 @@ def find_holes_with_lattice(montage, hole_spacing:float, lattice_radius:float, c
     if not success:
         return [], success, dict()
     targets = Targets.create_targets_from_box(targets, montage, force_mdoc=False) ###REPLACE WITH THE ENV VARIABLE
-
-    # Filter out targets near edges (within 1/4 of hole_spacing from any edge)
     expected_spacing = hole_spacing / montage.pixel_size_micron
-    edge_filter_distance = expected_spacing / 4
-    height, width = montage.image.shape[:2]
-
-    filtered_targets = []
-    for target in targets:
-        x, y = target.coords[0], target.coords[1]
-        # Check distance from all 4 edges
-        if (x >= edge_filter_distance and x <= width - edge_filter_distance and
-            y >= edge_filter_distance and y <= height - edge_filter_distance):
-            filtered_targets.append(target)
-
-    logger.debug(f'Filtered targets from {len(targets)} to {len(filtered_targets)} after removing edge targets within {edge_filter_distance} pixels from any edge')
-
     lattice_radius_in_pixels = lattice_radius / montage.pixel_size_micron
-    rotation, spacing = get_mesh_rotation_spacing(np.array([target.coords for target in filtered_targets]), expected_spacing)
+    rotation, spacing = get_mesh_rotation_spacing(np.array([target.coords for target in targets]), expected_spacing)
     logger.debug(f'Calculated hole geometry for grid {montage} with {len(targets)} holes and mesh spacing: {spacing} um. Pixel size of {montage}: {montage.pixel_size} A.\n Calculated rotation: {rotation}\n Calculated spacing: {spacing}')
     lattice = generic_lattice_extension([t.coords for t in targets], np.array([lattice_radius_in_pixels,lattice_radius_in_pixels]), rotation, spacing, offset=montage.center)
     transposed = lattice.T
