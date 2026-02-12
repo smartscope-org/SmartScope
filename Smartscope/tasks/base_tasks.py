@@ -200,6 +200,9 @@ def sim_siam_inference(mag_level:Literal['square','hole'], grid_id:str, **kwargs
     grid_ids = [grid_id]  # Replace with actual grid IDs
     dataset_name = '_'.join(grid_ids) + "_" + mag_level
     file_list = sim_siam_prepare_data(mag_level, grid_ids)
+    if len(file_list) == 0:
+        logger.warning(f'No data found to send for SimSiam inference for grid {grid_id} at mag level {mag_level}. Skipping.')
+        return
     if checkpoint_path is not None and config_path is not None:
         file_list.append(checkpoint_path)
         file_list.append(config_path)
