@@ -29,6 +29,7 @@ mediumMag:
     - setAperturesForHighMag
     - tiltToAngle
     - moveStage
+    - zeroImageShift
     - mediumMagHole
     - rollDefocus
     - autoFocus
