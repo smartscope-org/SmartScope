@@ -12,3 +12,4 @@ postHighMag:
     - collectHardwareDark
     - flashColdFEG
     - recenterBeam
+    - zeroImageShift
