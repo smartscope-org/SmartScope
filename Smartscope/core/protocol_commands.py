@@ -126,7 +126,7 @@ def tiltToAngle(scope:MicroscopeInterface,params,instance, content:Dict, *args, 
 
 def alignToHoleRef(scope:MicroscopeInterface,params,instance, content:Dict, *args, **kwargs) :
     """Aligns the medium mag to the template hole image stored in buffer T. Either load an image manually or use the loadHoleRef command prior to this one."""
-    max_iterations = 3
+    max_iterations = content.get('max_iterations', 1)
     iteration = 0
     while iteration < max_iterations:
         iteration +=1
