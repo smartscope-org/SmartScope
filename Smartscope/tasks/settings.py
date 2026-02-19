@@ -8,7 +8,7 @@ result_accept_content = ['json']
 result_backend = f"{REDIS_URL}/1"
 broker_url = f"{REDIS_URL}/0"
 
-QUEUES = os.getenv('QUEUES', 'celery').split(',')
+QUEUES = os.getenv('QUEUES', 'smartscope_ai_cpu').split(',')
 TRANSIENT_QUEUES = os.getenv('TRANSIENT_QUEUES', [])
 TRANSIENT_SCRATCH = os.getenv('TRANSIENT_SCRATCH', [])
 if isinstance(TRANSIENT_QUEUES, str):
@@ -22,13 +22,13 @@ task_queues = (
     Queue("celery"),
     Queue("smartscope"),
     Queue("smartscope_ai_rcnn"),
-    Queue("smartscope_ai_yolo"),
+    Queue("smartscope_ai_cpu"),
 )
 
 task_routes = {
     "Smartscope.tasks.long_actions_tasks.*": {"queue": "smartscope"},
     "Smartscope.tasks.ai_tasks.*": {"queue": "smartscope_ai_rcnn"},
-    "SmartscopeAI.interfaces.celery.tasks.*": {"queue": "smartscope_ai_yolo"},
+    "SmartscopeAI.interfaces.celery.tasks.*": {"queue": "smartscope_ai_cpu"},
 }
 
 

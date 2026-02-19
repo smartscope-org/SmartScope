@@ -36,21 +36,21 @@ services:
       - ./scratch/:/mnt/scratch/:rw
     networks:
       - smartscopenet
-    command: ["celery", "-A", "SmartscopeAI.interfaces.celery.app", "worker", "-n", "ai_yolo@%h", "-Q", "smartscope_ai_yolo", "--loglevel=DEBUG", "--pool=solo"]
-  smartscope_ai_rcnn:
-    image: smartscope-ai-rcnn:dev
-    restart: always
-    env_file:
-      - smartscope.conf
-      - database.conf
-    volumes:
-      - ./logs/ai/:/opt/logs/
-      - ./shared/auth/:/opt/auth/:rw
-      - ./shared/nginx/:/opt/shared/:rw
-      - ./shared/smartscope/:/opt/config/:rw
-    networks:
-      - smartscopenet
-    command: ["celery", "-A", "Smartscope.tasks.app", "worker", "-n", "ai_rcnn@%h", "-Q", "smartscope_ai_rcnn", "--loglevel=DEBUG", "--pool=solo"]
+    command: ["celery", "-A", "SmartscopeAI.interfaces.celery.app", "worker", "--loglevel=DEBUG", "--pool=solo", "-Q", "smartscope_ai_cpu"]
+  # smartscope_ai_rcnn:
+  #   image: smartscope-ai-rcnn:dev
+  #   restart: always
+  #   env_file:
+  #     - smartscope.conf
+  #     - database.conf
+  #   volumes:
+  #     - ./logs/ai/:/opt/logs/
+  #     - ./shared/auth/:/opt/auth/:rw
+  #     - ./shared/nginx/:/opt/shared/:rw
+  #     - ./shared/smartscope/:/opt/config/:rw
+  #   networks:
+  #     - smartscopenet
+  #   command: ["celery", "-A", "Smartscope.tasks.app", "worker", "-n", "ai_rcnn@%h", "-Q", "smartscope_ai_rcnn", "--loglevel=DEBUG", "--pool=solo"]
   db:
     image: mariadb:10.5
     restart: always
