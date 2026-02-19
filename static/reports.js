@@ -181,28 +181,18 @@ function clearSelection(type) {
         button = $('#holeClearSele')
         selection = holeSelection
         suggestion = holeSuggestion
-    } else if (normalizedType == 'targets') {
-        button = $('#clearTargets')
     } else {
         selection = squareSelection
         suggestion = squareSuggestion
         button = $('#squareClearSele')
     }
     while (selection.length != 0) {
-        if (type != 'targets') {
-            document.getElementById(selection[0]).classList.remove('clicked')  
-        } else {
-            selection[0][0].remove()
-        }
+        document.getElementById(selection[0]).classList.remove('clicked')
         selection.shift()
     }
 
     while (suggestion.length != 0) {
-        if (type != 'targets') {
-            $(`#${suggestion[0]}`).removeClass('suggestion')
-        } else {
-            suggestion[0][0].remove()
-        }
+        $(`#${suggestion[0]}`).removeClass('suggestion')
         suggestion.shift()
     }
     button.prop("disabled", true)
@@ -212,6 +202,16 @@ function clearSelection(type) {
 
     console.log(`Original squareSelection and holeSelection arrays:`, squareSelection, holeSelection)
     checkSelection(type)
+}
+
+function clearTargetsSelection() {
+    console.log('Clearing targetsSelection')
+    while (targetsSelection.length != 0) {
+        targetsSelection[0][0].remove()
+        targetsSelection.shift()
+    }
+    $('#clearTargets').prop("disabled", true)
+    checkSelection('targets')
 }
 
 async function loadSquare(full_id, metaonly = false, display_type = null, method = null) {
@@ -615,7 +615,7 @@ async function addTargets(btn, selection) {
     }
 
     console.log(`Adding targets on square: ${currentState.square}`, coords)
-    clearSelection(selection, 'targets')
+    clearTargetsSelection()
     var url = "/api/addtargets/"
     let res = await apifetchAsync(url, { 'session_id': fullmeta.session_id, 'square_id': currentState.square, 'targets': coords }, 'POST', message='Adding targets')
     console.log(res)
@@ -842,8 +842,8 @@ function clickSquare(elem) {
             return
         }
         currentState.square = elem.id;
-        clearSelection(holeSelection, 'hole')
-        clearSelection(targetsSelection, 'targets')
+        clearSelection('hole')
+        clearTargetsSelection()
         loadSquare(elem.id);
         console.log(currentState)
         pushState()

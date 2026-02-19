@@ -585,3 +585,13 @@ def targetHistory(request, grid_id):
     target_history.get_current_target()
     target_history.get_next_targets()
     return render(request, "autoscreenViewer/target_history.html", {"target_history": target_history})
+
+def deleteSquares(request, grid_id):
+    if request.method != 'POST':
+        return HttpResponse('Invalid request method')
+    square_ids = request.POST.getlist('square_ids',None)
+    squares = SquareModel.objects.filter(square_id__in=square_ids, grid_id=grid_id, status_isnull=True)
+    if len(squares) != len(square_ids):
+        logger.debug('Some squares could not be deleted')
+    logger.debug(f'Deleting squares: {squares}')
+    squares.delete()
