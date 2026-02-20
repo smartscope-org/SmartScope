@@ -43,6 +43,7 @@ class Finder(TargetLabel):
         ##NEED TO ADD OFFSETS AND NOT HARDCODE THE LIMIT
         if self.stage_x < stage_radius_limit+offset_x and self.stage_y < stage_radius_limit+offset_y:
             return True
+        return False
         # return self.radius_from_origin(offset_x=offset_x,offset_y=offset_y) <= stage_radius_limit
 
 
