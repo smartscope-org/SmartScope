@@ -241,19 +241,14 @@ def initialize_selector(grid: models.AutoloaderGrid, selector:str, queryset:Opti
 
 def initialize_selector_from_embeddings(grid: models.AutoloaderGrid, selector:str, queryset:Optional=[]) -> SelectorSorter:
     plugin = PLUGINS_FACTORY.get_plugin(selector)
-    mag_level = queryset[0].prefix_lower if isinstance(queryset, list) and len(queryset) > 0 else ''
+    print(f'Queryset type is {type(queryset)} with length {len(queryset)}')
+    mag_level = queryset[0].prefix_lower if len(queryset) > 0 else ''
     print(f'Initializing selector {selector} for grid {grid.grid_id} at magnification level {mag_level}')
     if not plugin.is_embedding_data(grid, mag_level):
+        logger.warning(f'No embedding data found for selector {selector} on grid {grid.grid_id} at magnification level {mag_level}. Reverting to lagacy sorting.')
         return None
     values,n_classes = plugin.sorter_data(grid,mag_level,queryset)
     selector_sorter = SelectorSorter(selector_name=selector,fractional_limits=[0,1], n_classes=n_classes)
-
-
-    # directory = check_directories_for_selector_data(grid,selector)
-    # if directory is not None:
-    #     selector_data = SelectorSorterData.load(directory, selector)
-    #     selector_sorter = selector_data.create_sorter()
-    # selector_data = SelectorValueParser(selector, from_server=False)
 
     selector_sorter.values = values
     return selector_sorter
