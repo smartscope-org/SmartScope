@@ -12,6 +12,7 @@ kwargs:
 grid_related_kwargs:
   hole_spacing: holeType.pitch
   lattice_radius: params_id.bis_max_distance
+  hole_size: holeType.hole_size
 targetClass:
   - Finder
 description: |

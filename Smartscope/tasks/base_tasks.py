@@ -126,7 +126,7 @@ def send_find_holes_from_square(montage:Montage, class_map:Dict[str,BaseModel], 
     print(final_result)
     return final_result, True, dict()
 
-def find_holes_with_lattice(montage, hole_spacing:float, lattice_radius:float, class_map:Dict=None, success_threshold:int=2, **kwargs):
+def find_holes_with_lattice(montage, hole_spacing:float, hole_size:float, lattice_radius:float, class_map:Dict=None, success_threshold:int=2, **kwargs):
     """
     Identifies holes in a montage image using a lattice pattern.
     Parameters:
@@ -134,6 +134,7 @@ def find_holes_with_lattice(montage, hole_spacing:float, lattice_radius:float, c
     class_map (Dict, optional): A dictionary mapping class labels to their respective values. Defaults to None.
     success_threshold (int, optional): The minimum number of successful detections required to consider the operation successful. Defaults to 10.
     hole_spacing (float): The spacing between holes in the lattice pattern in microns
+    hole_size (float): The size of each hole in microns
     lattice_radius (float): The radius of the lattice used to find holes in microns.
     Returns:
     List[Tuple[int, int]]: A list of coordinates where holes were found.
@@ -143,9 +144,9 @@ def find_holes_with_lattice(montage, hole_spacing:float, lattice_radius:float, c
         return [], success, dict()
     targets = Targets.create_targets_from_box(targets, montage, force_mdoc=False) ###REPLACE WITH THE ENV VARIABLE
 
-    # Filter out targets near edges (within 1/4 of hole_spacing from any edge)
+    # Filter out targets near edges (within 1/2 of hole_size from any edge)
     expected_spacing = hole_spacing / montage.pixel_size_micron
-    edge_filter_distance = expected_spacing / 4
+    edge_filter_distance = hole_size / montage.pixel_size_micron / 2
     height, width = montage.image.shape[:2]
 
     filtered_targets = []
@@ -161,7 +162,7 @@ def find_holes_with_lattice(montage, hole_spacing:float, lattice_radius:float, c
     lattice_radius_in_pixels = lattice_radius / montage.pixel_size_micron
     rotation, spacing = get_mesh_rotation_spacing(np.array([target.coords for target in filtered_targets]), expected_spacing)
     logger.debug(f'Calculated hole geometry for grid {montage} with {len(targets)} holes and mesh spacing: {spacing} um. Pixel size of {montage}: {montage.pixel_size} A.\n Calculated rotation: {rotation}\n Calculated spacing: {spacing}')
-    lattice = generic_lattice_extension([t.coords for t in targets], np.array([lattice_radius_in_pixels,lattice_radius_in_pixels]), rotation, spacing, offset=montage.center)
+    lattice = generic_lattice_extension([t.coords for t in filtered_targets], np.array([lattice_radius_in_pixels,lattice_radius_in_pixels]), rotation, spacing, offset=montage.center)
     transposed = lattice.T
     logger.debug(f'Transposed lattice shape ({transposed.shape}):\n{transposed}')
     closest_lattice_point_to_center = closest_to_center(transposed, montage.center)
