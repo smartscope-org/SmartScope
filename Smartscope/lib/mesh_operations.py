@@ -85,9 +85,47 @@ def atan2_firstquad(point):
         angle += 90
     return angle
 
-def get_average_angle(points):
-    angles = np.apply_along_axis(atan2_firstquad,axis=1, arr=points)
-    return np.mean(angles)
+def get_average_angle(points, mad_threshold=3.0):
+    if len(points) == 0:
+        raise ValueError('get_average_angle: no points provided')
+
+    # Raw arctan2 angles in (-180, 180]. Multiplying by 4 maps the 90-deg
+    # mesh symmetry onto a full 360-deg cycle — no first-quadrant folding needed.
+    raw_angles = np.degrees(np.arctan2(points[:, 1], points[:, 0]))
+
+    def _circ_mean_90(angles_deg):
+        """Circular mean for 90-deg periodic data, result in [0, 90)."""
+        scaled = np.radians(angles_deg * 4.0)
+        mean_deg = np.degrees(
+            np.arctan2(np.mean(np.sin(scaled)), np.mean(np.cos(scaled)))
+        ) / 4.0
+        result = mean_deg % 90.0
+        return result if result < 90.0 else 0.0
+
+    initial_mean = _circ_mean_90(raw_angles)
+
+    # Signed circular deviation from initial_mean in (-45, 45]
+    scaled_angles = np.radians(raw_angles * 4.0)
+    scaled_ref    = np.radians(initial_mean * 4.0)
+    deviations = np.degrees(np.arctan2(
+        np.sin(scaled_angles - scaled_ref),
+        np.cos(scaled_angles - scaled_ref),
+    )) / 4.0
+
+    mad = np.median(np.abs(deviations))
+    if mad == 0.0:
+        return initial_mean
+
+    inlier_mask = np.abs(deviations) <= mad_threshold * mad
+    clean_angles = raw_angles[inlier_mask]
+    if len(clean_angles) == 0:
+        logger.warning(
+            'get_average_angle: all %d vectors rejected (mad_threshold=%.1f, MAD=%.3f deg); '
+            'returning unfiltered mean.', len(points), mad_threshold, mad,
+        )
+        return initial_mean
+
+    return _circ_mean_90(clean_angles)
 
 
 def get_mesh_rotation_spacing(targets, mesh_spacing_in_pixels):
