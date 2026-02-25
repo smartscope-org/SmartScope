@@ -269,3 +269,44 @@ def validate_custom_paths(detector_id):
     logger.info(f'Full path from smartscope POV: {full_path_smartscope_pov}')
     full_path_serialem_pov = get_serialem_frames_dir(grid)
     logger.info(f'Full path from SerialEM POV: {full_path_serialem_pov}')
+
+
+def test_contrast_normalization(mrc_path: str, mdoc_path: str, output_dir: str = '.'):
+    """
+    Builds a Montage from an MRC file and mdoc, then exports one PNG per
+    normalization method (auto_contrast, auto_contrast_sigma, auto_contrast_cdf)
+    to output_dir for visual comparison.
+    """
+    from Smartscope.lib.image.montage import Montage
+    from Smartscope.lib.image.image_file import parse_mdoc
+    from Smartscope.lib.image_manipulations import (
+        auto_contrast, auto_contrast_sigma, auto_contrast_cdf,
+        auto_contrast_triangle_cdf, auto_contrast_clahe,
+        export_as_png, fourier_crop
+    )
+
+    mrc = Path(mrc_path)
+    output = Path(output_dir)
+    output.mkdir(exist_ok=True)
+
+    logger.info(f'Building montage from {mrc}')
+    montage = Montage(mrc.stem, working_dir=output)
+    montage.raw = mrc
+    montage.metadata = parse_mdoc(Path(mdoc_path))
+    montage.build_montage()
+    montage.read_image()
+    logger.info(f'Montage shape: {montage.image.shape}, dtype: {montage.image.dtype}')
+
+    normalizations = [
+        ('auto_contrast', auto_contrast),
+        ('auto_contrast_sigma', auto_contrast_sigma),
+        ('auto_contrast_cdf', auto_contrast_cdf),
+        ('auto_contrast_triangle_cdf', auto_contrast_triangle_cdf),
+        ('auto_contrast_clahe', auto_contrast_clahe),
+    ]
+    for name, fn in normalizations:
+        out_path = output / f'{mrc.stem}_{name}.png'
+        export_as_png(montage.image, out_path, normalization=fn, binning_method=fourier_crop)
+        logger.info(f'Saved {out_path}')
+
+    logger.info('Done. Compare the three PNGs to evaluate normalization quality.')

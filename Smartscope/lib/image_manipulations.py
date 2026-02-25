@@ -100,6 +100,83 @@ def auto_contrast_sigma(img, sigmas=3, to_8bits=True):
         return img
 
 
+def auto_contrast_cdf(img, bins=256, to_8bits=True):
+    """
+    Normalize image contrast using the Cumulative Distribution Function (CDF).
+    Maps pixel values proportionally to their frequency in the image,
+    providing better contrast for images with skewed intensity distributions
+    (e.g., large dark background with sparse bright regions).
+    """
+    img_flat = img.flatten().astype('float32')
+    img_min, img_max = img_flat.min(), img_flat.max()
+
+    hist, bin_edges = np.histogram(img_flat, bins=bins, range=(img_min, img_max))
+
+    cdf = np.cumsum(hist).astype('float64')
+    cdf /= cdf[-1]
+
+    bin_centers = (bin_edges[:-1] + bin_edges[1:]) / 2
+
+    output = np.interp(img_flat, bin_centers, cdf).reshape(img.shape).astype('float32')
+
+    if to_8bits:
+        return np.round(output * 255).astype('uint8')
+    return output
+
+
+def auto_contrast_triangle_cdf(img, bins=256, to_8bits=True):
+    """
+    Normalize contrast using Triangle thresholding to detect the dark/bright
+    boundary, then CDF equalization on the bright region only.
+    Automatically adapts to images with varying dark fractions (30-95% black).
+    """
+    img_float = img.astype('float32')
+    img_min, img_max = img_float.min(), img_float.max()
+
+    # Normalize to uint8 temporarily to use cv2's Triangle threshold
+    img_u8 = ((img_float - img_min) / (img_max - img_min) * 255).astype('uint8')
+    thresh_u8, _ = cv2.threshold(img_u8, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_TRIANGLE)
+
+    # Map threshold back to original intensity range
+    thresh = thresh_u8 / 255.0 * (img_max - img_min) + img_min
+
+    # Apply CDF only on pixels above the threshold
+    mask = img_float >= thresh
+    bright = img_float[mask]
+
+    output = np.zeros(img_float.shape, dtype='float32')
+    if bright.size > 0:
+        hist, bin_edges = np.histogram(bright, bins=bins, range=(thresh, img_max))
+        cdf = np.cumsum(hist).astype('float64')
+        cdf /= cdf[-1]
+        bin_centers = (bin_edges[:-1] + bin_edges[1:]) / 2
+        output[mask] = np.interp(img_float[mask], bin_centers, cdf)
+
+    if to_8bits:
+        return np.round(output * 255).astype('uint8')
+    return output
+
+
+def auto_contrast_clahe(img, clip_limit=2.0, tile_grid_size=(8, 8), to_8bits=True):
+    """
+    Normalize contrast using CLAHE (Contrast Limited Adaptive Histogram
+    Equalization). Works locally so it adapts automatically to varying dark
+    fractions across the image and between images.
+    clip_limit: amplification cap per tile (higher = more contrast, more noise)
+    tile_grid_size: number of tiles (cols, rows)
+    """
+    img_float = img.astype('float32')
+    img_min, img_max = img_float.min(), img_float.max()
+    img_u8 = ((img_float - img_min) / (img_max - img_min) * 255).astype('uint8')
+
+    clahe = cv2.createCLAHE(clipLimit=clip_limit, tileGridSize=tile_grid_size)
+    result = clahe.apply(img_u8)
+
+    if to_8bits:
+        return result
+    return result.astype('float32') / 255.0
+
+
 def save_image(img, filename, extension='png', resize_to: int = None, destination=None):
     if resize_to is not None:
         img = imutils.resize(img, width=resize_to)
