@@ -1,8 +1,12 @@
 '''
 '''
+import os
+
 from django.db import transaction
 from django.utils import timezone
 import logging
+
+
 
 
 
@@ -11,6 +15,7 @@ logger = logging.getLogger(__name__)
 from .finders import find_targets
 from .run_io import get_file_and_process
 
+from Smartscope.core.settings.worker import SKIP_WEBSOCKET_DURING_DATACOLLECTION
 from Smartscope.core.selectors import selector_wrapper
 from Smartscope.core.models import HoleModel
 from Smartscope.core.status import status
@@ -26,16 +31,26 @@ from Smartscope.sim_siam.plugin import SimSiamEmbedding
 class RunSquare:
 
     @staticmethod
-    def process_square_image(square, grid, microscope_id):
+    def process_square_image(square_id: str, grid_id: str, microscope_id: str):
+        from Smartscope.core.models import SquareModel, AutoloaderGrid
+        from Smartscope.core.models.microscope import Microscope
+
+        square = SquareModel.objects.get(square_id=square_id)
+        grid = AutoloaderGrid.objects.get(grid_id=grid_id)
+        microscope = Microscope.objects.get(microscope_id=microscope_id)
+        os.chdir(grid.directory)
+        update.grid = grid
+
         protocol = get_or_set_protocol(grid).square.targets
         params = grid.params_id
         is_bis = params.bis_max_distance > 0
         montage = None
-        if square.status == status.ACQUIRED:
+        logger.info(f'Processing square {square.name} for grid {grid.name}. Current status: {square.status}')
+        if square.status in [status.ACQUIRED, status.QUEUED_FOR_PROCESSING]:
             montage = get_file_and_process(
                 raw=square.raw,
                 name=square.name,
-                directory=microscope_id.scope_path
+                directory=microscope.scope_path
             )
             export_as_png(montage.image, montage.png)
             _, square_center, _ = find_square(montage.image)

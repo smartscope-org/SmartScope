@@ -3,6 +3,9 @@ import time
 from channels.layers import get_channel_layer
 from asgiref.sync import async_to_sync
 import numpy as np
+import logging
+
+logger = logging.getLogger(__name__)
 
 
 def send_websocket_progress(job_id: str, step: int, progress: int, message: str, completed: bool):
@@ -89,6 +92,17 @@ def regroup_bis_and_select(job_id: str, grid_id: str, square_id: str = 'all'):
         message="Regrouping and selection completed",
         completed=True
     )
+
+@app.task
+def process_square_image(square_id: str, grid_id: str, microscope_id: str):
+    from Smartscope.core.grid.run_square import RunSquare
+    from celery.result import allow_join_result
+    try:
+        with allow_join_result():
+            RunSquare.process_square_image(square_id, grid_id, microscope_id)
+    except Exception as e:
+        logger.error(f"Error processing square {square_id}: {e}")
+
 
 @app.task
 def extend_lattice_global(job_id: str, grid_id: str):

@@ -15,6 +15,7 @@ class status:
     STARTED='started'
     QUEUED='queued'
     ACQUIRED='acquired'
+    QUEUED_FOR_PROCESSING='processing_queued'
     PROCESSED='processed'
     TARGETS_PICKED='targets_picked'
     TARGETS_SELECTED='selected'

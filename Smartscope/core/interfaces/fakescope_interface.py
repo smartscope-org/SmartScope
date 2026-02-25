@@ -89,7 +89,7 @@ class FakeScopeInterface(MicroscopeInterface):
         Fake.generate_fake_file(
             file,
             'square',
-            sleeptime=15,
+            sleeptime=30,
             destination_dir=self.microscope.scopePath
         )
         return 0, 0, 0

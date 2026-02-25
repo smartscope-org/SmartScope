@@ -12,13 +12,12 @@ from django.db import transaction
 
 from Smartscope.lib.image_manipulations import export_as_png
 from Smartscope.sim_siam.plugin import SimSiamEmbedding
-
+from Smartscope.tasks.long_actions_tasks import process_square_image as process_square_image_task
 
 from .grid.grid_status import GridStatus
 from .grid.finders import find_targets
 from .grid.grid_io import GridIO
 from .grid.run_io import get_file_and_process
-from .grid.run_square import RunSquare
 from .grid.run_hole import RunHole
 from .interfaces.microscope_interface import MicroscopeInterface
 from .selectors import selector_wrapper
@@ -53,11 +52,7 @@ def run_grid(
 
 
     grid = update(grid, refresh_from_db=True, last_update=None)
-    # Set the Websocket_update_decorator grid property
-    if SKIP_WEBSOCKET_DURING_DATACOLLECTION and grid.collection_mode == 'collection':
-        logger.info('Skipping websocket updates during data collection')
-    else:
-        update.grid = grid
+    update.grid = grid
 
     if grid.status == GridStatus.COMPLETED:
         logger.info(f'Grid {grid.name} already complete. grid ID={grid.grid_id}')
@@ -174,6 +169,13 @@ def run_grid(
         update(grid, status=GridStatus.COMPLETED)
         return 'finished'
 
+    # Crash recovery: re-dispatch processing tasks for squares left in ACQUIRED
+    # state from a previous interrupted run.
+    for sq in grid.squaremodel_set.filter(status__in=[status.ACQUIRED,status.QUEUED_FOR_PROCESSING]):
+        logger.info(f'Re-dispatching processing task for previously acquired square {sq}')
+        process_square_image_task.delay(sq.square_id, grid.grid_id, microscope.microscope_id)
+        if sq.status != status.QUEUED_FOR_PROCESSING:
+            update(sq, status=status.QUEUED_FOR_PROCESSING)
 
     running = True
     is_done = False
@@ -255,7 +257,8 @@ def run_grid(
                     square
                 )
                 square = update(square, status=status.ACQUIRED, completion_time=timezone.now())
-            RunSquare.process_square_image(square, grid, microscope)
+            process_square_image_task.delay(square.square_id, grid.grid_id, microscope.microscope_id)
+            square = update(square, status=status.QUEUED_FOR_PROCESSING)
         elif is_done:
             microscope_id = microscope.pk
             tmp_file = os.path.join(settings.TEMPDIR, f'.pause_{microscope_id}')
@@ -276,8 +279,20 @@ def run_grid(
             else:
                 running = False
         else:
-            logger.debug('All processes complete')
-            is_done = True
+            in_flight_statuses = [
+                status.ACQUIRED,
+                status.QUEUED_FOR_PROCESSING,
+                status.PROCESSED,
+                status.TARGETS_SELECTED,
+                status.GROUPED,
+                status.TARGETS_PICKED,
+            ]
+            if grid.squaremodel_set.filter(status__in=in_flight_statuses).exists():
+                logger.info('Waiting for square processing tasks to complete...')
+                time.sleep(3)
+            else:
+                logger.debug('All processes complete')
+                is_done = True
         logger.debug(f'Running: {running}')
     else:
         update(grid, status=GridStatus.COMPLETED)
