@@ -37,10 +37,10 @@ def copy_file(file, target_directory='raw', remove=True):
     while not copied:
         try:
             logger.info(f'Copying {mdoc} ({os.path.getsize(mdoc)} bytes)...')
-            new_mdoc = shutil.copy2(mdoc, target_directory)
+            new_mdoc = shutil.copyfile(mdoc, Path(target_directory) / Path(mdoc).name)
 
             logger.info(f'Copying {file} ({os.path.getsize(file)} bytes)...')
-            new_file = shutil.copy2(file, target_directory)
+            new_file = shutil.copyfile(file, Path(target_directory) / Path(file).name)
 
             logger.info('Checking files integrity...')
             mdoc_size, new_mdoc_size = os.path.getsize(mdoc), os.path.getsize(new_mdoc)
@@ -77,21 +77,24 @@ def copy_file(file, target_directory='raw', remove=True):
             logger.warning(err, 'Sleeping 2 secs and retrying')
             time.sleep(2)
 
-    return split_path(new_file)
+    return new_file
 
 
 
-def file_busy(file, directory, timeout=1):
+def file_busy(file, directory, sleep_timeout=1, timeout=60):
     count = 0
     logger.info(f'Waiting for {file}')
     sys.stdout.flush()
     while not os.path.isfile(os.path.join(directory, file)):
-        time.sleep(timeout)
+        time.sleep(sleep_timeout)
+        count += sleep_timeout
+        if count > timeout:
+            raise TimeoutError(f'Timeout of {timeout} seconds waiting for {file} exceeded.\nThis is usually caused by the microscope settings between the serialEM and smartscope microscope path not being correctly set.\nPlease check the settings and try again.')
     else:
         logger.info("Montage still acquiring")
         sys.stdout.flush()
         while os.path.isfile(os.path.join(directory, '.lock')):
-            time.sleep(timeout)
+            time.sleep(sleep_timeout)
         else:
             logger.info('Montage acquisition finished, processing file.')
 
