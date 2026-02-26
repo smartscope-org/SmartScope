@@ -271,7 +271,7 @@ def validate_custom_paths(detector_id):
     logger.info(f'Full path from SerialEM POV: {full_path_serialem_pov}')
 
 
-def test_contrast_normalization(mrc_path: str, mdoc_path: str, output_dir: str = '.'):
+def test_contrast_normalization(mrc_path: str, output_dir: str = '.'):
     """
     Builds a Montage from an MRC file and mdoc, then exports one PNG per
     normalization method (auto_contrast, auto_contrast_sigma, auto_contrast_cdf)
@@ -292,7 +292,7 @@ def test_contrast_normalization(mrc_path: str, mdoc_path: str, output_dir: str =
     logger.info(f'Building montage from {mrc}')
     montage = Montage(mrc.stem, working_dir=output)
     montage.raw = mrc
-    montage.metadata = parse_mdoc(Path(mdoc_path))
+    montage.metadata = parse_mdoc(montage.mdoc)
     montage.build_montage()
     montage.read_image()
     logger.info(f'Montage shape: {montage.image.shape}, dtype: {montage.image.dtype}')
@@ -309,4 +309,4 @@ def test_contrast_normalization(mrc_path: str, mdoc_path: str, output_dir: str =
         export_as_png(montage.image, out_path, normalization=fn, binning_method=fourier_crop)
         logger.info(f'Saved {out_path}')
 
-    logger.info('Done. Compare the three PNGs to evaluate normalization quality.')
+    logger.info(f'Done. Compare the {len(normalizations)} PNGs to evaluate normalization quality.')

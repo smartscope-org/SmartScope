@@ -10,7 +10,7 @@ from django.utils import timezone
 from django.conf import settings
 from django.db import transaction
 
-from Smartscope.lib.image_manipulations import export_as_png
+from Smartscope.lib.image_manipulations import auto_contrast_triangle_cdf, export_as_png
 from Smartscope.sim_siam.plugin import SimSiamEmbedding
 from Smartscope.tasks.long_actions_tasks import process_square_image as process_square_image_task
 
@@ -22,7 +22,7 @@ from .grid.run_hole import RunHole
 from .interfaces.microscope_interface import MicroscopeInterface
 from .selectors import selector_wrapper
 from .models import SquareModel, AutoloaderGrid
-from .settings.worker import PROTOCOL_COMMANDS_FACTORY, SKIP_WEBSOCKET_DURING_DATACOLLECTION
+from .settings.worker import PROTOCOL_COMMANDS_FACTORY
 from .status import status
 from .protocols import get_or_set_protocol
 from .preprocessing_pipelines import load_preprocessing_pipeline
@@ -120,7 +120,7 @@ def run_grid(
             name=atlas.name,
             directory=microscope.scope_path
         )
-        export_as_png(montage.image, montage.png)
+        export_as_png(montage.image, montage.png, normalization=auto_contrast_triangle_cdf)
         targets, finder_method, classifier_method, _ = find_targets(
             montage,
             protocol.atlas.targets.finders

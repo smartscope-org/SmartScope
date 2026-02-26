@@ -11,7 +11,7 @@ from django.core.cache import cache
 from Smartscope.tasks.app import app
 from Smartscope.tasks.settings import QUEUES, TRANSIENT_QUEUES, TRANSIENT_QUEUES_CACHE_TIMEOUT, TRANSIENT_SCRATCH
 from Smartscope.lib.image.montage import Montage
-from Smartscope.lib.image_manipulations import encode_image
+from Smartscope.lib.image_manipulations import encode_image, auto_contrast_triangle_cdf
 from Smartscope.lib.image_manipulations import convert_to_png, auto_contrast_sigma, fourier_crop, auto_contrast, extract_box_from_radius
 from Smartscope.lib.mesh_operations import get_mesh_rotation_spacing, closest_to_center, filter_from_center
 from Smartscope.lib.Finders.lattice_extension import generic_lattice_extension
@@ -69,7 +69,7 @@ def send_find_squares_from_montage(montage, class_map:Dict[str,BaseModel], **kwa
         return yolo_class_map
     
     scaling_factor = montage.image.shape[0] / kwargs.get('imgsz', 1024)
-    image= convert_to_png(montage.image, height=kwargs.get('imgsz', 1024))
+    image= convert_to_png(montage.image, height=kwargs.get('imgsz', 1024), normalization=auto_contrast_triangle_cdf)
 
     encoded = encode_image(image)
     data = { 'image': encoded }
