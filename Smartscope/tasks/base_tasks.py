@@ -109,7 +109,7 @@ def send_find_holes_from_montage(montage:Montage, class_map:Dict[str,BaseModel],
 
 def send_find_holes_from_square(montage:Montage, class_map:Dict[str,BaseModel], success_threshold:int=10,  **kwargs):
     scaling_factor = montage.image.shape[0] / kwargs.get('imgsz', 1024)
-    image= convert_to_png(montage.image, height=kwargs.get('imgsz', 1024), normalization=auto_contrast_sigma, binning_method=fourier_crop)
+    image= convert_to_png(montage.image, height=kwargs.get('imgsz', 1024), normalization=auto_contrast, binning_method=fourier_crop)
     image = mask_square(image)
 
     encoded = encode_image(image)
