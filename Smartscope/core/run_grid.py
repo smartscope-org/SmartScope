@@ -279,17 +279,10 @@ def run_grid(
             else:
                 running = False
         else:
-            in_flight_statuses = [
-                status.ACQUIRED,
-                status.QUEUED_FOR_PROCESSING,
-                status.PROCESSED,
-                status.TARGETS_SELECTED,
-                status.GROUPED,
-                status.TARGETS_PICKED,
-            ]
+            in_flight_statuses = status().in_flight_statuses
             if grid.squaremodel_set.filter(status__in=in_flight_statuses).exists():
                 logger.info('Waiting for square processing tasks to complete...')
-                time.sleep(3)
+                time.sleep(5)
             else:
                 logger.debug('All processes complete')
                 is_done = True

@@ -24,7 +24,9 @@ class status:
     SKIPPED='skipped'
     COMPLETED='completed'
 
-
+    @property
+    def in_flight_statuses(self):
+        return [self.ACQUIRED, self.QUEUED_FOR_PROCESSING, self.PROCESSED, self.TARGETS_PICKED, self.TARGETS_SELECTED, self.GROUPED]
 
 class FileSignal:
 
