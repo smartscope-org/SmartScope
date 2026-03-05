@@ -41,7 +41,7 @@ class Finder(TargetLabel):
     
     def is_position_within_stage_limits(self, stage_radius_limit:int = 975, offset_x:float=0, offset_y:float=0) -> bool:
         ##NEED TO ADD OFFSETS AND NOT HARDCODE THE LIMIT
-        if self.stage_x < stage_radius_limit+offset_x and self.stage_y < stage_radius_limit+offset_y:
+        if abs(self.stage_x) < stage_radius_limit+offset_x and abs(self.stage_y) < stage_radius_limit+offset_y:
             return True
         return False
         # return self.radius_from_origin(offset_x=offset_x,offset_y=offset_y) <= stage_radius_limit
