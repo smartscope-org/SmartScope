@@ -102,6 +102,11 @@ class SerialemInterface(MicroscopeInterface):
     def eucentricity(self):
         sem.GoToLowDoseArea('V')
         sem.Eucentricity(1)
+
+    def setup_serialem(self):
+        if sem.ReportIfNavOpen() == 0:
+            self.logger.info('Opening SerialEM Navigator since it will be needed.')
+            sem.OpenNavigator()
     
     def eucentricity_by_focus(self):
         sem.GoToLowDoseArea('V')

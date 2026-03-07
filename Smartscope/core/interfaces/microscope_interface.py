@@ -107,6 +107,9 @@ class MicroscopeInterface(ABC):
     def roll_defocus(self, def1, def2, step):
         pass
 
+    def setup_serialem(self):
+        pass
+
     def reset_state(self):
         self.has_hole_ref = False
         self.focus_position_set = False

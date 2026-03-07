@@ -371,7 +371,8 @@ def reregisterSearchMag(scope:MicroscopeInterface,params,instance, content:Dict,
 def openColumnValve(scope:MicroscopeInterface,params,instance, content:Dict, *args, **kwargs):
     scope.open_valves()
 
-
+def setupSerialEM(scope:MicroscopeInterface,params,instance, content:Dict, *args, **kwargs):
+    scope.setup_serialem()
 
     
 
@@ -427,4 +428,5 @@ protocolCommandsFactory = dict(
     reregisterSearchMag=reregisterSearchMag,
     openColumnValve=openColumnValve,   
     callOnModeChange=callOnModeChange, 
+    setupSerialEM=setupSerialEM
 )
