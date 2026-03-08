@@ -6,16 +6,10 @@ from django.db import transaction
 from django.utils import timezone
 import logging
 
-
-
-
-
 logger = logging.getLogger(__name__)
 
 from .finders import find_targets
 from .run_io import get_file_and_process
-
-from Smartscope.core.settings.worker import SKIP_WEBSOCKET_DURING_DATACOLLECTION
 from Smartscope.core.selectors import selector_wrapper
 from Smartscope.core.models import HoleModel
 from Smartscope.core.status import status
