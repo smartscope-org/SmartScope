@@ -46,10 +46,10 @@ class MetadataConsumer(AsyncWebsocketConsumer):
         ))
 
     async def disconnect(self, event):
-        logger.info(f'Socket {self.groups[0]} disconnected', event)
-        # await self.send(
-        #     {"type": "websocket.close"}
-        # )
+        logger.info(f'Socket {self.groups[0]} disconnected')
+        await self.send(
+            {"type": "websocket.close"}
+        )
 
 
 class ProgressConsumer(AsyncWebsocketConsumer):
