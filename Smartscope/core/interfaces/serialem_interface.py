@@ -488,16 +488,16 @@ class SerialemInterface(MicroscopeInterface):
     def setup(self, saveframes:bool, frames_dir:str='', framesName=None):
         if saveframes:
             self.logger.info('Saving frames enabled')
-            sem.SetDoseFracParams('P', 1, 1, 0)
+            sem.SetDoseFracParams('R', 1, 1, 0)
             self.logger.info(f'SerialEM will be saving frames to {frames_dir}')
             sem.SetFolderForFrames(frames_dir)
             if framesName is not None:
                 sem.SetFrameBaseName(0, 1, 0, framesName)
         else:
             self.logger.info('Saving frames disabled')
-            sem.SetDoseFracParams('P', 1, 0, 0)
+            sem.SetDoseFracParams('R', 1, 0, 0)
 
-        sem.KeepCameraSetChanges('P')
+        sem.KeepCameraSetChanges('R')
         sem.SetLowDoseMode(1)
         sem.SetBufferImageTimeout(5)
 
@@ -605,7 +605,7 @@ class SerialemInterface(MicroscopeInterface):
         if not earlyReturn:
             sem.EarlyReturnNextShot(0)
 
-        sem.Preview()
+        sem.Record()
         if earlyReturn:
             sem.OpenNewFile(file)
             sem.Save()
