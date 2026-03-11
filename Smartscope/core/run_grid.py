@@ -171,7 +171,7 @@ def run_grid(
 
     # Crash recovery: re-dispatch processing tasks for squares left in ACQUIRED
     # state from a previous interrupted run.
-    for sq in grid.squaremodel_set.filter(status__in=[status.ACQUIRED,status.QUEUED_FOR_PROCESSING]):
+    for sq in grid.squaremodel_set.filter(status__in=[status.ACQUIRED,status.QUEUED_FOR_PROCESSING,status.PROCESSED]):
         logger.info(f'Re-dispatching processing task for previously acquired square {sq}')
         process_square_image_task.delay(sq.square_id, grid.grid_id, microscope.microscope_id)
         if sq.status != status.QUEUED_FOR_PROCESSING:

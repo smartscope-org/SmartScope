@@ -220,7 +220,7 @@ def sim_siam_inference(mag_level:Literal['square','hole'], grid_id:str, **kwargs
     result = app.send_task('SmartscopeAI.interfaces.celery.tasks.sim_siam_data', args=[data], queue=queue)
     task_id = result.id
     res = AsyncResult(task_id, app=app)
-    final_result = res.get(interval=1, timeout=120)
+    final_result = res.get(interval=1, timeout=300)
     print(final_result)
     
     sim_siam_copy_output_file_from_scratch(final_result, grid.directory, scratch_dir=scratch_dir)
