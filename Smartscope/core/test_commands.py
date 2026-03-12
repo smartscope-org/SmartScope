@@ -310,3 +310,69 @@ def test_contrast_normalization(mrc_path: str, output_dir: str = '.'):
         logger.info(f'Saved {out_path}')
 
     logger.info(f'Done. Compare the {len(normalizations)} PNGs to evaluate normalization quality.')
+
+
+def export_image_pairs(object_id, output_dir='.', final_height=1024, diagnostic_image=True):
+    import json
+    import numpy as np
+    from Smartscope.core.models import HoleModel
+    from Smartscope.lib.image.montage import Montage
+    from Smartscope.lib.image_manipulations import export_as_png, auto_contrast, auto_contrast_sigma
+
+    output = Path(output_dir)
+    output.mkdir(parents=True, exist_ok=True)
+
+    hole = HoleModel.objects.get(pk=object_id)
+    square = hole.square_id
+
+    hole_montage = Montage(hole.name, working_dir=hole.working_dir)
+    hole_montage.load_or_process()
+
+    square_montage = Montage(square.name, working_dir=square.working_dir)
+    square_montage.load_or_process()
+
+    final_height = final_height
+    scale_hole = final_height / hole_montage.image.shape[0]
+    scale_square = final_height / square_montage.image.shape[0]
+    export_as_png(hole_montage.image, output / f'{hole.name}.png', height=final_height, normalization=auto_contrast_sigma)
+    logger.info(f'Exported hole image to {output / hole.name}.png')
+    export_as_png(square_montage.image, output / f'{square.name}.png', height=final_height, normalization=auto_contrast)
+    logger.info(f'Exported square image to {output / square.name}.png')
+
+    finder = hole.finders.first()
+    hole_x, hole_y = finder.x, finder.y
+
+    
+    meta_path = output / f'{hole.name}_metadata.json'
+    metadata = {
+        'hole': {
+            'file': f'{hole.name}.png',
+            'pixel_size': hole_montage.pixel_size/scale_hole,
+            'rotation_angle': hole_montage.rotation_angle,
+        },
+        'square': {
+            'file': f'{square.name}.png',
+            'pixel_size': square_montage.pixel_size/scale_square,
+            'rotation_angle': square_montage.rotation_angle,
+        },
+        'hole_coords_on_square': {'x': int(np.floor(hole_x*scale_square)), 'y': int(np.floor(hole_y*scale_square))},
+    }
+    with open(meta_path, 'w') as f:
+        json.dump(metadata, f, indent=2)
+    logger.info(f'Metadata saved to {meta_path}')
+
+    if diagnostic_image:
+        import cv2
+        from Smartscope.lib.image_manipulations import convert_to_png
+        diag_img = convert_to_png(square_montage.image, height=final_height, normalization=auto_contrast)
+        diag_img = cv2.cvtColor(diag_img, cv2.COLOR_GRAY2BGR)
+
+        rect_size = int(final_height * metadata['hole']['pixel_size'] / metadata['square']['pixel_size'])
+
+        cx = metadata['hole_coords_on_square']['x']
+        cy = metadata['hole_coords_on_square']['y']
+        cv2.rectangle(diag_img, (cx - rect_size // 2, cy - rect_size // 2), (cx + rect_size // 2, cy + rect_size // 2), (0, 255, 0), 2)
+
+        diag_path = output / f'{hole.name}_diagnostic.png'
+        cv2.imwrite(str(diag_path), diag_img)
+        logger.info(f'Diagnostic image saved to {diag_path}')
