@@ -25,7 +25,7 @@ class GridCollectionParams(BaseModel):
     tilt_angle = models.FloatField(default=0)
     save_frames = models.BooleanField(default=True)
     force_process_from_average = models.BooleanField(default=False)
-    highmag_aperture_size = models.IntegerField(default=50, verbose_name='High Mag Aperture Size', help_text='Size of the aperture for the View and Record presets.')
+    highmag_aperture_size = models.IntegerField(default=50, verbose_name='High Mag Aperture Size', help_text='Size of the aperture for the View and Record presets. C2 aperture size for Thermo microscopes. CL for JEOL.')
     objective_aperture_size = models.IntegerField(default=0, verbose_name='Objective Aperture Size', help_text='Objective aperture to use for View and Record. 0 means no aperture.')
     offset_targeting = models.BooleanField(default=True)
     offset_distance = models.FloatField(default=-1)
