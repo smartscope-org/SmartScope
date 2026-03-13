@@ -435,7 +435,7 @@ class SerialemInterface(MicroscopeInterface):
         self._rollDefocus(def1, def2, step)
         sem.SetTargetDefocus(self.state.defocusTarget)
 
-    def autofocus_by_z(self):
+    def autofocus_by_z(self) -> bool:
         sem.SetDefocus(self.state.eucentricDefocus)
         defocus = 99999
         iteration = 0
@@ -448,6 +448,7 @@ class SerialemInterface(MicroscopeInterface):
             movement = (defocus - self.state.defocusTarget)*-1
             if error_code != 0:
                 self.logger.info('Autofocus seems to have failed')
+                return False
             if abs(defocus-self.state.defocusTarget) < 0.5:
                 sem.ChangeFocus(movement)
                 break
@@ -455,7 +456,7 @@ class SerialemInterface(MicroscopeInterface):
             sem.MoveStage(0,0, movement)
             total_movement += movement
         self.logger.info(f'Autofocus by Z finished after {iteration} iterations and a total movement of {total_movement:.2f}')
- 
+        return True
 
     def autofocus(self, def1, def2, step):
         sem.AutoFocus()

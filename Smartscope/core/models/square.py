@@ -51,7 +51,7 @@ class SquareModel(Target, ExtraPropertyMixin):
         on_delete=models.CASCADE,
         to_field='atlas_id'
     )
-
+    eucentricity_refined = models.BooleanField(default=False)
     # Managers
     withholes = SquareImageManager()
     objects = ImageManager()

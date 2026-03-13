@@ -112,6 +112,8 @@ def eucentricSearch(scope:MicroscopeInterface,params,instance, content:Dict, *ar
 def eucentricMediumMag(scope:MicroscopeInterface,params,instance, content:Dict, *args, **kwargs) :
     """Calculates eucentricity using the View preset. Equivalent to Eucentric Rough."""
     scope.eucentricity()
+    instance.eucentricity_refined = True
+    instance.save()
 
 def eucentricByBeamTilt(scope:MicroscopeInterface,params,instance, content:Dict, *args, **kwargs) :
     """Calculates eucentricity using the View preset using beam tilt instead of stage tilt. Equivalent to Eucentric Rough."""
@@ -224,7 +226,7 @@ def setFocusPosition(scope:MicroscopeInterface,params,instance, content:Dict, *a
     scope.setFocusPosition(distance, angle)
 
 def autoFocusAfterDistance(scope:MicroscopeInterface,params,instance, content:Dict, *args, **kwargs) :
-    """Acquires the focus only after a specific distance in microns was traveled. Default: 15 um"""
+    """Acquires the focus only after a specific distance in microns was traveled. Default: 5 um"""
     distance = kwargs.pop('distance', 5)
     scope.autofocus_after_distance(
         params.target_defocus_min,
@@ -374,10 +376,20 @@ def openColumnValve(scope:MicroscopeInterface,params,instance, content:Dict, *ar
 def setupSerialEM(scope:MicroscopeInterface,params,instance, content:Dict, *args, **kwargs):
     scope.setup_serialem()
 
-    
-
-
-
+def refineEucentricityByFocus(scope:MicroscopeInterface,params,instance, content:Dict, *args, **kwargs):
+    from smartscope.Smartscope.core.models.target_label import Finder
+    square = instance.square_id
+    if not square.eucentricity_refined:
+        moveStage(scope,params,square)
+        if not scope.autofocus_by_z():
+            logger.warning('Autofocus by Z did not converge, falling back to regular eucentricity.')
+            scope.eucentricity()
+        holes = square.holemodel_set(manager='just_holes').filter(square_id=square.square_id).values_list('hole_id', flat=True)
+        scope.logger.debug(f'Refined eucentricity for square {square.name} and updating the stage Z {len(holes)} holes.')
+        Finder.objects.filter(object_id__in=holes).update(stage_z=scope.report_stage()[2])
+        square.eucentricity_refined = True
+        square.save()
+    return instance.refresh_from_db()
 
 protocolCommandsFactory = dict(
     setAtlasOptics=setAtlasOptics,
@@ -428,5 +440,6 @@ protocolCommandsFactory = dict(
     reregisterSearchMag=reregisterSearchMag,
     openColumnValve=openColumnValve,   
     callOnModeChange=callOnModeChange, 
-    setupSerialEM=setupSerialEM
+    setupSerialEM=setupSerialEM,
+    refineEucentricityByFocus=refineEucentricityByFocus
 )
