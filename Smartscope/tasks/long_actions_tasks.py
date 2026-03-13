@@ -101,7 +101,7 @@ def process_square_image(square_id: str, grid_id: str, microscope_id: str):
         with allow_join_result():
             RunSquare.process_square_image(square_id, grid_id, microscope_id)
     except Exception as e:
-        logger.error(f"Error processing square {square_id}: {e}")
+        logger.error(f"Error processing square {square_id}: {e}", exc_info=True)
 
 
 @app.task

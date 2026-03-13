@@ -36,7 +36,12 @@ def sim_siam_prepare_data(mag_level:Literal['square','hole'],grid_id_list:List[s
         queryset = list(SquareModel.display.filter(grid_id__in=grid_id_list, status__in=[status.PROCESSED,status.COMPLETED]))
         if len(queryset) == 0:
             raise ValueError(f"No data found for grid IDs: {grid_id_list} at magnification level {mag_level}.")
-        item_sizes_microns = [grid.holeType.hole_size * extract_size_factor for grid in grid_id_list]
+        item_sizes_microns = []
+        for grid in grid_id_list:
+            hole_size = grid.holeType.hole_size
+            if hole_size is None:
+                hole_size = 1.5
+            item_sizes_microns.append(hole_size * extract_size_factor)
         if len(set(item_sizes_microns)) > 1:
             raise ValueError(f"All holes must have the same size, but found different sizes: {set(item_sizes_microns)}")
         filepath_attr = 'raw_mrc'
