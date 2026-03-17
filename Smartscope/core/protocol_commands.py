@@ -74,7 +74,7 @@ def squareInMediumMag(scope:MicroscopeInterface,params,instance, content:Dict, *
 
 def moveStage(scope:MicroscopeInterface,params,instance, content:Dict, *args, **kwargs)  -> None:
     """Moves the stage to the instance position"""
-    finder = instance.finders.first()
+    finder = instance.finders.order_by('-created_at').first()
     stage_x, stage_y, stage_z = finder.stage_x, finder.stage_y, finder.stage_z
     scope.moveStage(stage_x,stage_y,stage_z=stage_z)
 
@@ -377,10 +377,10 @@ def setupSerialEM(scope:MicroscopeInterface,params,instance, content:Dict, *args
     scope.setup_serialem()
 
 def refineEucentricityByFocus(scope:MicroscopeInterface,params,instance, content:Dict, *args, **kwargs):
-    from smartscope.Smartscope.core.models.target_label import Finder
+    from Smartscope.core.models.target_label import Finder
     square = instance.square_id
     if not square.eucentricity_refined:
-        moveStage(scope,params,square)
+        moveStage(scope,params,square, content, *args, **kwargs)
         if not scope.autofocus_by_z():
             logger.warning('Autofocus by Z did not converge, falling back to regular eucentricity.')
             scope.eucentricity()
