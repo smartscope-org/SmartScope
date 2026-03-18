@@ -144,7 +144,7 @@ class Scratch(BaseModel):
             destination = dataset_path / dest
             if ind == 0:
                 destination.parent.mkdir(parents=True, exist_ok=True)
-            print(f'Copying {file} to {dataset_path / dest}')
+            # print(f'Copying {file} to {dataset_path / dest}')
             shutil.copyfile(file, destination)
 
         item = ScratchHistoryItem(

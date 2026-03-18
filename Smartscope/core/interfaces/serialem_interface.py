@@ -260,14 +260,21 @@ class SerialemInterface(MicroscopeInterface):
         self.logger.info('Medium mag montage acquisition finished')
     
     def buffer_to_numpy(self, buffer:str='A') -> Tuple[np.array, int, int, int, float, float]:
+        delay = 1
         sem.Delay(1)
         shape_x, shape_y, binning, exposure, pixel_size, _ = sem.ImageProperties(buffer)
         while True:
             try:
                 buffer = sem.bufferImage(buffer)
                 break
-            except sem.SEMerror:
-                self.logger.error(f"Error getting the buffer image. Trying again.")
+            except sem.PyBufferImage:
+                self.logger.error(f"Error getting the buffer image. Trying again in {delay} seconds.")
+                sem.Delay(delay)
+                delay +=1
+            except sem.SEMerror as e:
+                self.logger.error(f"SEM error getting the buffer image. Trying again in {delay} seconds.")
+                sem.Delay(delay)
+                delay +=1
         self.logger.info(f"Downloaded the buffer image successfully.")
         return np.asarray(buffer), shape_x, shape_y, binning, exposure, pixel_size
 

@@ -85,19 +85,19 @@ def grid_modification(sender, instance, **kwargs):
 
 @ receiver(post_save, sender=HoleModel)
 def queue_bis_group(sender,instance,created, **kwargs):
-    logger.debug(f'HoleModel post_save called for {instance}, created={created}')
+    # logger.debug(f'HoleModel post_save called for {instance}, created={created}')
     if created or instance.bis_type != 'center':
-        logger.debug('New instance or bis_group is not "center", skipping bis target update.')
+        # logger.debug('New instance or bis_group is not "center", skipping bis target update.')
         return
     
     update_fields = kwargs.get('update_fields', None)
     logger.debug(f'HoleModel post_save update_fields: {update_fields}')
     if update_fields is not None and 'selected' not in update_fields:
-        logger.debug(f"No change in 'selected' field, skipping bis target update.")
+        # logger.debug(f"No change in 'selected' field, skipping bis target update.")
         return
     
     if instance.selected:
-        logger.debug("Updating status bis target to 'queued'")
+        # logger.debug("Updating status bis target to 'queued'")
         HoleModel.objects.filter(grid_id=instance.grid_id,bis_group=instance.bis_group,bis_type='is_area',status=None).update(status=status.QUEUED)
         return
     # logger.debug("Updating status bis target to 'null'")
