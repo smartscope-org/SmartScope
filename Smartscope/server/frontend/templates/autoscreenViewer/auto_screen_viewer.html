@@ -22,12 +22,12 @@
         </ul>
         <ul class="list-group px-0">
             <li class="list-group-item p-1" data-bs-toggle="tooltip" title="logout">
-                <a id="logout"
-                    class="btn btn-sm btn-outline-danger"
-                    href="{% url 'logout' %}"">
-                    
-                    <i class="bi bi-box-arrow-left"></i>
-                </a>
+                <form method="post" action="{% url 'logout' %}">
+                    {% csrf_token %}
+                    <button id="logout" type="submit" class="btn btn-sm btn-outline-danger">
+                        <i class="bi bi-box-arrow-left"></i>
+                    </button>
+                </form>
             </li>
         </ul>
     </div>
