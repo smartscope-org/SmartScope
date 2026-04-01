@@ -1,0 +1,10 @@
+name: Ice thickness
+targetClass:
+  - Selector
+description: |
+  Estimated ice thickness from the preprocessing pipeline.
+clusters:
+  values: ascending
+  colors: ['blue', 'lightblue', 'CornflowerBlue', 'blueviolet', 'purple', 'white']
+exclude: ['0']
+limits: [0.0, 1.0]

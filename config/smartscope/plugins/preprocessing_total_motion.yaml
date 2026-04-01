@@ -1,0 +1,10 @@
+name: Total motion
+targetClass:
+  - Selector
+description: |
+  Total beam-induced motion in Angstroms from the preprocessing pipeline. Lower is better.
+clusters:
+  values: ascending
+  colors: ['darkgreen', 'green', 'lightgreen', 'yellow', 'orange', 'red']
+exclude: []
+limits: [0.0, 1.0]

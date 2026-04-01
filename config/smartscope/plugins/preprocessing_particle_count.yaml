@@ -1,0 +1,10 @@
+name: Particle count
+targetClass:
+  - Selector
+description: |
+  Number of particles picked per micrograph by the preprocessing pipeline.
+clusters:
+  values: ascending
+  colors: ['red', 'orange', 'yellow', 'lightgreen', 'green', 'darkgreen']
+exclude: ['0']
+limits: [0.0, 1.0]

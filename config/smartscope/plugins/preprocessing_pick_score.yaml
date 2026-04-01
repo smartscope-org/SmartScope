@@ -1,0 +1,10 @@
+name: Pick score
+targetClass:
+  - Selector
+description: |
+  Mean particle picking confidence score per micrograph from the preprocessing pipeline.
+clusters:
+  values: ascending
+  colors: ['red', 'orange', 'yellow', 'lightgreen', 'green', 'darkgreen']
+exclude: ['0']
+limits: [0.0, 1.0]

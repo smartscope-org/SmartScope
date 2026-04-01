@@ -1,0 +1,10 @@
+name: CTF resolution
+targetClass:
+  - Selector
+description: |
+  CTF fit resolution in Angstroms from the preprocessing pipeline. Lower is better.
+clusters:
+  values: ascending
+  colors: ['darkgreen', 'green', 'lightgreen', 'yellow', 'orange', 'red']
+exclude: []
+limits: [0.0, 1.0]
