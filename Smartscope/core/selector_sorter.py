@@ -96,7 +96,7 @@ class SelectorValueParser:
         return next(filter(lambda x: x.method_name == self._selector_name ,target.selectors)).value
     
     def get_selector_value_from_server(self,target):
-        return next(filter(lambda x: x.method_name == self._selector_name ,target.selectors.all())).value
+        return next((x.value for x in target.selectors.all() if x.method_name == self._selector_name), None)
     
     def extract_values(self, targets:List[models.Target]) -> List[float]:
         values = list(map(self.get_selector_value,targets))
@@ -159,12 +159,23 @@ class SelectorSorter:
         self._classes = None
 
     @property
+    def _valid_values(self) -> List[float]:
+        return [v for v in self.values if v is not None]
+
+    @property
     def values_range(self) -> List[float]:
-        return [floor(min(self.values)), ceil(max(self.values))]
+        valid = self._valid_values
+        if not valid:
+            return [0, 0]
+        return [floor(min(valid)), ceil(max(valid))]
 
     def set_limits(self):
-        range_ = max(self.values) - min(self.values)
-        self._limits = np.array(self._fractional_limits) * range_ + min(self.values)
+        valid = self._valid_values
+        if not valid:
+            self._limits = [0.0, 1.0]
+            return
+        range_ = max(valid) - min(valid)
+        self._limits = np.array(self._fractional_limits) * range_ + min(valid)
 
     def set_labels(self):
         logger.debug(f'Getting colored classes from selector {self.selector_name}. Inputs {len(self.values)} targets and {self._n_classes} classes with {self.limits} limits.')
@@ -183,7 +194,7 @@ class SelectorSorter:
         
         # for value, in_bounds in zip(values, map_in_bounds):
         def get_class(value, in_bounds) -> int:
-            if not in_bounds:
+            if not in_bounds or value is None:
                 return 0
             if value == self.limits[1]:
                 return self._n_classes
@@ -203,7 +214,8 @@ class SelectorSorter:
         if self.limits is None:
             self.set_limits()
         def selector_value_within_limits(target_value):
-            # logger.debug(f'Checking if {target_value} is within {self.limits}')
+            if target_value is None:
+                return False
             return self.limits[0] <= target_value <= self.limits[1]
 
         selector_value_within_limits = map(selector_value_within_limits,self.values)

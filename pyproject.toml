@@ -63,6 +63,7 @@ dependencies = [
 
 [project.optional-dependencies]
 dev = ["black", "flake8"]
+globus = ["globus-sdk>=3.0", "globus-compute-sdk>=2.0"]
 
 [project.urls]
 Homepage = "https://smartscope.org"

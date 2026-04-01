@@ -1,0 +1,45 @@
+{
+  "Comment": "SmartScope Globus Preprocessing Flow: transfer files to HPC, run a command via Globus Compute, transfer results back. Users can register their own flows with different compute functions.",
+  "StartAt": "TransferToHPC",
+  "States": {
+    "TransferToHPC": {
+      "Type": "Action",
+      "ActionUrl": "https://transfer.actions.globus.org/transfer",
+      "ActionScope": "urn:globus:auth:scope:transfer.api.globus.org:all",
+      "Parameters": {
+        "source_endpoint.$": "$.input.source_collection",
+        "destination_endpoint.$": "$.input.destination_collection",
+        "DATA.$": "$.input.transfer_items",
+        "label.$": "$.input.label"
+      },
+      "ResultPath": "$.TransferToHPC",
+      "Next": "RunCommand"
+    },
+    "RunCommand": {
+      "Type": "Action",
+      "ActionUrl": "https://compute.actions.globus.org",
+      "ActionScope": "https://auth.globus.org/scopes/facd7ccc-c5f4-42aa-916b-a0e270e2c2a9/all",
+      "WaitTime": 7200,
+      "Parameters": {
+        "endpoint.$": "$.input.compute_endpoint",
+        "function.$": "$.input.compute_function",
+        "kwargs.$": "$.input.compute_kwargs"
+      },
+      "ResultPath": "$.ComputeResult",
+      "Next": "TransferResultsBack"
+    },
+    "TransferResultsBack": {
+      "Type": "Action",
+      "ActionUrl": "https://transfer.actions.globus.org/transfer",
+      "ActionScope": "urn:globus:auth:scope:transfer.api.globus.org:all",
+      "Parameters": {
+        "source_endpoint.$": "$.input.destination_collection",
+        "destination_endpoint.$": "$.input.source_collection",
+        "DATA.$": "$.ComputeResult.details.results[0].output.transfer_items",
+        "label.$": "$.input.results_label"
+      },
+      "ResultPath": "$.TransferResultsBack",
+      "End": true
+    }
+  }
+}
