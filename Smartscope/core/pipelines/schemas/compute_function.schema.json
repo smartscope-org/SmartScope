@@ -1,0 +1,34 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "SmartScope Compute Function Return Value",
+  "description": "The Globus Compute function must return this object. The flow uses transfer_items to transfer results back to the SmartScope side.",
+  "type": "object",
+  "required": ["status", "batch_id", "transfer_items"],
+  "properties": {
+    "status": {
+      "type": "string",
+      "enum": ["completed", "failed"]
+    },
+    "batch_id": {
+      "type": "string"
+    },
+    "transfer_items": {
+      "type": "array",
+      "description": "Globus transfer items for the results-back step. Must include at least the .done.json file. Thumbnails should use the paths from manifest.thumbnail_destinations.",
+      "items": {
+        "type": "object",
+        "required": ["source_path", "destination_path"],
+        "properties": {
+          "source_path": {
+            "type": "string",
+            "description": "Globus collection path on the HPC side."
+          },
+          "destination_path": {
+            "type": "string",
+            "description": "Globus collection path on the SmartScope side."
+          }
+        }
+      }
+    }
+  }
+}

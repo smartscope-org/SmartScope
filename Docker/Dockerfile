@@ -73,7 +73,7 @@ WORKDIR /opt/smartscope/
 
 RUN uv venv $VIRTUAL_ENV
 RUN . $VIRTUAL_ENV/bin/activate
-RUN uv sync --active --extra globus && uv cache clean && chmod -R 755 /root
+RUN uv sync --active && uv cache clean && chmod -R 755 /root
 
 COPY --link --from=thirdparty nextpyp-client /opt/nextpyp-client
 RUN uv pip install -e /opt/nextpyp-client

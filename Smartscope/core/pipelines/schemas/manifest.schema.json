@@ -1,0 +1,91 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "SmartScope Preprocessing Manifest",
+  "description": "Sent by SmartScope to the compute function via the manifest JSON file. Describes a batch of movies to preprocess.",
+  "type": "object",
+  "required": ["batch_id", "movies", "config"],
+  "properties": {
+    "batch_id": {
+      "type": "string",
+      "description": "Unique identifier for this batch (used for output filenames)."
+    },
+    "flow_run_id": {
+      "type": "string",
+      "description": "Globus Flow run ID (informational)."
+    },
+    "grid_id": {
+      "type": "string",
+      "description": "SmartScope grid identifier (informational)."
+    },
+    "movies": {
+      "type": "array",
+      "description": "Movie file paths relative to project_dir.",
+      "items": { "type": "string" }
+    },
+    "config": {
+      "type": "object",
+      "description": "Processing parameters. Compute functions should use these to configure their pipeline.",
+      "properties": {
+        "project_dir": {
+          "type": "string",
+          "description": "Absolute path to the project directory on the HPC."
+        },
+        "output_dir": {
+          "type": "string",
+          "description": "Absolute path for processing output."
+        },
+        "pixel_size": {
+          "type": "number",
+          "description": "Pixel size in Angstroms/pixel."
+        },
+        "voltage": {
+          "type": "integer",
+          "description": "Accelerating voltage in kV (e.g. 200, 300)."
+        },
+        "cs": {
+          "type": "number",
+          "description": "Spherical aberration in mm."
+        },
+        "dose_per_frame": {
+          "type": "number",
+          "description": "Electron dose per frame in e/A^2."
+        },
+        "gain_reference": {
+          "type": "string",
+          "description": "Gain reference filename (in project root). Empty if none."
+        },
+        "gain_rotation": {
+          "type": "integer",
+          "description": "Gain reference rotation (0-3, RELION convention)."
+        },
+        "gain_flip": {
+          "type": "integer",
+          "description": "Gain reference flip (0 or 1, RELION convention)."
+        },
+        "do_motioncor": { "type": "boolean" },
+        "do_ctf": { "type": "boolean" },
+        "do_miffi": { "type": "boolean" },
+        "do_picking": { "type": "boolean" },
+        "do_extraction": { "type": "boolean" },
+        "motioncor_binning": { "type": "number" },
+        "motioncor_patches": { "type": "integer" },
+        "picking_threshold": { "type": "number" },
+        "picking_model": { "type": "string" },
+        "box_size": { "type": "integer" },
+        "extract_box_size": { "type": "integer" },
+        "extract_downscale": { "type": "integer" }
+      }
+    },
+    "thumbnail_destinations": {
+      "type": "object",
+      "description": "Map of movie filename -> Globus destination paths for thumbnails. The compute function uses these in its transfer_items to route thumbnails directly to where SmartScope expects them.",
+      "additionalProperties": {
+        "type": "object",
+        "properties": {
+          "png": { "type": "string", "description": "Globus path for the micrograph thumbnail." },
+          "ctf": { "type": "string", "description": "Globus path for the CTF thumbnail." }
+        }
+      }
+    }
+  }
+}

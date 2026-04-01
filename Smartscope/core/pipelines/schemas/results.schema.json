@@ -1,0 +1,88 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "SmartScope Preprocessing Results (.done.json)",
+  "description": "Written by the compute function after processing. SmartScope reads this to update its database. Must be included in the function's transfer_items so it is transferred back.",
+  "type": "object",
+  "required": ["status", "batch_id", "results"],
+  "properties": {
+    "status": {
+      "type": "string",
+      "enum": ["completed", "failed"],
+      "description": "Overall batch status."
+    },
+    "batch_id": {
+      "type": "string",
+      "description": "Must match the batch_id from the manifest."
+    },
+    "error": {
+      "type": "string",
+      "description": "Error message (when status is 'failed')."
+    },
+    "results": {
+      "type": "array",
+      "description": "Per-micrograph results. One entry per successfully processed movie.",
+      "items": {
+        "type": "object",
+        "required": ["movie_path"],
+        "properties": {
+          "movie_path": {
+            "type": "string",
+            "description": "Movie filename (used to match back to SmartScope's HighMagModel). Can be relative or absolute; SmartScope matches on the filename stem."
+          },
+          "defocus_u": {
+            "type": "number",
+            "description": "Defocus U in Angstroms."
+          },
+          "defocus_v": {
+            "type": "number",
+            "description": "Defocus V in Angstroms."
+          },
+          "defocus_angle": {
+            "type": "number",
+            "description": "Defocus angle in degrees."
+          },
+          "ctf_max_resolution": {
+            "type": "number",
+            "description": "CTF fit resolution in Angstroms (lower is better). SmartScope displays this as 'CTF resolution'."
+          },
+          "total_motion": {
+            "type": "number",
+            "description": "Total beam-induced motion in Angstroms."
+          },
+          "ice_thickness": {
+            "type": "number",
+            "description": "Estimated ice thickness in Angstroms. SmartScope converts to nm (divides by 10)."
+          },
+          "particle_count": {
+            "type": "integer",
+            "description": "Number of picked particles."
+          },
+          "coordinates": {
+            "type": "array",
+            "description": "Picked particle coordinates as [x, y, score] arrays. SmartScope computes mean_pick_score from the scores.",
+            "items": {
+              "type": "array",
+              "items": { "type": "number" }
+            }
+          },
+          "shape_x": {
+            "type": "integer",
+            "description": "Micrograph width in pixels."
+          },
+          "shape_y": {
+            "type": "integer",
+            "description": "Micrograph height in pixels."
+          },
+          "thumbnail": {
+            "type": "string",
+            "description": "Path to micrograph thumbnail PNG, relative to output_dir."
+          },
+          "ctf_thumbnail": {
+            "type": "string",
+            "description": "Path to CTF fit thumbnail PNG, relative to output_dir."
+          }
+        }
+      }
+    }
+  }
+}
