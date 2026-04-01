@@ -445,7 +445,7 @@ class PreprocessingPipeline(TemplateView):
             context['pipeline'] = pipeline
             context['description'] = pipeline_obj.description
             context['form'] = pipeline_obj.form()
-            # context['grid_id'] = None
+            context['grid_id'] = request.GET.get('grid_id', '')
             return TemplateResponse(request=request,template="smartscopeSetup/preprocessing/preprocessing_pipeline_form.html",context=context)
         except Exception as err:
             logger.exception(err)
@@ -463,14 +463,17 @@ class PreprocessingPipeline(TemplateView):
                     logger.debug(pipeline_data)
                     return TemplateResponse(request=request,
                                             template='forms/formFieldsBase.html',
-                                            context=dict(form=PreprocessingPipelineIDForm(data=dict(preprocessing_pipeline_id=pipeline_data.cache_id)), 
-                                                                                        row=True, 
+                                            context=dict(form=PreprocessingPipelineIDForm(data=dict(preprocessing_pipeline_id=pipeline_data.cache_id)),
+                                                                                        row=True,
                                                                                         id='formPreprocess'))
                 context = self.get_grid_context_data(grid_id)
                 pipeline_data.process_pid = context['pipeline_data'].process_pid
                 Path(context['grid'].directory,'preprocessing.json').write_text(pipeline_data.json(exclude={'cache_id'}))
                 logger.info('Updated pipeline for existing grid')
                 return self.get_grid_pipeline(request, grid_id=grid_id)
+            else:
+                logger.warning(f'Form validation failed: {form.errors}')
+                return HttpResponse(f'Form validation failed: {form.errors}', status=400)
         except Exception as err:
             logger.exception(err)
 

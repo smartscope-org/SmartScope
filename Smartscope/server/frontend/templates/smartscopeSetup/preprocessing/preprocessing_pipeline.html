@@ -3,11 +3,12 @@
 
 {% block sidebar_content %}
 <div class="col justify-content-center">
-    <form   method="get" 
+    <form   method="get"
             hx-get="{% url 'getPreprocessingPipeline' %}"
             hx-target="#preprocessingPipelineForm"
             hx-indicator="#spinner"
-            hx-trigger="change">
+            hx-trigger="change"
+            {% if grid %}hx-vals='{"grid_id": "{{ grid.grid_id }}"}'{% endif %}>
         {% include "forms/formFieldsBase.html" with form=form row=false %}
         <div id="spinner" class="my-indicator spinner-border text-primary" role="status">
             <span class="sr-only"></span>
