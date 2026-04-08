@@ -75,6 +75,7 @@ INSTALLED_APPS = [
     'Smartscope.server.selector_viewer',
     'Smartscope.server.annotator',
     'Smartscope.sim_siam',
+    'Smartscope.server.management_tab'
 ]
 
 MIDDLEWARE = [

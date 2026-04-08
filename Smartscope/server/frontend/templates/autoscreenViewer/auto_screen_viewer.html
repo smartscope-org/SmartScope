@@ -19,6 +19,14 @@
                     <i class="bi bi-activity"></i>
                 </button>
             </li>
+            <li class="list-group-item p-1" data-bs-toggle="tooltip" title="View all sesssions">
+                <button id="sessionHistory"
+                    class="btn btn-sm btn-outline-light"
+                    hx-get="{% url 'sessionHistory' %}"
+                    hx-target="#main">
+                    <i class="bi bi-activity"></i>
+                </button>
+            </li>
         </ul>
         <ul class="list-group px-0">
             <li class="list-group-item p-1" data-bs-toggle="tooltip" title="logout">

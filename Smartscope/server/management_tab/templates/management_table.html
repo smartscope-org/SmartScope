@@ -1,0 +1,82 @@
+<div class="d-flex flex-row">
+    <div id="container">
+      <div id="data-grid" style="height: 600px; width: 100%" class="ag-theme-balham"></div>
+    </div>
+    <script type="text/javascript" charset="utf-8">
+      const numberFilterParams = {
+        filterParams: {
+          filterOptions: ["equals", "notEqual", "lessThan", "greaterThan"],
+          suppressAndOrCondition: true,
+        },
+      };
+
+      var columnDefs = [
+        { headerName: "Name", field: "name", filter: "agTextColumnFilter" },
+        {
+          headerName: "Description",
+          field: "description",
+          filter: "agTextColumnFilter",
+        },
+        { headerName: "Category", field: "category", filter: "agTextColumnFilter" },
+        {
+          headerName: "Price",
+          field: "price",
+          filter: "agNumberColumnFilter",
+          ...numberFilterParams,
+        },
+        {
+          headerName: "Stock Quantity",
+          field: "stock_quantity",
+          filter: "agNumberColumnFilter",
+          ...numberFilterParams,
+        },
+        {
+          headerName: "Rating",
+          field: "rating",
+          filter: "agNumberColumnFilter",
+          ...numberFilterParams,
+        },
+      ];
+
+      var gridOptions = {
+        columnDefs: columnDefs,
+        defaultColDef: {
+          filterParams: {
+            suppressAndOrCondition: true,
+          },
+        },
+        enableServerSideSorting: true,
+        enableServerSideFilter: true,
+        rowModelType: "infinite",
+        cacheBlockSize: 100,
+        maxBlocksInCache: 10,
+      };
+
+      var dataSource = {
+        getRows: function (params) {
+          var filtering = encodeURIComponent(JSON.stringify(params.filterModel));
+          var sorting = encodeURIComponent(JSON.stringify(params.sortModel));
+
+          var startRow = params.startRow;
+          var endRow = params.endRow;
+
+          var url = `/products?startRow=${startRow}&endRow=${endRow}&filter=${filtering}&sort=${sorting}`;
+
+          fetch(url)
+            .then((response) => response.json())
+            .then((data) => {
+            params.successCallback(data.rows, data.totalRows);
+          })
+            .catch((err) => {
+            params.failCallback();
+          });
+        },
+      };
+
+      var gridDiv = document.querySelector("#data-grid");
+
+      new agGrid.Grid(gridDiv, gridOptions);
+      gridOptions.api.setDatasource(dataSource);
+      gridOptions.api.sizeColumnsToFit();
+    </script>
+</div>
