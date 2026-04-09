@@ -40,7 +40,11 @@ class ExtraPropertyMixin:
 
     @ property
     def mrc(self):
-        return os.path.join(self.working_dir, 'raw', f'{self.name}.mrc')
+        stiched = os.path.join(self.directory, f'{self.name}.mrc')
+        if os.path.exists(stiched):
+            return stiched
+        else:
+            return os.path.join(self.working_dir, 'raw', f'{self.name}.mrc')
     
     @ property
     def raw_mrc(self):
