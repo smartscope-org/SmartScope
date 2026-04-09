@@ -44,7 +44,7 @@ def image_as_bytes(image_path):
     return open(img,'rb'), img.name
 
 def svg_as_png(instance, context):
-    d = instance.svg(display_type=context['display_type'], method=context['method'])
+    d = instance.svg(display_type=context.get('display_type'), method=context.get('method'))
     scale = min([1000/d.width, 1000/d.height])
     d.set_pixel_scale(scale)
     d.save_png('/tmp/download.png')
@@ -91,6 +91,9 @@ class ExtraActionsMixin:
         return Response(serializer.data, template_name='mapcard.html')
     
     def get_card_context(self,instance,request,**kwargs):
+        if isinstance(instance, HighMagModel):
+            return {}
+        
         context = {
             'instance': instance,
             'targets_methods': targets_methods(instance),
