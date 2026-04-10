@@ -700,6 +700,21 @@ class SerialemInterface(MicroscopeInterface):
         sem.SetK2ReadMode('P', 1)
         sem.SetK2ReadMode('F', 1)
 
+    def check_medium_mag_size(self, hole_pitch_um:float=2.5):
+        x_size, y_size = sem.ReportCameraSetArea('V')[:2]
+        pixel_size = sem.ReportCurrentPixelSize('V')
+        x_size_um = x_size * pixel_size / 1000
+        y_size_um = y_size * pixel_size / 1000
+        return x_size_um, y_size_um
+    
+    def set_medium_mag_size_mini_montage(self, hole_pitch_um:float=2.5):
+        x_size_um, y_size_um = self.check_medium_mag_size(hole_pitch_um)
+        min_size_um = min(x_size_um, y_size_um)
+        if min_size_um > hole_pitch_um * 3:
+            self.logger.warning(f'Medium mag image size is {x_size_um:.2f} x {y_size_um:.2f} um, which may be too large for reliable for geometry calculation.')
+        num_tiles_x = math.ceil(x_size_um / 7)
+        num_tiles_y = math.ceil(y_size_um / 7)
+        self.logger.info(f'Medium mag image size is {x_size_um:.2f} x {y_size_um:.2f} um. This corresponds to {num_tiles_x} x {num_tiles_y} tiles of 7 um for hole detection.')
 
 
 
