@@ -515,7 +515,7 @@ class CollectionStatsView(TemplateView):
     def ice_thickness_graph(self,grid_id):
         ### NEED TO MOVE THE GRAPHING LOGIC OUTSIDE OF HERE
         all_data = list(HighMagModel.objects.filter(status='completed', grid_id=grid_id, ice_thickness__isnull=False).order_by('completion_time').values_list('ice_thickness', flat=True)) # replace with your own data source
-        # all_data = list(map(lambda x: 15 if x > 15 else x, all_data))
+        all_data = list(map(lambda x: 1000 if x > 1000 else x, all_data))
         latest_data = all_data[-100:]
         hist_all = go.Histogram(x=all_data, nbinsx=30, name='All')
         hist_latest = go.Histogram(x=latest_data, nbinsx=30, name='Latest 100')
@@ -525,7 +525,7 @@ class CollectionStatsView(TemplateView):
                             title='Ice thickness distribution',
                             xaxis=dict(
                                 title='Esstimated ice thickness (nm)',
-                                range=[0, 500]
+                                # range=[0, 500]
                             ),
                             yaxis=dict(
                                 title='Number of exposures'
