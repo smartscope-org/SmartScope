@@ -141,8 +141,9 @@ def alignToHoleRef(scope:MicroscopeInterface,params,instance, content:Dict, *arg
     logger.warning(f'It seems like the hole realignment did not converge after {max_iterations} iterations.')
 
 def zeroImageShift(scope:MicroscopeInterface,params,instance, content:Dict, *args, **kwargs):
+    save_beam_tilt = content.get('save_beam_tilt', True)
     scope.zero_image_shift()
-    scope.reset_image_shift_values(afis=params.afis)
+    scope.reset_image_shift_values(afis=params.afis, save_beam_tilt=save_beam_tilt)
 
 def loadHoleRef(scope:MicroscopeInterface,params,instance, content:Dict, *args, **kwargs) :
     """Loads the references/holeref.mrc image into buffer T to be used as hole template for the alignToHoleRef command."""
