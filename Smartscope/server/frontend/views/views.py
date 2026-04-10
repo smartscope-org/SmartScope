@@ -525,6 +525,7 @@ class CollectionStatsView(TemplateView):
                             title='Ice thickness distribution',
                             xaxis=dict(
                                 title='Esstimated ice thickness (nm)',
+                                range=[0, 500]
                             ),
                             yaxis=dict(
                                 title='Number of exposures'
