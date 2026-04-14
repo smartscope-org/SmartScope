@@ -7,7 +7,7 @@ kwargs:
   iou_thres: 0.1
   device: '0'
   agnostic: True
-  # max_det: 2000
+  max_det: 2000
   weights_circle: circle_weights/20250129_best.pt
 targetClass:
   - Finder
