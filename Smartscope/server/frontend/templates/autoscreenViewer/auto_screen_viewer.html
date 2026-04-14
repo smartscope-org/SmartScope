@@ -41,7 +41,6 @@
                             class="list-group-item sidebar-separator-title text-muted d-flex align-items-center menu-collapsed">
                             GROUPS
                         </li>
-                        {% if request.user.is_staff %}
                         <div class="px-2 py-1 position-relative">
                             <span style="position: absolute; left: 1rem; top: 50%; transform: translateY(-50%); color: #aaa; pointer-events: none;">
                                 <i class="bi bi-search"></i>
@@ -52,7 +51,7 @@
                                 data-target="sidebarGroups"
                                 style="background: transparent; border-color: #aaa; padding-left: 1.6rem; box-shadow: none; color: #eae8e8;">
                         </div>
-                        {% endif %}
+
                         <div id="sidebarGroups" style='max-height: 25vh; overflow: auto;'>
                         </div>
                     </div>
@@ -60,8 +59,13 @@
 
                     <div class="sidebar-section">
                         <li id="sessions"
-                            class="list-group-item sidebar-separator-title text-muted d-flex align-items-center menu-collapsed">
+                            class="list-group-item sidebar-separator-title text-muted d-flex align-items-center menu-collapsed justify-content-between">
                             SESSIONS
+                            <div class="d-flex align-items-center gap-2">
+                                <label for="filterOwnSessions" class="text-muted mb-0" style="font-size: 0.75rem;">Own sessions</label>
+                                <input type="checkbox" id="filterOwnSessions" class="form-check-input mt-0"
+                                    data-bs-toggle="tooltip" data-bs-placement="right" title="Filter own sessions">
+                            </div>
                         </li>
                         <div class="px-2 py-1 position-relative">
                             <span style="position: absolute; left: 1rem; top: 50%; transform: translateY(-50%); color: #aaa; pointer-events: none;">

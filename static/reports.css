@@ -48,6 +48,10 @@
     /* padding-top: 4px; */
 }
 
+.sidebar-section .input-group {
+    display: none;
+}
+
 .section-resizer {
     height: 5px;
     cursor: row-resize;
@@ -76,6 +80,7 @@
 
 /* Separators */
 .sidebar-separator-title {
+    padding: 0 8px;
     background-color: rgb(33 37 41);
     height: 35px;
     border-bottom: 1px solid #444 !important;

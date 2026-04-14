@@ -4,6 +4,9 @@ $(document).ready(async function () {
     await loadSidePanelState()
     pushState()
     selected()
+    toggleSearchBar('sidebarGroups')
+    toggleSearchBar('sidebarSessions')
+    toggleCheckboxLabel()
 })
 
 $('#sidebarCollapse').on('click', function () {
@@ -37,6 +40,7 @@ $('#sidebar-resizer').on('mousedown', function(e) {
             'width': e.clientX + 'px',
             'flex': 'none'
         })
+        toggleCheckboxLabel()
     })
     $(document).on('mouseup.resize', function() {
         $(document).off('mousemove.resize mouseup.resize')
@@ -67,4 +71,27 @@ $(document).on('mousedown', '.section-resizer', function(e) {
     })
 
     e.preventDefault()
+})
+
+function toggleCheckboxLabel() {
+    const width = $('#sidebar-container').width()
+    const $label = $('label[for="filterOwnSessions"]')
+    const $checkbox = $('#filterOwnSessions')
+    if (width < 225) {
+        $label.hide()
+        bootstrap.Tooltip.getOrCreateInstance($checkbox[0]).enable()
+    } else {
+        $label.show()
+        bootstrap.Tooltip.getOrCreateInstance($checkbox[0]).disable()
+    }
+}
+
+$('#filterOwnSessions').on('change', async function() {
+    currentState['own_sessions'] = $(this).is(':checked') ? 'true' : 'false'
+    await loadSidePanel(null, null, push = false)
+    if (currentState['group'] !== undefined) {
+        loadSidePanel('group', currentState['group'])
+    }
+    pushState()
+    // console.log('checkbox:', currentState)
 })
