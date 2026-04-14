@@ -66,7 +66,7 @@ class SerialemInterface(MicroscopeInterface):
             else:
                 self.logger.info('Eucentric alignement would send the stage too far, stopping Eucentricity.')
                 break
-        sem.SetBinning('S', binning)
+        sem.SetBinning('S', int(binning))
         self.logger.info(f'Eucentric heigh done, setting Search binning back to {binning}.')
 
     def eucentricity_by_beam_tilt(self, max_movement:int=200, beam_tilt_angle:int=2):
@@ -115,7 +115,7 @@ class SerialemInterface(MicroscopeInterface):
         sem.GoToLowDoseArea('V')
         sem.Eucentricity(1)
         self.logger.info(f'Eucentric heigh done, setting View binning back to {binning}.')
-        sem.SetBinning('V', binning)
+        sem.SetBinning('V', int(binning))
 
     def setup_serialem(self):
         if sem.ReportIfNavOpen() == 0:
@@ -130,7 +130,7 @@ class SerialemInterface(MicroscopeInterface):
         sem.GoToLowDoseArea('V')
         sem.Eucentricity(-1,-1)
         self.logger.info(f'Eucentric heigh done, setting View binning back to {binning}.')
-        sem.SetBinning('V', binning)
+        sem.SetBinning('V', int(binning))
     
     def call(self, script):
         sem.Call(script)
