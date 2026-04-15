@@ -64,12 +64,16 @@ def square(scope:MicroscopeInterface,params,instance, content:Dict, *args, **kwa
 
 def squareInMediumMag(scope:MicroscopeInterface,params,instance, content:Dict, *args, **kwargs)  -> None:
     """Acquires and save the square image using the View preset."""
-    size_x, size_y = scope.get_mag_area_in_microns(magSet='V')
-    area = instance.selectors.filter(method_name='Size selector').first().value
-    total_area_size = np.sqrt(area) * 1.3
-    logger.debug(f'Medium mag size in A: {size_x} x {size_y}, total area size: {total_area_size}')
-    n_tiles_x = int(np.ceil(total_area_size / size_x))
-    n_tiles_y = int(np.ceil(total_area_size / size_y))
+    if params.square_x > 1 or params.square_y > 1:
+        n_tiles_x = params.square_x
+        n_tiles_y = params.square_y
+    else:
+        size_x, size_y = scope.get_mag_area_in_microns(magSet='V')
+        area = instance.selectors.filter(method_name='Size selector').first().value
+        total_area_size = np.sqrt(area) * 1.3
+        logger.debug(f'Medium mag size in A: {size_x} x {size_y}, total area size: {total_area_size}')
+        n_tiles_x = int(np.ceil(total_area_size / size_x))
+        n_tiles_y = int(np.ceil(total_area_size / size_y))
     scope.medium_mag_montage(size=[n_tiles_x, n_tiles_y], file=instance.raw)
 
 def moveStage(scope:MicroscopeInterface,params,instance, content:Dict, *args, **kwargs)  -> None:
