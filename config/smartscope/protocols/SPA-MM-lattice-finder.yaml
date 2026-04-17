@@ -16,7 +16,8 @@ square:
     - setAperturesForLowMag
     - moveStageWithAtlasToSearchOffset
     - realignToSquare
-    - eucentricSearch
+    - eucentricSearchAfterDistance:
+        distance: 300
     - square
   targets:
     finders:

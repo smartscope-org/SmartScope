@@ -4,7 +4,7 @@ module: Smartscope.tasks.base_tasks
 create_targets_method: center
 kwargs: 
   imgsz: 1280
-  conf_thres: 0.5
+  conf_thres: 0.4
   iou_thres: 0.7
   device: '0'
   weights_circle: circle_weights/20241122_view_mag_weight.pt

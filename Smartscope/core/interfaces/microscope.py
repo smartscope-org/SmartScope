@@ -18,6 +18,8 @@ class MicroscopeState:
     stageZ: float = 0
     last_autofocus_stage_X: float = 999999
     last_autofocus_stage_y: float = 999999
+    last_eucentric_stage_x: float = 999999
+    last_eucentric_stage_y: float = 999999
     tiltAngle: float = None
     preAFISimageShiftX: float = 0
     preAFISimageShiftY: float = 0
@@ -41,7 +43,14 @@ class MicroscopeState:
 
     def get_last_autofocus_distance(self):
         return np.sqrt((self.stageX - self.last_autofocus_stage_X)**2 + (self.stageY - self.last_autofocus_stage_y)**2)
-    
+
+    def set_last_eucentric_position(self):
+        self.last_eucentric_stage_x = self.stageX
+        self.last_eucentric_stage_y = self.stageY
+
+    def get_last_eucentric_distance(self):
+        return np.sqrt((self.stageX - self.last_eucentric_stage_x)**2 + (self.stageY - self.last_eucentric_stage_y)**2)
+
     def getStage(self):
         return self.stageX, self.stageY, self.stageZ
     

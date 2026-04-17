@@ -398,6 +398,10 @@ def refineEucentricityByFocus(scope:MicroscopeInterface,params,instance, content
         square.save()
     return instance.refresh_from_db()
 
+def eucentricSearchAfterDistance(scope:MicroscopeInterface,params,instance, content:Dict, *args, **kwargs):
+    distance = kwargs.pop('distance', 300)
+    scope.eucentric_height_after_distance(distance_threshold=distance)
+
 protocolCommandsFactory = dict(
     setAtlasOptics=setAtlasOptics,
     setAtlasOpticsDelay=setAtlasOpticsDelay,
@@ -449,5 +453,6 @@ protocolCommandsFactory = dict(
     openColumnValve=openColumnValve,   
     callOnModeChange=callOnModeChange, 
     setupSerialEM=setupSerialEM,
-    refineEucentricityByFocus=refineEucentricityByFocus
+    refineEucentricityByFocus=refineEucentricityByFocus,
+    eucentricSearchAfterDistance=eucentricSearchAfterDistance
 )
