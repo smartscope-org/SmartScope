@@ -204,18 +204,38 @@ async function loadSidePanel(requestfield = null, id = null, push = true) {
     const loadInto = { 'group': 'sidebarSessions', 'session_id': 'sidebarGrids' }
     var loadinto = 'sidebarGroups'
     var url = "/api/sidepanel/"
+    var params = []
     if (requestfield !== null) {
-        url += `?${requestfield}=${id}`
+        params.push(`${requestfield}=${id}`)
         currentState[requestfield] = id
         loadinto = loadInto[requestfield]
     }
+    if (currentState['own_sessions'] !== undefined) {
+        params.push(`own_sessions=${currentState['own_sessions']}`)
+    }
+    if (params.length > 0) {
+        url += '?' + params.join('&')
+    }
+
     console.log(url, push)
     let models = await fetchAsync(url, message=`Loading ${requestfield}.`)
     $(`#${loadinto}`).html(models)
+    toggleSearchBar(loadinto)
 
     if (push) {
         pushState()
         selected()
+    }
+}
+
+function toggleSearchBar(sectionId) {
+    const $section = $(`#${sectionId}`)
+    const $search = $section.siblings('.position-relative')
+    // console.log(sectionId, $section.find('a').length, $search.length)
+    if ($section.find('a').length > 3) {
+        $search.show()
+    } else {
+        $search.hide()
     }
 }
 
