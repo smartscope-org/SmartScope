@@ -122,7 +122,7 @@ def send_find_holes_from_square(montage:Montage, class_map:Dict[str,BaseModel], 
     result = app.send_task('SmartscopeAI.interfaces.celery.tasks.find_holes', args=[json.dumps(data)], queue=get_queue()[0])
     task_id = result.id
     res = AsyncResult(task_id, app=app)
-    final_result = res.get(interval=1, timeout=120)
+    final_result = res.get(interval=1, timeout=600)
     print(final_result)
     return final_result, True, dict()
 
@@ -220,7 +220,7 @@ def sim_siam_inference(mag_level:Literal['square','hole'], grid_id:str, **kwargs
     result = app.send_task('SmartscopeAI.interfaces.celery.tasks.sim_siam_data', args=[data], queue=queue)
     task_id = result.id
     res = AsyncResult(task_id, app=app)
-    final_result = res.get(interval=1, timeout=300)
+    final_result = res.get(interval=1, timeout=600)
     print(final_result)
     
     sim_siam_copy_output_file_from_scratch(final_result, grid.directory, scratch_dir=scratch_dir)

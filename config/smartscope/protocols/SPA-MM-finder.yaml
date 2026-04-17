@@ -38,6 +38,7 @@ mediumMag:
     - autoFocusAfterDistance:
         distance: 15
     - waitDrift
+    - setAFISimageShift
   targets:
     finders:
       - Medium Mag AI hole finder

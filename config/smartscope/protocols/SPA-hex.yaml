@@ -5,7 +5,6 @@ atlas:
       - setAperturesForLowMag
       - resetStage
       - removeSlit
-      # - eucentricSearch
       - atlas
   targets:
     finders:
@@ -17,11 +16,12 @@ square:
     - setAperturesForLowMag
     - moveStageWithAtlasToSearchOffset
     - realignToSquare
-    - eucentricMediumMag
+    - eucentricSearch
     - square
   targets:
     finders:
       - Binary Finder
+      # - AI hole finder
     selectors:
       - Graylevel selector
       - Distance from center selector
@@ -29,18 +29,19 @@ mediumMag:
   steps:
     - setAperturesForHighMag
     - setFocusPosition
+    - rollDefocus
+    - refineEucentricityByFocus
     - tiltToAngle
     - moveStage
-    - createHoleRefPtolemy
-    - alignToHoleRef
     - zeroImageShift
     - mediumMagHole
-    - rollDefocus
-    - autoFocus
+    - autoFocusAfterDistance:
+        distance: 15
     - waitDrift
+    - setAFISimageShift
   targets:
     finders:
-      - AI hole finder
+      - Medium Mag AI hole finder
 highMag:
   steps:
     - highMag

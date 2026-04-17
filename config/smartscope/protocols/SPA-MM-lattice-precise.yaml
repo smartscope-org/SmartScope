@@ -37,6 +37,7 @@ mediumMag:
     - rollDefocus
     - autoFocus
     - waitDrift
+    - setAFISimageShift
   targets:
     finders:
       - MM AI hole finder with lattice

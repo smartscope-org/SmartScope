@@ -13,5 +13,4 @@ postHighMag:
     - collectHardwareDark
     - flashColdFEG
     - recenterBeam
-    - zeroImageShift:
-        save_beam_tilt: False
+    - zeroImageShift
