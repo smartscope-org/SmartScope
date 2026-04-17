@@ -66,16 +66,19 @@ class SelectorSorterData(BaseModel):
 
 def save_to_grid_directory(grid_id):
     grid = models.AutoloaderGrid.objects.get(grid_id=grid_id)
-    return grid.directory
+    return [grid.directory]
 
-def save_to_session_directory(grid_id):
+def save_to_grid_type(grid_id):
     grid = models.AutoloaderGrid.objects.get(grid_id=grid_id)
-    return grid.session_id.directory
+    grids_to_apply = models.AutoloaderGrid.objects.filter(session_id=grid.session_id, meshMaterial=grid.meshMaterial, position__gte=grid.position)
+    dirs_to_apply = [gr.directory for gr in grids_to_apply]
+    return dirs_to_apply
 
 def save_selector_data(grid_id, selector_name:str, data:dict,save_to:Callable=save_to_grid_directory) -> SelectorSorterData:
     selector_data = SelectorSorterData(selector_name=selector_name,**data)
     save_directory = save_to(grid_id)
-    selector_data.save(save_directory)
+    for d in save_directory: 
+        selector_data.save(d)
     return selector_data
 
 class SelectorValueParser:
@@ -236,21 +239,16 @@ def initialize_selector(grid: models.AutoloaderGrid, selector:str, queryset:Opti
         selector_sorter.values = selector_data.extract_values(queryset)
     return selector_sorter
 
-def initialize_selector_from_embeddings(grid: models.AutoloaderGrid, selector:str, queryset:Optional=None) -> SelectorSorter:
+def initialize_selector_from_embeddings(grid: models.AutoloaderGrid, selector:str, queryset:Optional=[]) -> SelectorSorter:
     plugin = PLUGINS_FACTORY.get_plugin(selector)
-    mag_level = queryset[0].prefix_lower
+    print(f'Queryset type is {type(queryset)} with length {len(queryset)}')
+    mag_level = queryset[0].prefix_lower if len(queryset) > 0 else ''
     print(f'Initializing selector {selector} for grid {grid.grid_id} at magnification level {mag_level}')
     if not plugin.is_embedding_data(grid, mag_level):
+        logger.warning(f'No embedding data found for selector {selector} on grid {grid.grid_id} at magnification level {mag_level}. Reverting to lagacy sorting.')
         return None
     values,n_classes = plugin.sorter_data(grid,mag_level,queryset)
     selector_sorter = SelectorSorter(selector_name=selector,fractional_limits=[0,1], n_classes=n_classes)
-
-
-    # directory = check_directories_for_selector_data(grid,selector)
-    # if directory is not None:
-    #     selector_data = SelectorSorterData.load(directory, selector)
-    #     selector_sorter = selector_data.create_sorter()
-    # selector_data = SelectorValueParser(selector, from_server=False)
 
     selector_sorter.values = values
     return selector_sorter

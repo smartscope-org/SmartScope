@@ -8,13 +8,13 @@ import logging
 from pathlib import Path
 
 from Smartscope.core.db_manipulations import websocket_update
-from Smartscope.core.frames import get_frames_prefix, parse_frames_prefix
-from Smartscope.core.models.grid import AutoloaderGrid
+from Smartscope.core.frames import get_smartscope_frames_dir
+from Smartscope.core.models import AutoloaderGrid, HighMagModel, HoleModel
 from Smartscope.lib.preprocessing_methods import get_CTFFIND5_data, \
     process_hm_from_average, process_hm_from_frames, processing_worker_wrapper
 from Smartscope.core.models.models_actions import update_fields
 
-from django.db import transaction
+from django.db import transaction, connection, reset_queries
 
 from .preprocessing_pipeline import PreprocessingPipeline
 from .smartscope_preprocessing_pipeline_form import SmartScopePreprocessingPipelineForm
@@ -42,7 +42,7 @@ class SmartscopePreprocessingPipeline(PreprocessingPipeline):
         self.detector = self.grid.session_id.detector_id
         self.cmd_data = self.cmdkwargs_handler.parse_obj(cmd_data)
         logger.debug(self.cmd_data)
-        self.frames_directory = [Path(self.detector.frames_directory, grid.frames_dir(prefix=parse_frames_prefix(get_frames_prefix(grid),grid)))]
+        self.frames_directory = [Path(self.detector.frames_directory, get_smartscope_frames_dir(self.grid))]
         
         if self.cmd_data.frames_directory is not None:
             self.frames_directory.append(self.cmd_data.frames_directory)
@@ -77,16 +77,19 @@ class SmartscopePreprocessingPipeline(PreprocessingPipeline):
             self.check_children_processes()
             self.queue_incomplete_processes()
             self.to_process_queue.join()
+            reset_queries()
             self.check_for_update()
+            logger.debug(f'Checking for updates required {len(connection.queries)} queries')
             self.update_processes()
+            logger.debug(f'Updating HighMag objects required {len(connection.queries)} queries')
             self.list_incomplete_processes()
             self.grid.refresh_from_db()
             if self.grid.status in ['complete','error']  and len(list(filter(lambda x: x.status == 'acquired', self.incomplete_processes))) == 0 :
                 return
 
     def list_incomplete_processes(self):
-        self.incomplete_processes = list(self.grid.highmagmodel_set\
-            .filter(status__in=['acquired','skipped'])\
+        self.incomplete_processes = list(HighMagModel.parent_manager\
+            .filter(grid_id=self.grid.pk, status__in=['acquired','skipped'])\
             .order_by('status','completion_time')[:5*self.cmd_data.n_processes]
         )
 
@@ -171,9 +174,15 @@ class SmartscopePreprocessingPipeline(PreprocessingPipeline):
             sleep_time = 10
             logger.info(f'No items to update, waiting {sleep_time} seconds before checking again.')
             return time.sleep(sleep_time)
+        
+        highmags = list(filter(lambda x: isinstance(x, HighMagModel), self.to_update))
+        holes = list(filter(lambda x: isinstance(x, HoleModel), self.to_update))
+        assert len(highmags) + len(holes) == len(self.to_update)
         with transaction.atomic():
-            for obj in self.to_update:
-                obj.save()
+            HighMagModel.objects.bulk_update(highmags, fields=['status','shape_x','shape_y','pixel_size','defocus','astig','angast','ctffit','tilt_angle','tilt_axis_angle','ice_thickness','completion_time'])
+            HoleModel.objects.bulk_update(holes, fields=['status','completion_time'])
+            # for obj in self.to_update:
+            #     obj.save()
             # [obj.save() for obj in self.to_update]
         websocket_update(self.to_update, self.grid.grid_id)
         self.to_update = []

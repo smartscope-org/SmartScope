@@ -98,7 +98,7 @@ class AutoScreenSetup(LoginRequiredMixin, TemplateView):
             num_grids = set([k.split('-')[0] for k in request.POST.keys() if k.split('-')[0].isnumeric()])
 
             if form_general.is_valid() and form_params.is_valid() and form_preprocess.is_valid():
-
+                mode = form_general.cleaned_data.pop('mode','screening')
                 session, created = ScreeningSession.objects.get_or_create(
                     **form_general.cleaned_data,
                     date=datetime.today().strftime('%Y%m%d')
@@ -515,7 +515,7 @@ class CollectionStatsView(TemplateView):
     def ice_thickness_graph(self,grid_id):
         ### NEED TO MOVE THE GRAPHING LOGIC OUTSIDE OF HERE
         all_data = list(HighMagModel.objects.filter(status='completed', grid_id=grid_id, ice_thickness__isnull=False).order_by('completion_time').values_list('ice_thickness', flat=True)) # replace with your own data source
-        # all_data = list(map(lambda x: 15 if x > 15 else x, all_data))
+        all_data = list(map(lambda x: 1000 if x > 1000 else x, all_data))
         latest_data = all_data[-100:]
         hist_all = go.Histogram(x=all_data, nbinsx=30, name='All')
         hist_latest = go.Histogram(x=latest_data, nbinsx=30, name='Latest 100')
@@ -525,6 +525,7 @@ class CollectionStatsView(TemplateView):
                             title='Ice thickness distribution',
                             xaxis=dict(
                                 title='Esstimated ice thickness (nm)',
+                                # range=[0, 500]
                             ),
                             yaxis=dict(
                                 title='Number of exposures'
@@ -566,6 +567,15 @@ def getMicroscopeDetectors(request):
     options = [{"value":d.pk,"field":d} for d in detectors]
     return render(request, "general/options_fields.html", {"options": options})
 
+def getCollectionParamsForm(request):
+    detector_id = request.GET.get('detector_id','')
+    mode = request.GET.get('mode','screening')
+    if detector_id == '':
+        return HttpResponse('Detector not specified')
+    form = GridCollectionParamsForm(initial={'detector': detector_id, 'mode': mode})
+    return TemplateResponse(request=request,template="forms/formFieldsBase.html",context=dict(form=form, row=True, id='formParams'))
+
+
 def targetHistory(request, grid_id):
     # grid_id = request.GET.get('grid_id',None)
     if grid_id is None:
@@ -576,3 +586,13 @@ def targetHistory(request, grid_id):
     target_history.get_current_target()
     target_history.get_next_targets()
     return render(request, "autoscreenViewer/target_history.html", {"target_history": target_history})
+
+def deleteSquares(request, grid_id):
+    if request.method != 'POST':
+        return HttpResponse('Invalid request method')
+    square_ids = request.POST.getlist('square_ids',None)
+    squares = SquareModel.objects.filter(square_id__in=square_ids, grid_id=grid_id, status_isnull=True)
+    if len(squares) != len(square_ids):
+        logger.debug('Some squares could not be deleted')
+    logger.debug(f'Deleting squares: {squares}')
+    squares.delete()

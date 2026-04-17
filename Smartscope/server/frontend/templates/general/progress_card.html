@@ -1,0 +1,54 @@
+<div class="notification d-inline-flex justify-content-end">
+    <div id="{{job_id}}" class="alert mb-0 mt-1 alert-primary fade show" role="alert">
+        <span>Steps: <span id="step-{{ job_id }}">0</span></span>
+
+        <h5>{{ job_name }}</h5>
+        <div id="progress-bar-{{ job_id }}">0%</div>
+        <span id="message">Starting...</span>
+
+        <!-- JS for websocket -->
+        <script>
+            (function () {
+                const el = document.getElementById("progress-bar-{{ job_id }}");
+                if (!el) return;
+
+                // Avoid double-initialization
+                if (el.dataset.socketInitialized) return;
+                el.dataset.socketInitialized = "true";
+
+                const socket = new WebSocket(
+                    `${wsProtocol}://${location.host}/websocket/progress/{{ job_id }}/`
+                );
+
+                socket.onmessage = (e) => {
+                    const data = JSON.parse(e.data);
+                    console.log("WebSocket message received:", data);
+                    if (data.reload) {
+                        // If a reload is requested, reload the page
+                        console.log("Reloading page as requested by server.");
+                        loadSquare(currentState.square, false)
+                        return;
+                    }
+                    if (data.completed) {
+                        // Optionally close the socket when done
+                        socket.close();
+                        processLoadingMessage({ok:true}, "{{job_id}}");
+                    }
+                    console.log("Progress update received:", data);
+                    $("#progress-bar-{{ job_id }}").text(
+                        `${data.progress}%`
+                    );
+                    $("#step-{{ job_id }}").text(
+                        `${data.step}`
+                    );
+                    $("#message").text(
+                        data.message
+                    );
+                };
+
+                el._socket = socket; // optional: store reference
+            })();
+        </script>
+    </div>
+</div>
+

@@ -1,6 +1,13 @@
 name: SPA MM Finder Precise
+# preImaging:
+#   steps:
+#     - setHighmagCountingMode
+#     - loadGrid
+#     - setupFrames
+#     - openColumnValve
+#     - resetState
 atlas:
-  acquisition:
+  steps:
       - setAtlasOptics
       - setAperturesForLowMag
       - resetStage
@@ -12,7 +19,7 @@ atlas:
     selectors:
       - Size selector
 square:
-  acquisition:
+  steps:
     - setAperturesForLowMag
     - moveStageWithAtlasToSearchOffset
     - realignToSquare
@@ -26,7 +33,7 @@ square:
       - Graylevel selector
       - Distance from center selector
 mediumMag:
-  acquisition:
+  steps:
     - setAperturesForHighMag
     - setFocusPosition
     - tiltToAngle
@@ -38,9 +45,18 @@ mediumMag:
     - rollDefocus
     - autoFocus
     - waitDrift
+    - setAFISimageShift
   targets:
     finders:
       - Medium Mag AI hole finder
 highMag:
-  acquisition:
+  steps:
     - highMag
+# postHighMag:
+#   steps:
+#     - resetAFISimageShift
+#     - refineZLP
+#     - collectHardwareDark
+#     - flashColdFEG
+#     - recenterBeam
+

@@ -37,7 +37,7 @@
                 {% include "mapcard/action_menu.html" %}
                 <li class="nav-item d-flex align-items-center">
                     <a id='{{instance.targets_prefix}}ClearSele' class="nav-link disabled"
-                        onmousedown="clearSelection({{instance.targets_prefix}}Selection,'{{instance.targets_prefix}}')"
+                        onmousedown="clearSelection('{{instance.targets_prefix}}')"
                         data-bs-toggle="tooltip" data-bs-placement="top" title="Clear Selection"><i
                             class="bi bi-x-square"></i></a>
                 </li>

@@ -76,7 +76,7 @@ def update_target_selection(model:models.BaseModel,objects_ids:List[str],value:s
             obj.selection_mode = 'manual'
             obj.acquisition_priority = 0
             obj.status = status
-            obj.save()  
+            obj.save(update_fields=['selected','selection_mode','acquisition_priority','status'])  
 
 def update_target_label(model:models.BaseModel,objects_ids:List[str],value:str,method:str, *args, **kwargs):
 
@@ -100,9 +100,9 @@ def update_target_status(model:models.BaseModel,objects_ids:List[str],value:str,
             obj.save()
 
 
-def set_or_update_refined_finder(object_id, stage_x, stage_y, stage_z):
+def set_or_update_refined_finder(object_id, stage_x, stage_y, stage_z, method_name='Recentering'):
 
-    refined = models.Finder.objects.filter(object_id=object_id, method_name='Recentering')
+    refined = models.Finder.objects.filter(object_id=object_id, method_name=method_name)
     if refined:
         refined.update(stage_x=stage_x,
                         stage_y=stage_y,
@@ -113,7 +113,7 @@ def set_or_update_refined_finder(object_id, stage_x, stage_y, stage_z):
         content_type=original.content_type,
         x=original.x,
         y=original.y,
-        method_name='Recentering',
+        method_name=method_name,
         object_id=object_id,
         stage_x=stage_x,
         stage_y=stage_y,
@@ -230,8 +230,8 @@ def group_holes_for_BIS(hole_models:List[models.HoleModel], max_radius=4, min_gr
     # Find lines with the most hits as max group size
     max_group_size = np.max(np.sum(filter_start, axis=0))
     additional_msg = ''
-    if max_group_size > 20 and min_group_size < max_group_size/2:
-        min_group_size = int(max_group_size//2)
+    if max_group_size > 20 and min_group_size < max_group_size/4:
+        min_group_size = int(max_group_size//4)
         additional_msg = f' Adjusted min group size to {min_group_size}.'
 
     logger.debug(f'Max group size: {max_group_size}.{additional_msg}')

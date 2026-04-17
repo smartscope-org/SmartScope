@@ -37,7 +37,7 @@ class OriginalNavigationStrategy(NavigationStrategy):
 
     def get_square_queue(self):
         return self.grid.squaremodel_set.filter(selected=True).\
-            exclude(status__in=[status.SKIPPED, status.COMPLETED]).\
+            exclude(status__in=[status.SKIPPED, status.COMPLETED]+status().in_flight_statuses).\
             order_by('number')
             
 

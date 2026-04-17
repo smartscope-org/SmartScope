@@ -1,13 +1,12 @@
-name: AI square finder
-method: send_find_squares_from_montage
-module: Smartscope.tasks.base_tasks
+name: AI RCNN square finder
+method: send_find_squares
+module: Smartscope.tasks.ai_tasks_old_version
 kwargs: 
   device: '0'
-  imgsz: 1280
-  conf_thres: 0.2
-  iou_thres: 0.1
-  agnostic: True
-  weights_circle: square_weights/best.pt
+  imgsz: 2048
+  thresh: 0.2
+  iou: 0.3
+  weights: square_weights/model_large_atlas.pth
 targetClass:
   - Finder
   - Classifier

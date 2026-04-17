@@ -94,7 +94,7 @@ class Target:
     @staticmethod
     def flip_y(coords, shape_y):
         flipped_coords= np.array([coords[0],shape_y - coords[1]])
-        logger.debug(f'Flipping y coords: {coords} to {flipped_coords}')
+        # logger.debug(f'Flipping y coords: {coords} to {flipped_coords}')
         return flipped_coords
     
 

@@ -33,7 +33,9 @@ class SerialemInterface(MicroscopeInterface):
     logger = SerialEMLogger()
 
     def eucentricHeight(self, tilt_to:int=10, increments:int=-5, max_movement:int=200):
-        self.logger.info(f'Doing eucentric height')
+        binning = sem.ReportBinning('S')
+        self.logger.info(f'Doing eucentric height, setting Search binning to 4.')
+        sem.SetBinning('S', 4)
         offsetZ = 51
         iteration = 0
         while abs(offsetZ) > 50 and iteration != 3:
@@ -64,10 +66,23 @@ class SerialemInterface(MicroscopeInterface):
             else:
                 self.logger.info('Eucentric alignement would send the stage too far, stopping Eucentricity.')
                 break
+        sem.SetBinning('S', int(binning))
+        self.logger.info(f'Eucentric heigh done, setting Search binning back to {binning}.')
+    
+    def eucentric_height_after_distance(self, tilt_to:int=10, increments:int=-5, max_movement:int=200, distance_threshold:int=400):
+        last_eucentric_height_distance = self.state.get_last_eucentric_distance()
+        if last_eucentric_height_distance < distance_threshold:
+            self.logger.info(f'Last eucentric height distance was {last_eucentric_height_distance} um (Threshold {distance_threshold} um), skipping eucentric height by tilt.')
+            return
+        self.logger.info(f'Last eucentric height distance was {last_eucentric_height_distance} um (Threshold {distance_threshold} um), running eucentric height by tilt.')
+        self.eucentricHeight(tilt_to, increments, max_movement)
 
     def eucentricity_by_beam_tilt(self, max_movement:int=200, beam_tilt_angle:int=2):
-        self.logger.info(f'Doing eucentric height by beam tilt')
+        binning = sem.ReportBinning('V')
+        self.logger.info(f'Doing eucentric height by beam tilt, setting View binning to 4.')
+        sem.SetBinning('V', 4)
         sem.GoToLowDoseArea('V')
+
         target_Z = sem.ReportLDDefocusOffset('V')
         sem.SetEucentricFocus(1)
         sem.ChangeFocus(target_Z)
@@ -97,15 +112,33 @@ class SerialemInterface(MicroscopeInterface):
                 time.sleep(0.2)
             else:
                 self.logger.info('Eucentric alignement would send the stage too far, stopping Eucentricity.')
-                break        
+                break  
+        sem.SetBinning('V', binning)
+        self.logger.info(f'Eucentric heigh done, setting View binning back to {binning}.')      
 
     def eucentricity(self):
+        binning = sem.ReportBinning('V')
+        self.logger.info(f'Doing eucentric height, setting View binning to 4.')
+        sem.SetBinning('V', 4)
         sem.GoToLowDoseArea('V')
         sem.Eucentricity(1)
+        self.logger.info(f'Eucentric heigh done, setting View binning back to {binning}.')
+        sem.SetBinning('V', int(binning))
+
+    def setup_serialem(self):
+        if sem.ReportIfNavOpen() == 0:
+            self.logger.info('Opening SerialEM Navigator since it will be needed.')
+            sem.OpenNavigator()
     
     def eucentricity_by_focus(self):
+       
+        self.logger.info(f'Doing eucentric height by beam tilt, setting View binning to 4.')
+        binning = sem.ReportBinning('V')
+        sem.SetBinning('V', 4)
         sem.GoToLowDoseArea('V')
         sem.Eucentricity(-1,-1)
+        self.logger.info(f'Eucentric heigh done, setting View binning back to {binning}.')
+        sem.SetBinning('V', int(binning))
     
     def call(self, script):
         sem.Call(script)
@@ -205,6 +238,7 @@ class SerialemInterface(MicroscopeInterface):
     def save_image(self, file:str):
         # image_to_stage_matrix = sem.BufImageToStageMatrix('A', 1)
         # image_to_stage_matrix = [str(x) for x in image_to_stage_matrix]
+        sem.SetFileOptions(0,1,0,1,1,1)
         sem.OpenNewFile(file)
         sem.Save()
         self._add_vectors_to_mdoc()
@@ -254,20 +288,38 @@ class SerialemInterface(MicroscopeInterface):
         self.logger.info('Medium mag montage acquisition finished')
     
     def buffer_to_numpy(self, buffer:str='A') -> Tuple[np.array, int, int, int, float, float]:
+        delay = 1
         sem.Delay(1)
         shape_x, shape_y, binning, exposure, pixel_size, _ = sem.ImageProperties(buffer)
         while True:
             try:
                 buffer = sem.bufferImage(buffer)
                 break
-            except sem.SEMerror:
-                self.logger.error(f"Error getting the buffer image. Trying again.")
+            except sem.PyBufferImage:
+                self.logger.error(f"Error getting the buffer image. Trying again in {delay} seconds.")
+                sem.Delay(delay)
+                delay +=1
+            except sem.SEMerror as e:
+                self.logger.error(f"SEM error getting the buffer image. Trying again in {delay} seconds.")
+                sem.Delay(delay)
+                delay +=1
         self.logger.info(f"Downloaded the buffer image successfully.")
         return np.asarray(buffer), shape_x, shape_y, binning, exposure, pixel_size
 
     def numpy_to_buffer(self,image,buffer='T'):
         sem.PutImageInBuffer(image, buffer, *image.shape, 'A')
         
+    def find_square_center_microns(self):
+        sem.Search()
+        sem.Delay(0.2, 's')
+        square, shape_x, shape_y, _, _, _ = self.buffer_to_numpy()
+        _, square_center, _ = find_square(square)
+        im_center = (square.shape[1] // 2, square.shape[0] // 2)
+        diff = square_center - np.array(im_center)
+        self.logger.info(f'Found square center: {square_center}. Image-shifting by {diff} pixels')
+        sem.ImageShiftByPixels(int(diff[0]), -int(diff[1]))
+        shift = sem.ReportImageShift()[-2:]
+        return shift
 
     def realign_to_square(self):
         self.tiltTo(0)
@@ -419,7 +471,7 @@ class SerialemInterface(MicroscopeInterface):
         self._rollDefocus(def1, def2, step)
         sem.SetTargetDefocus(self.state.defocusTarget)
 
-    def autofocus_by_z(self):
+    def autofocus_by_z(self) -> bool:
         sem.SetDefocus(self.state.eucentricDefocus)
         defocus = 99999
         iteration = 0
@@ -432,6 +484,7 @@ class SerialemInterface(MicroscopeInterface):
             movement = (defocus - self.state.defocusTarget)*-1
             if error_code != 0:
                 self.logger.info('Autofocus seems to have failed')
+                return False
             if abs(defocus-self.state.defocusTarget) < 0.5:
                 sem.ChangeFocus(movement)
                 break
@@ -439,7 +492,7 @@ class SerialemInterface(MicroscopeInterface):
             sem.MoveStage(0,0, movement)
             total_movement += movement
         self.logger.info(f'Autofocus by Z finished after {iteration} iterations and a total movement of {total_movement:.2f}')
- 
+        return True
 
     def autofocus(self, def1, def2, step):
         sem.AutoFocus()
@@ -469,20 +522,19 @@ class SerialemInterface(MicroscopeInterface):
         sem.ClearPersistentVars()
         sem.AllowFileOverwrite(1)
 
-    def setup(self, saveframes:bool, grid_dir:str='', framesName=None):
+    def setup(self, saveframes:bool, frames_dir:str='', framesName=None):
         if saveframes:
             self.logger.info('Saving frames enabled')
-            sem.SetDoseFracParams('P', 1, 1, 0)
-            movies_directory = PureWindowsPath(self.detector.framesDir, grid_dir).as_posix().replace('/', '\\')
-            self.logger.info(f'SerialEM will be saving frames to {movies_directory}')
-            sem.SetFolderForFrames(movies_directory)
+            sem.SetDoseFracParams('R', 1, 1, 0)
+            self.logger.info(f'SerialEM will be saving frames to {frames_dir}')
+            sem.SetFolderForFrames(frames_dir)
             if framesName is not None:
                 sem.SetFrameBaseName(0, 1, 0, framesName)
         else:
             self.logger.info('Saving frames disabled')
-            sem.SetDoseFracParams('P', 1, 0, 0)
+            # sem.SetDoseFracParams('R', 1, 0, 0)
 
-        sem.KeepCameraSetChanges('P')
+        sem.KeepCameraSetChanges('R')
         sem.SetLowDoseMode(1)
         sem.SetBufferImageTimeout(5)
 
@@ -516,7 +568,7 @@ class SerialemInterface(MicroscopeInterface):
                 logger.warning("Could not close the column valves, still disconnecting from SerialEM")
         sem.Exit(1)
 
-    def loadGrid(self, position):
+    def load_grid(self, position):
         if self.microscope.loaderSize > 1:
             slot_status = sem.ReportSlotStatus(position)
 
@@ -558,8 +610,12 @@ class SerialemInterface(MicroscopeInterface):
     def reset_image_shift(self):
         return sem.ResetImageShift()
     
-    def reset_image_shift_values(self, afis:bool=False):
+    def reset_image_shift_values(self):
         self.state.reset_image_shift_values()
+
+
+    def save_AFIS_image_shift(self, afis:bool=False):
+        sem.GoToLowDoseArea('Record')
         self.state.preAFISimageShiftX, self.state.preAFISimageShiftY = sem.ReportImageShift()[:2]
         if afis:
             sem.SaveBeamTilt()
@@ -590,7 +646,7 @@ class SerialemInterface(MicroscopeInterface):
         if not earlyReturn:
             sem.EarlyReturnNextShot(0)
 
-        sem.Preview()
+        sem.Record()
         if earlyReturn:
             sem.OpenNewFile(file)
             sem.Save()
@@ -668,4 +724,29 @@ class SerialemInterface(MicroscopeInterface):
         if defocus_change != 0:
             sem.ChangeFocus(defocus_change)
             return
+        
+    def set_highmag_counting_mode(self):
+        if self.detector.detectorModel in ['K2','Ceta']:
+            return
+        sem.SetK2ReadMode('R', 1)
+        sem.SetK2ReadMode('P', 1)
+        sem.SetK2ReadMode('F', 1)
+
+    def check_medium_mag_size(self, hole_pitch_um:float=2.5):
+        x_size, y_size = sem.ReportCameraSetArea('V')[:2]
+        pixel_size = sem.ReportCurrentPixelSize('V')
+        x_size_um = x_size * pixel_size / 1000
+        y_size_um = y_size * pixel_size / 1000
+        return x_size_um, y_size_um
+    
+    def set_medium_mag_size_mini_montage(self, hole_pitch_um:float=2.5):
+        x_size_um, y_size_um = self.check_medium_mag_size(hole_pitch_um)
+        min_size_um = min(x_size_um, y_size_um)
+        if min_size_um > hole_pitch_um * 3:
+            self.logger.warning(f'Medium mag image size is {x_size_um:.2f} x {y_size_um:.2f} um, which may be too large for reliable for geometry calculation.')
+        num_tiles_x = math.ceil(x_size_um / 7)
+        num_tiles_y = math.ceil(y_size_um / 7)
+        self.logger.info(f'Medium mag image size is {x_size_um:.2f} x {y_size_um:.2f} um. This corresponds to {num_tiles_x} x {num_tiles_y} tiles of 7 um for hole detection.')
+
+
 

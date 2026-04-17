@@ -1,4 +1,5 @@
 import numpy as np
+from typing import Tuple
 import logging
 from scipy.spatial.distance import cdist
 
@@ -84,9 +85,47 @@ def atan2_firstquad(point):
         angle += 90
     return angle
 
-def get_average_angle(points):
-    angles = np.apply_along_axis(atan2_firstquad,axis=1, arr=points)
-    return np.mean(angles)
+def get_average_angle(points, mad_threshold=3.0):
+    if len(points) == 0:
+        raise ValueError('get_average_angle: no points provided')
+
+    # Raw arctan2 angles in (-180, 180]. Multiplying by 4 maps the 90-deg
+    # mesh symmetry onto a full 360-deg cycle — no first-quadrant folding needed.
+    raw_angles = np.degrees(np.arctan2(points[:, 1], points[:, 0]))
+
+    def _circ_mean_90(angles_deg):
+        """Circular mean for 90-deg periodic data, result in [0, 90)."""
+        scaled = np.radians(angles_deg * 4.0)
+        mean_deg = np.degrees(
+            np.arctan2(np.mean(np.sin(scaled)), np.mean(np.cos(scaled)))
+        ) / 4.0
+        result = mean_deg % 90.0
+        return result if result < 90.0 else 0.0
+
+    initial_mean = _circ_mean_90(raw_angles)
+
+    # Signed circular deviation from initial_mean in (-45, 45]
+    scaled_angles = np.radians(raw_angles * 4.0)
+    scaled_ref    = np.radians(initial_mean * 4.0)
+    deviations = np.degrees(np.arctan2(
+        np.sin(scaled_angles - scaled_ref),
+        np.cos(scaled_angles - scaled_ref),
+    )) / 4.0
+
+    mad = np.median(np.abs(deviations))
+    if mad == 0.0:
+        return initial_mean
+
+    inlier_mask = np.abs(deviations) <= mad_threshold * mad
+    clean_angles = raw_angles[inlier_mask]
+    if len(clean_angles) == 0:
+        logger.warning(
+            'get_average_angle: all %d vectors rejected (mad_threshold=%.1f, MAD=%.3f deg); '
+            'returning unfiltered mean.', len(points), mad_threshold, mad,
+        )
+        return initial_mean
+
+    return _circ_mean_90(clean_angles)
 
 
 def get_mesh_rotation_spacing(targets, mesh_spacing_in_pixels):
@@ -110,3 +149,83 @@ def filter_from_center(points, center_point, radius_in_pixel):
     indexes = np.argwhere(distances < radius_in_pixel)
     logger.debug(f'Filtered indexes {len(indexes)} from {len(points)} points')
     return points[indexes[:,0],:]
+
+def rigid_transform_2d(old_pts: np.ndarray, new_pts: np.ndarray, return_angle: bool = False) -> Tuple[np.ndarray, float] or np.ndarray:
+    """Estimate 2D rigid transform (rotation + translation) mapping `old_pts` to `new_pts`.
+
+    Args:
+        old_pts: array-like of shape (N, 2) -- source points.
+        new_pts: array-like of shape (N, 2) -- target points.
+        return_angle: if True, also return the rotation angle in radians.
+
+    Returns:
+        If `return_angle` is False: a (3,3) homogeneous transformation matrix T such that
+            [x'; y'; 1] = T @ [x; y; 1]
+        If `return_angle` is True: tuple (T, angle_in_radians).
+
+    Notes:
+        - Works for N >= 1. If N == 1 returns a pure translation (identity rotation).
+        - Uses SVD to compute the optimal orthogonal rotation. For degenerate
+          configurations (collinear points) SVD still gives a best-fit rotation.
+    """
+    old = np.asarray(old_pts, dtype=float)
+    new = np.asarray(new_pts, dtype=float)
+
+    if old.shape != new.shape or old.ndim != 2 or old.shape[1] != 2:
+        raise ValueError("old_pts and new_pts must be (N,2) arrays of same shape")
+
+    n = old.shape[0]
+    if n < 1:
+        raise ValueError("need at least one point")
+
+    # centroids
+    centroid_old = old.mean(axis=0)
+    centroid_new = new.mean(axis=0)
+
+    # center the coordinates
+    X = old - centroid_old
+    Y = new - centroid_new
+
+    # covariance matrix
+    H = X.T @ Y
+
+    # SVD
+    U, S, Vt = np.linalg.svd(H)
+    R = Vt.T @ U.T
+
+    # reflection case
+    if np.linalg.det(R) < 0:
+        Vt[-1, :] *= -1
+        R = Vt.T @ U.T
+
+    # translation
+    t = centroid_new - R @ centroid_old
+
+    # homogeneous transform
+    T = np.eye(3, dtype=float)
+    T[:2, :2] = R
+    T[:2, 2] = t
+
+    angle = float(np.arctan2(R[1, 0], R[0, 0]))
+
+    if return_angle:
+        return T, angle
+    return T
+
+def apply_transform(T, pts):
+    T = np.asarray(T, dtype=float)
+    pts = np.asarray(pts, dtype=float)
+    squeeze = False
+    if pts.ndim == 1:           # single point (2,)
+        pts = pts[None, :]
+        squeeze = True
+    if pts.shape[1] == 2:      # (N,2) -> (N,3) homogeneous
+        ones = np.ones((pts.shape[0], 1), dtype=float)
+        pts_h = np.hstack((pts, ones))
+    elif pts.shape[1] == 3:    # already homogeneous (N,3)
+        pts_h = pts
+    else:
+        raise ValueError("pts must have shape (N,2), (N,3) or (2,)")
+
+    transformed = (pts_h @ T.T)[:, :2]
+    return transformed[0] if squeeze else transformed

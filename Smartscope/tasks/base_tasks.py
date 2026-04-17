@@ -9,17 +9,19 @@ from pathlib import Path
 from django.core.cache import cache
 
 from Smartscope.tasks.app import app
-from Smartscope.tasks.settings import QUEUES, TRANSIENT_QUEUES, TRANSIENT_QUEUES_CACHE_TIMEOUT
+from Smartscope.tasks.settings import QUEUES, TRANSIENT_QUEUES, TRANSIENT_QUEUES_CACHE_TIMEOUT, TRANSIENT_SCRATCH
 from Smartscope.lib.image.montage import Montage
-from Smartscope.lib.image_manipulations import encode_image
+from Smartscope.lib.image_manipulations import encode_image, auto_contrast_triangle_cdf
 from Smartscope.lib.image_manipulations import convert_to_png, auto_contrast_sigma, fourier_crop, auto_contrast, extract_box_from_radius
 from Smartscope.lib.mesh_operations import get_mesh_rotation_spacing, closest_to_center, filter_from_center
 from Smartscope.lib.Finders.lattice_extension import generic_lattice_extension
+from Smartscope.lib.Finders.basic_finders import mask_square
 from Smartscope.lib.image.targets import Targets
 
 from Smartscope.sim_siam.prepare_data import sim_siam_prepare_data, sim_siam_copy_to_scratch_directory, sim_siam_copy_output_file_from_scratch, sim_siam_copy_output_directory_from_scratch, sim_siam_find_checkpoint
 from Smartscope.sim_siam.models import SimSiamWeights, SimSiamTrainingProcess
 from Smartscope.core.models import AutoloaderGrid
+from Smartscope.core.settings.worker import SCRATCH_DIR
 
 logger = logging.getLogger(__name__)
 
@@ -37,24 +39,26 @@ TEST_NOTIFICATION = """
 
 def get_queue()->str:
     for queue in QUEUES:
+        scratch_dir = SCRATCH_DIR
         if queue in TRANSIENT_QUEUES:
+            scratch_dir = TRANSIENT_SCRATCH[TRANSIENT_QUEUES.index(queue)]
             cache_key = f'transient_queue_{queue}'
             in_use = cache.get(cache_key, False)
             if in_use:
                 logger.info(f'Transient queue {queue} deemed availble from cache.')
-                return queue
+                return queue, scratch_dir
 
             res = app.send_task('SmartscopeAI.interfaces.celery.tasks.ping', queue=queue)
             try:
                 _ = res.get(timeout=3, interval=0.1)
                 cache.set(cache_key, True, timeout=TRANSIENT_QUEUES_CACHE_TIMEOUT)
                 logger.info(f'Transient queue {queue} deemed availble from ping. Caching for {TRANSIENT_QUEUES_CACHE_TIMEOUT} seconds.')
-                return queue
+                return queue, scratch_dir
             except TimeoutError:
                 
                 logger.warning(f'Transient queue {queue} did not respond to ping, trying next queue.')
                 continue
-        return queue
+        return queue, scratch_dir
 
 def send_find_squares_from_montage(montage, class_map:Dict[str,BaseModel], **kwargs):
     def class_map_to_yolo(class_map):
@@ -63,13 +67,20 @@ def send_find_squares_from_montage(montage, class_map:Dict[str,BaseModel], **kwa
             class_name = v.label_training
             yolo_class_map[class_name] = k
         return yolo_class_map
+    
+    scaling_factor = montage.image.shape[0] / kwargs.get('imgsz', 1024)
+    image= convert_to_png(montage.image, height=kwargs.get('imgsz', 1024), normalization=auto_contrast_triangle_cdf)
 
-    encoded = encode_image(montage.image)
+    encoded = encode_image(image)
     data = { 'image': encoded }
     data['kwargs'] = kwargs
+    data['kwargs']['scaling_factor'] = scaling_factor
     data['kwargs']['class_mapping'] = {k:v.model_dump() for k,v in class_map.items()}
+
+    queue, scratch_dir = get_queue()
+    print(f'Sending find_squares task to queue {queue} with scratch dir {scratch_dir}')
     
-    result = app.send_task('SmartscopeAI.interfaces.celery.tasks.find_squares', args=[json.dumps(data)], queue=get_queue())
+    result = app.send_task('SmartscopeAI.interfaces.celery.tasks.find_squares', args=[json.dumps(data)], queue=queue)
     task_id = result.id
     res = AsyncResult(task_id, app=app)
     coords, labels = res.get(interval=1, timeout=120)
@@ -79,8 +90,8 @@ def send_find_squares_from_montage(montage, class_map:Dict[str,BaseModel], **kwa
     return (coords,labels_converted), True, dict()
 
 def send_find_holes_from_montage(montage:Montage, class_map:Dict[str,BaseModel], success_threshold:int=10,  **kwargs):
-    scaling_factor = montage.image.shape[0] / 1024
-    image= convert_to_png(montage.image, height=1024, normalization=auto_contrast_sigma, binning_method=fourier_crop)
+    scaling_factor = montage.image.shape[0] / kwargs.get('imgsz', 1024)
+    image= convert_to_png(montage.image, height=kwargs.get('imgsz', 1024), normalization=auto_contrast_sigma, binning_method=fourier_crop)
 
     encoded = encode_image(image)
 
@@ -89,14 +100,33 @@ def send_find_holes_from_montage(montage:Montage, class_map:Dict[str,BaseModel],
     data['kwargs']['scaling_factor'] = scaling_factor
     data['kwargs']['class_mapping'] = {k:v.model_dump() for k,v in class_map.items()}
     
-    result = app.send_task('SmartscopeAI.interfaces.celery.tasks.find_holes', args=[json.dumps(data)], queue=get_queue())
+    result = app.send_task('SmartscopeAI.interfaces.celery.tasks.find_holes', args=[json.dumps(data)], queue=get_queue()[0])
     task_id = result.id
     res = AsyncResult(task_id, app=app)
     final_result = res.get(interval=1, timeout=120)
     print(final_result)
     return final_result, True, dict()
 
-def find_holes_with_lattice(montage, hole_spacing:float, lattice_radius:float, class_map:Dict=None, success_threshold:int=2, **kwargs):
+def send_find_holes_from_square(montage:Montage, class_map:Dict[str,BaseModel], success_threshold:int=10,  **kwargs):
+    scaling_factor = montage.image.shape[0] / kwargs.get('imgsz', 1024)
+    image= convert_to_png(montage.image, height=kwargs.get('imgsz', 1024), normalization=auto_contrast, binning_method=fourier_crop)
+    image = mask_square(image)
+
+    encoded = encode_image(image)
+
+    data = { 'image': encoded }
+    data['kwargs'] = kwargs
+    data['kwargs']['scaling_factor'] = scaling_factor
+    data['kwargs']['class_mapping'] = {k:v.model_dump() for k,v in class_map.items()}
+    
+    result = app.send_task('SmartscopeAI.interfaces.celery.tasks.find_holes', args=[json.dumps(data)], queue=get_queue()[0])
+    task_id = result.id
+    res = AsyncResult(task_id, app=app)
+    final_result = res.get(interval=1, timeout=600)
+    print(final_result)
+    return final_result, True, dict()
+
+def find_holes_with_lattice(montage, hole_spacing:float, hole_size:float, lattice_radius:float, class_map:Dict=None, success_threshold:int=2, **kwargs):
     """
     Identifies holes in a montage image using a lattice pattern.
     Parameters:
@@ -104,6 +134,7 @@ def find_holes_with_lattice(montage, hole_spacing:float, lattice_radius:float, c
     class_map (Dict, optional): A dictionary mapping class labels to their respective values. Defaults to None.
     success_threshold (int, optional): The minimum number of successful detections required to consider the operation successful. Defaults to 10.
     hole_spacing (float): The spacing between holes in the lattice pattern in microns
+    hole_size (float): The size of each hole in microns
     lattice_radius (float): The radius of the lattice used to find holes in microns.
     Returns:
     List[Tuple[int, int]]: A list of coordinates where holes were found.
@@ -112,11 +143,26 @@ def find_holes_with_lattice(montage, hole_spacing:float, lattice_radius:float, c
     if not success:
         return [], success, dict()
     targets = Targets.create_targets_from_box(targets, montage, force_mdoc=False) ###REPLACE WITH THE ENV VARIABLE
+
+    # Filter out targets near edges (within 1/2 of hole_size from any edge)
     expected_spacing = hole_spacing / montage.pixel_size_micron
+    edge_filter_distance = hole_size / montage.pixel_size_micron / 2
+    height, width = montage.image.shape[:2]
+
+    filtered_targets = []
+    for target in targets:
+        x, y = target.coords[0], target.coords[1]
+        # Check distance from all 4 edges
+        if (x >= edge_filter_distance and x <= width - edge_filter_distance and
+            y >= edge_filter_distance and y <= height - edge_filter_distance):
+            filtered_targets.append(target)
+
+    logger.debug(f'Filtered targets from {len(targets)} to {len(filtered_targets)} after removing edge targets within {edge_filter_distance} pixels from any edge')
+
     lattice_radius_in_pixels = lattice_radius / montage.pixel_size_micron
-    rotation, spacing = get_mesh_rotation_spacing(np.array([target.coords for target in targets]), expected_spacing)
+    rotation, spacing = get_mesh_rotation_spacing(np.array([target.coords for target in filtered_targets]), expected_spacing)
     logger.debug(f'Calculated hole geometry for grid {montage} with {len(targets)} holes and mesh spacing: {spacing} um. Pixel size of {montage}: {montage.pixel_size} A.\n Calculated rotation: {rotation}\n Calculated spacing: {spacing}')
-    lattice = generic_lattice_extension([t.coords for t in targets], np.array([lattice_radius_in_pixels,lattice_radius_in_pixels]), rotation, spacing, offset=montage.center)
+    lattice = generic_lattice_extension([t.coords for t in filtered_targets], np.array([lattice_radius_in_pixels,lattice_radius_in_pixels]), rotation, spacing, offset=montage.center)
     transposed = lattice.T
     logger.debug(f'Transposed lattice shape ({transposed.shape}):\n{transposed}')
     closest_lattice_point_to_center = closest_to_center(transposed, montage.center)
@@ -142,6 +188,8 @@ def sim_siam_inference(mag_level:Literal['square','hole'], grid_id:str, **kwargs
 
     checkpoint_path = None
     config_path = None
+    queue, scratch_dir = get_queue()
+    print(f'Sending find_squares task to queue {queue} with scratch dir {scratch_dir}')
 
     weights = sim_siam_find_checkpoint(mag_level, grid)
     print(f'Found weights {weights} for mag level {mag_level} and grid {grid_id}')
@@ -153,11 +201,14 @@ def sim_siam_inference(mag_level:Literal['square','hole'], grid_id:str, **kwargs
     grid_ids = [grid_id]  # Replace with actual grid IDs
     dataset_name = '_'.join(grid_ids) + "_" + mag_level
     file_list = sim_siam_prepare_data(mag_level, grid_ids)
+    if len(file_list) == 0:
+        logger.warning(f'No data found to send for SimSiam inference for grid {grid_id} at mag level {mag_level}. Skipping.')
+        return
     if checkpoint_path is not None and config_path is not None:
         file_list.append(checkpoint_path)
         file_list.append(config_path)
 
-    sim_siam_copy_to_scratch_directory(dataset_name, file_list)
+    sim_siam_copy_to_scratch_directory(dataset_name, file_list, scratch_dir=scratch_dir)
 
     data = json.dumps(dict(
         dataset_name = dataset_name,
@@ -166,15 +217,15 @@ def sim_siam_inference(mag_level:Literal['square','hole'], grid_id:str, **kwargs
     ))
 
     print(f'Sending SimSiam inference request for grid {grid_id} with magnification level {mag_level} and checkpoint {checkpoint_path}')
-    result = app.send_task('SmartscopeAI.interfaces.celery.tasks.sim_siam_data', args=[data], queue=get_queue())
+    result = app.send_task('SmartscopeAI.interfaces.celery.tasks.sim_siam_data', args=[data], queue=queue)
     task_id = result.id
     res = AsyncResult(task_id, app=app)
-    final_result = res.get(interval=1, timeout=120)
+    final_result = res.get(interval=1, timeout=600)
     print(final_result)
     
-    sim_siam_copy_output_file_from_scratch(final_result, grid.directory)
+    sim_siam_copy_output_file_from_scratch(final_result, grid.directory, scratch_dir=scratch_dir)
 
-def sim_siam_training(mag_level:Literal['square','hole'], grid_id:str, dataset_name=None,**kwargs):
+def sim_siam_training(mag_level:Literal['square','hole'], grid_id:str, related_grids:list = [], dataset_name=None,**kwargs):
     """
     Sends a task to the Celery queue to process data for SimSiam training.
     Parameters:
@@ -185,26 +236,31 @@ def sim_siam_training(mag_level:Literal['square','hole'], grid_id:str, dataset_n
     """
     if mag_level not in ['square','hole']:
         raise ValueError(f"Invalid magnification level: {mag_level}. Must be 'square' or 'hole'.")
+    if related_grids != [] and dataset_name is None:
+        raise ValueError("When providing related_grids, dataset_name must also be provided to avoid ambiguity.")
+
     grid = AutoloaderGrid.objects.get(grid_id=grid_id)
+    queue, scratch_dir = get_queue()
 
     checkpoint_path= Path(grid.directory) / f"model_best_{mag_level}.pth"
     if not checkpoint_path.is_file():
         checkpoint_path = None
 
-    grid_ids = [grid_id]  # Replace with actual grid IDs
+    grid_ids = [grid_id] + related_grids  # Replace with actual grid IDs
     if dataset_name is None:
         dataset_name = '_'.join(grid_ids) + "_" + mag_level
-    file_list = sim_siam_prepare_data(mag_level, grid_ids)
 
-    sim_siam_copy_to_scratch_directory(dataset_name, file_list)
+    for grid in grid_ids:
+        file_list = sim_siam_prepare_data(mag_level, [grid], raise_on_empty=kwargs.get('raise_on_empty',True))
+        sim_siam_copy_to_scratch_directory(dataset_name, file_list, scratch_dir=scratch_dir)
 
     data = json.dumps(dict(
         dataset_name = dataset_name,
         mag_level = mag_level,
         checkpoint_path = str(checkpoint_path)
     ))
-    print(f'Sending SimSiam inference request for grid {grid_id} with magnification level {mag_level} and checkpoint {checkpoint_path}')
-    result = app.send_task('SmartscopeAI.interfaces.celery.tasks.sim_siam_training', args=[data], queue=get_queue())
+    print(f'Sending SimSiam training request for grid {grid_id} with magnification level {mag_level} and checkpoint {checkpoint_path}')
+    result = app.send_task('SmartscopeAI.interfaces.celery.tasks.sim_siam_training', args=[data], queue=queue)
     return result.id
     # res = AsyncResult(task_id, app=app)
     # final_result = res.get(interval=1, timeout=120)

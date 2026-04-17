@@ -68,7 +68,7 @@ def add_holes(id, targets):
     instance = SquareModel.objects.get(pk=id)
     montage = Montage(name=instance.name, working_dir=instance.grid_id.directory)
     montage.load_or_process()
-    targets = np.array(targets) 
+    targets = np.array(targets) if not isinstance(targets, np.ndarray) else targets
     hole_size = holeSize if (holeSize := instance.grid_id.holeType.hole_size) is not None else 1.2
     targets = list(map(lambda t: convert_centers_to_boxes(
         t, montage.pixel_size, montage.shape_x, montage.shape_y, hole_size), targets))
@@ -101,8 +101,13 @@ def add_single_targets(id_, *args):
     logger.info(f'Adding {len(args)} targets to square {id_}')
     targets = []
     for i in args:
-        j = i.split(',')
-        j = [float(k) for k in j]
+        if isinstance(i, str):
+            j = i.split(',')
+            j = [float(k) for k in j]
+            j = np.array(j)
+        else:
+            j = i
+        
 
         targets.append(j)
     logger.debug(targets)
@@ -147,25 +152,35 @@ def select_areas(mag_level, object_id, n_areas):
             update(obj, selected=True, status='queued')
     print('Done.')
 
-def regroup_bis(grid_id, square_id, reset_groups=True):
+
+def reset_hole_selection(grid_id, square_id):
     from Smartscope.core.models import AutoloaderGrid, SquareModel, HoleModel
     from Smartscope.core.db_manipulations import group_holes_from_square_for_BIS
     from Smartscope.core.status import status
-    grid = AutoloaderGrid.objects.get(grid_id=grid_id)
+    
     if square_id == 'all':
         queryparams = dict(grid_id=grid_id)
     else:
         queryparams = dict(grid_id=grid_id, square_id=square_id)
     logger.debug(f"{grid_id} {square_id}")
-    collection_params = grid.params_id
-    if reset_groups:
-        logger.debug(f"Removing all holes from queue")
-        HoleModel.objects.filter(**queryparams,status__isnull=True)\
-            .update(selected=False,status=status.NULL,bis_group=None,bis_type=None)
-        HoleModel.objects.filter(**queryparams,status='queued',)\
-            .update(selected=False,status=status.NULL,bis_group=None,bis_type=None)
+
+
+    logger.debug(f"Removing all holes from queue")
+    HoleModel.objects.filter(**queryparams,status__isnull=True)\
+        .update(selected=False,status=status.NULL,bis_group=None,bis_type=None)
+    HoleModel.objects.filter(**queryparams,status='queued',)\
+        .update(selected=False,status=status.NULL,bis_group=None,bis_type=None)
     
     squares = SquareModel.display.filter(status=status.COMPLETED,**queryparams)
+    return squares
+
+def regroup_bis(grid_id, square_id):
+    from Smartscope.core.models import AutoloaderGrid
+    from Smartscope.core.db_manipulations import group_holes_from_square_for_BIS
+    
+    grid = AutoloaderGrid.objects.get(grid_id=grid_id)
+    squares = reset_hole_selection(grid_id, square_id)
+    collection_params = grid.params_id
     for square in squares:
         group_holes_from_square_for_BIS(square, 
                                         max_radius=collection_params.bis_max_distance,
@@ -197,8 +212,8 @@ def stop_session(sessionid):
 def download_testfiles(overwrite=False):
     import subprocess as sub
     import shlex
-    # archive_name = 'smartscope_testfiles.tar.gz'
-    archive_name = 'SmartScopeInstallation.tar.gz'
+    archive_name = 'smartscope_testfiles.tar.gz'
+    # archive_name = 'SmartScopeInstallation.tar.gz'
     target_directory = '/mnt/testfiles/'
     archive_download_location = Path(target_directory,archive_name)
     print(archive_download_location)
@@ -466,5 +481,7 @@ def list_protocols():
     print(protocols)
     return protocols
     
+def add_to_training_set(mag_level: str, id: str, dataset_name:str,export_type='yolo', output_directory=None):
+    from Smartscope.core.utils.training_data import add_to_training_set
+    add_to_training_set(mag_level, id, dataset_name,export_type, output_directory)
 
-            

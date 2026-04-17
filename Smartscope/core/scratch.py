@@ -1,7 +1,7 @@
 import os
 from typing import List
 from pathlib import Path
-from pydantic import BaseModel
+from pydantic import BaseModel, field_validator
 import shutil
 import json
 import time
@@ -23,6 +23,15 @@ class Scratch(BaseModel):
     """
     scratch: Path = SCRATCH_DIR
     max_size_gb: int = 10
+
+    @field_validator('scratch', mode='before')
+    def _ensure_scratch(cls, v):
+        """
+        Ensure `scratch` is set. If `None`, default to `SCRATCH_DIR`.
+        Also coerce strings to `Path`.
+        """
+        val = SCRATCH_DIR if v is None else v
+        return val if isinstance(val, Path) else Path(val)
 
     @property
     def scratch_history(self) -> List:
@@ -135,7 +144,7 @@ class Scratch(BaseModel):
             destination = dataset_path / dest
             if ind == 0:
                 destination.parent.mkdir(parents=True, exist_ok=True)
-            print(f'Copying {file} to {dataset_path / dest}')
+            # print(f'Copying {file} to {dataset_path / dest}')
             shutil.copyfile(file, destination)
 
         item = ScratchHistoryItem(

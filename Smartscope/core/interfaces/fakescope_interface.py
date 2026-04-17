@@ -2,6 +2,7 @@ import mrcfile
 import time
 import logging
 import os
+from pathlib import Path
 from .microscope_interface import MicroscopeInterface
 from Smartscope.lib.file_manipulations.fake import Fake
 from Smartscope.lib.image_manipulations import export_as_png
@@ -50,6 +51,9 @@ class FakeScopeInterface(MicroscopeInterface):
 
     def medium_mag_montage(self, size, file=''):
         pass
+
+    def load_grid(self, position):
+        pass
     
     def open_valves(self):
         pass
@@ -85,7 +89,7 @@ class FakeScopeInterface(MicroscopeInterface):
         Fake.generate_fake_file(
             file,
             'square',
-            sleeptime=15,
+            sleeptime=30,
             destination_dir=self.microscope.scopePath
         )
         return 0, 0, 0
@@ -162,7 +166,9 @@ class FakeScopeInterface(MicroscopeInterface):
                 destination_dir=self.microscope.scopePath
             )
             return
-        movies = os.path.join(self.microscope.scopePath, 'movies', self.grid_dir)
+        grid_dir = self.grid_dir.replace("\\", "/")
+        self.logger.debug(f"grid_dir {grid_dir}")
+        movies = os.path.join(self.microscope.scopePath, grid_dir)
         self.logger.info(f"High resolution movies are stored at {movies} in fake mode")
         frames = Fake.generate_fake_file(
             file,
@@ -175,8 +181,8 @@ class FakeScopeInterface(MicroscopeInterface):
     def connect(self):
         self.logger.info('Connecting to fake scope.')
 
-    def setup(self, saveframes:bool, grid_dir:str, framesName=None):
-        self.grid_dir = grid_dir
+    def setup(self, saveframes:bool, frames_dir:str, framesName=None):
+        self.grid_dir = frames_dir
 
     def disconnect(self, close_valves=True):
         self.logger.info('Disconnecting from fake scope.')

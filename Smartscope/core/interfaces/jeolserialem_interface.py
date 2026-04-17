@@ -73,24 +73,13 @@ class JEOLSerialemInterface(SerialemInterface):
         logging.info('Default apertures detected')
         return JEOLDefaultApertures
   
-    # def loadGrid(self, position):
-    #     if self.microscope.loaderSize > 1:
-    #         sem.Delay(5)
-    #         sem.SetColumnOrGunValve(0)
-    #         sem.Delay(5)
-    #         command = f'{self.additional_settings.transfer_cartridge_path} {position} 3 0'
-    #         self.logger.info(f'Loading grid with command: \"{command}\"')
-    #         sem.RunInShell(command)
-    #         sem.Delay(5)
-    #     sem.SetColumnOrGunValve(1)
-
     def flash_cold_FEG(self, ffDelay:int):
         if not self.microscope.coldFEG or ffDelay < 0:
             return
         self.logger.info('Flashing the cold FEG.')
         sem.LongOperation('FF', str(ffDelay))
 
-    def loadGrid(self, position):
+    def load_grid(self, position):
         if self.microscope.loaderSize > 1:
             slot_status = sem.ReportSlotStatus(position)
 
@@ -116,7 +105,7 @@ class JEOLSerialemInterface(SerialemInterface):
                 slot_status = slot_status[1]
             if  slot_status not in [0,3]:
                 raise CartridgeLoadingError('Cartridge did not load properly. Stopping')
-        sem.SetColumnOrGunValve(1)
+        # sem.SetColumnOrGunValve(1)
 
 
     def image_shift_by_microns(self,isX,isY,tiltAngle, afis:bool=False, goToRecord=True, delay_multiplier=1, additional_delay=0):

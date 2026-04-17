@@ -17,6 +17,11 @@ class DisplayManager(models.Manager):
 
     def get_queryset(self):
         return super().get_queryset().prefetch_related('finders').prefetch_related('classifiers').prefetch_related('selectors')
+    
+class ParentManager(models.Manager):
+    #Prefetch parent relationships to reduce queries
+    def get_queryset(self):
+        return super().get_queryset().select_related('hole_id').select_related('grid_id')
 
 
 
@@ -40,9 +45,11 @@ class HighMagModel(Target, ExtraPropertyMixin):
     tilt_axis_angle = models.FloatField(null=True)
     tilt_angle = models.FloatField(null=True)
     ice_thickness = models.IntegerField(null=True)
-    # aliases
+    
+    # QueryManagers to load different relationships
     objects = HighMagImageManager()
     display = DisplayManager()
+    parent_manager = ParentManager()
 
     class Meta(BaseModel.Meta):
         db_table = 'highmagmodel'

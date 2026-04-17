@@ -1,0 +1,34 @@
+{
+"pipeline": "nextpypPipeline",  
+"kwargs": {
+    "n_processes": 1, 
+    "frames_directory": "/nfs/bartesaghilab/nextpyp/spr",
+    "path_to_token": "/root/nextpyp_token",
+    "nextpyp_userid": "",
+    
+    "url_base": "https://research-bartesaghilab-08.oit.duke.edu",
+    
+    "gain_reference": "",
+    "gain_flipv": true,
+
+    "scope_pixel": 1.0,
+    "scope_voltage": 300,
+    "scope_cs": 2.7,
+
+    "stream_transfer_operation": "link",
+    "stream_transfer_restart": true,
+
+    "detect_rad": 65.0,
+    "detect_method": "all",
+    "detect_dist": 40,
+
+    "class2d_num": 50,
+    "class2d_box": 96,
+    "class2d_bin": 4,
+
+    "slurm_verbose": true,
+    "slurm_tasks": 7,
+    "slurm_memory": 14,
+    "slurm_daemon_walltime": "0-01:00:00"
+    }
+}

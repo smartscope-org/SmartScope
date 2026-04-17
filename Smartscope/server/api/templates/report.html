@@ -53,6 +53,13 @@
                             rows="1">{{grid.notes}}</textarea>
                     </div>
             </form>
+            <!-- <button id="start-job" hx-post="{% url 'start_long_action_job' %}" 
+                                    hx-on--before-request="createHTMXloadingMessage(event, 'Sending long action job request')"
+                                    hx-on--after-request="processHTMXloadingMessage(event)"
+                                    hx-target="#loadingMessages" 
+                                    hx-swap="beforeend">
+                Start Job
+            </button> -->
         </div>
         <div class='d-flex flex-wrap col-12 col-lg-5 align-items-center justify-content-right'>
             <button id='gridParamBtn' class="btn btn-sm btn-outline-primary col-3 col-md-auto" type="button"

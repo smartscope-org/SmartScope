@@ -143,8 +143,12 @@ def test_finder(plugin_name: str, raw_image_path: str, output_dir: str, repeats=
         output, _ , _ , additional_outputs = find_targets(montage, [plugin_name], **kwargs)
         bit8_montage = auto_contrast(montage.image)
         bit8_color = cv2.cvtColor(bit8_montage, cv2.COLOR_GRAY2RGB)
+        quality_colors = {}
         for i in output:
-            cv2.circle(bit8_color, (i.x,i.y),20, (0, 0, 255), cv2.FILLED)
+            if i.quality not in quality_colors.keys():
+                quality_colors[i.quality] = (int.from_bytes(os.urandom(1), 'big'), int.from_bytes(os.urandom(1), 'big'), int.from_bytes(os.urandom(1), 'big'))
+            cv2.circle(bit8_color, (i.x,i.y),int(i.radius), quality_colors[i.quality], 20, lineType=cv2.LINE_AA)
+            # cv2.circle(bit8_color, (i.x,i.y),20, (0, 0, 255), cv2.FILLED)
         if 'lattice_angle' in additional_outputs.keys():
 
             cv2.line(bit8_color,tuple(montage.center),(int(3000*math.sin(math.radians(additional_outputs['lattice_angle']))+montage.center[0]), int(3000*math.cos(math.radians(additional_outputs['lattice_angle'])))+ montage.center[1]),(0,255,0),10)
@@ -248,3 +252,127 @@ def test_image_to_stage_conversion(image_file, coords, coordinate_system:Literal
         coords = Target.flip_y(coords, montage.shape_x)
     target = Target(coords, from_center=True)
     target.convert_image_coords_to_stage(montage, compare=True)
+
+def validate_custom_paths(detector_id):
+    from Smartscope.core.models import AutoloaderGrid
+    from Smartscope.core.frames import generate_frames_dir, get_serialem_frames_dir, get_smartscope_frames_dir
+    from pathlib import PureWindowsPath
+
+    grid = AutoloaderGrid.objects.filter(session_id__detector_id=detector_id).first()
+    if grid is None:
+        logger.error(f'No grids found for detector {detector_id}')
+        return
+    logger.info(f'Validating custom paths for detector {detector_id} with grid {grid}')
+    path = generate_frames_dir(grid)
+    logger.info(f'Generated path for grid {grid}: {path}')
+    full_path_smartscope_pov = get_smartscope_frames_dir(grid)
+    logger.info(f'Full path from smartscope POV: {full_path_smartscope_pov}')
+    full_path_serialem_pov = get_serialem_frames_dir(grid)
+    logger.info(f'Full path from SerialEM POV: {full_path_serialem_pov}')
+
+
+def test_contrast_normalization(mrc_path: str, output_dir: str = '.'):
+    """
+    Builds a Montage from an MRC file and mdoc, then exports one PNG per
+    normalization method (auto_contrast, auto_contrast_sigma, auto_contrast_cdf)
+    to output_dir for visual comparison.
+    """
+    from Smartscope.lib.image.montage import Montage
+    from Smartscope.lib.image.image_file import parse_mdoc
+    from Smartscope.lib.image_manipulations import (
+        auto_contrast, auto_contrast_sigma, auto_contrast_cdf,
+        auto_contrast_triangle_cdf, auto_contrast_clahe,
+        export_as_png, fourier_crop
+    )
+
+    mrc = Path(mrc_path)
+    output = Path(output_dir)
+    output.mkdir(exist_ok=True)
+
+    logger.info(f'Building montage from {mrc}')
+    montage = Montage(mrc.stem, working_dir=output)
+    montage.raw = mrc
+    montage.metadata = parse_mdoc(montage.mdoc)
+    montage.build_montage()
+    montage.read_image()
+    logger.info(f'Montage shape: {montage.image.shape}, dtype: {montage.image.dtype}')
+
+    normalizations = [
+        ('auto_contrast', auto_contrast),
+        ('auto_contrast_sigma', auto_contrast_sigma),
+        ('auto_contrast_cdf', auto_contrast_cdf),
+        ('auto_contrast_triangle_cdf', auto_contrast_triangle_cdf),
+        ('auto_contrast_clahe', auto_contrast_clahe),
+    ]
+    for name, fn in normalizations:
+        out_path = output / f'{mrc.stem}_{name}.png'
+        export_as_png(montage.image, out_path, normalization=fn, binning_method=fourier_crop)
+        logger.info(f'Saved {out_path}')
+
+    logger.info(f'Done. Compare the {len(normalizations)} PNGs to evaluate normalization quality.')
+
+
+def export_image_pairs(object_id, output_dir='.', final_height=1024, diagnostic_image=True):
+    import json
+    import numpy as np
+    from Smartscope.core.models import HoleModel
+    from Smartscope.lib.image.montage import Montage
+    from Smartscope.lib.image_manipulations import export_as_png, auto_contrast, auto_contrast_sigma
+
+    output = Path(output_dir)
+    output.mkdir(parents=True, exist_ok=True)
+
+    hole = HoleModel.objects.get(pk=object_id)
+    square = hole.square_id
+
+    hole_montage = Montage(hole.name, working_dir=hole.working_dir)
+    hole_montage.load_or_process()
+
+    square_montage = Montage(square.name, working_dir=square.working_dir)
+    square_montage.load_or_process()
+
+    final_height = final_height
+    scale_hole = final_height / hole_montage.image.shape[0]
+    scale_square = final_height / square_montage.image.shape[0]
+    export_as_png(hole_montage.image, output / f'{hole.name}.png', height=final_height, normalization=auto_contrast_sigma)
+    logger.info(f'Exported hole image to {output / hole.name}.png')
+    export_as_png(square_montage.image, output / f'{square.name}.png', height=final_height, normalization=auto_contrast)
+    logger.info(f'Exported square image to {output / square.name}.png')
+
+    finder = hole.finders.first()
+    hole_x, hole_y = finder.x, finder.y
+
+    
+    meta_path = output / f'{hole.name}_metadata.json'
+    metadata = {
+        'hole': {
+            'file': f'{hole.name}.png',
+            'pixel_size': hole_montage.pixel_size/scale_hole,
+            'rotation_angle': hole_montage.rotation_angle,
+        },
+        'square': {
+            'file': f'{square.name}.png',
+            'pixel_size': square_montage.pixel_size/scale_square,
+            'rotation_angle': square_montage.rotation_angle,
+        },
+        'hole_coords_on_square': {'x': int(np.floor(hole_x*scale_square)), 'y': int(np.floor(hole_y*scale_square))},
+    }
+    with open(meta_path, 'w') as f:
+        json.dump(metadata, f, indent=2)
+    logger.info(f'Metadata saved to {meta_path}')
+
+    if diagnostic_image:
+        import cv2
+        from Smartscope.lib.image_manipulations import convert_to_png
+        diag_img = convert_to_png(square_montage.image, height=final_height, normalization=auto_contrast)
+        diag_img = cv2.cvtColor(diag_img, cv2.COLOR_GRAY2BGR)
+
+        rect_size = int(final_height * metadata['hole']['pixel_size'] / metadata['square']['pixel_size'])
+
+        cx = metadata['hole_coords_on_square']['x']
+        cy = metadata['hole_coords_on_square']['y']
+        cv2.rectangle(diag_img, (cx - rect_size // 2, cy - rect_size // 2), (cx + rect_size // 2, cy + rect_size // 2), (0, 255, 0), 2)
+
+        diag_path = output / f'{hole.name}_diagnostic.png'
+        cv2.imwrite(str(diag_path), diag_img)
+        logger.info(f'Diagnostic image saved to {diag_path}')

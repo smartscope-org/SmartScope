@@ -180,6 +180,7 @@
 
 .acquired,
 .processed,
+.processing_queued,
 .targets_picked,
 .started,
 .selected,

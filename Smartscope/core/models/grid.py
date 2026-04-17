@@ -112,16 +112,8 @@ class AutoloaderGrid(BaseModel):
             return 'collection'
         return 'screening'
     
-    def frames_dir(self, prefix:str=''):
-        if 'Falcon' in self.session_id.detector_id.detector_model:
-            logger.debug('Settings frames directory for Falcon detectors')
-            if prefix:
-                return Path(f'{prefix}_{self.parent.working_directory}_{self.position}_{self.name}')
-            return Path(f'{self.parent.working_directory}_{self.position}_{self.name}')
-        logger.debug('Settings frames directory for non-Falcon detectors')
-        if prefix:
-            return Path(f'{prefix}_{self.parent.working_directory}', f'{self.position}_{self.name}')
-        return Path(self.parent.working_directory, f'{self.position}_{self.name}')
+    # def frames_dir(self, directory:Path=None):
+    #     return Path(self.parent.working_directory, directory)
 
     @property
     def atlas(self):

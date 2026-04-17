@@ -33,8 +33,8 @@ class GridIO:
         for directory in [path, path / 'raw', path / 'pngs']:
             directory.mkdir(exist_ok=True)
 
-    @staticmethod
-    def create_grid_frames_directory(path, grid_dir):
-        directory = Path(path, grid_dir)
-        directory.mkdir(parents=True, exist_ok=True)
-        return grid_dir
+    # @staticmethod
+    # def create_grid_frames_directory(path, grid_dir):
+    #     directory = Path(path, grid_dir)
+    #     directory.mkdir(parents=True, exist_ok=True)
+    #     return grid_dir

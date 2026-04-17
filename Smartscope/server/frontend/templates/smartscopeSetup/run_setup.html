@@ -6,10 +6,11 @@
     {% csrf_token %}
     <h3>GENERAL</h3>
 
-    {% include "forms/formFieldsBase.html" with form=form_general row=True %}
+    {% include "forms/formFieldsBase.html" with form=form_general row=True%}
     <h3 class="col-auto pr-1 mb-0">COLLECTION PARAMETERS</h3>
-
-    {% include "forms/formFieldsBase.html" with form=form_params row=True %}
+    <div id="collection-params-form">
+        {% include "forms/formFieldsBase.html" with form=form_params row=True id='formParams' %}
+    </div>
 
     <h3 class="col-auto pr-1 mb-0">PREPROCESSING PIPELINE</h3>
     <button class="btn btn-outline-secondary" 

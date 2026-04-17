@@ -7,12 +7,16 @@
     {% for field in form_params %}
 
     <div class="form-group col-auto">
+        
+        {% if field.widget.attrs.show %}
         <div class="row mw-100 mx-1 align-content-center justify-content-between">
-            <label class="mb-0" for="{{field.id}}">{{ field.label }}</label>
+            <label class="mb-0" for="{{field.id}}">{{ field.label }} Show: {{field.show}}</label>
             <img src="{% static 'images/info-circle.svg' %}" id='{{field.id_for_label}}_help' data-toggle="tooltip"
                 data-placement="left" title="{{ field.help_text }}">
         </div>
+        {% endif %}
         {{ field }}
+
         <div class="invalid-tooltip">{{ field.help_text }}</div>
 
     </div>

@@ -1,15 +1,13 @@
 import os
 import sys
 from pathlib import Path
-from Smartscope.core.config import register_protocols, \
-    register_external_protocols, get_active_plugins_list, get_protocol_commands, PluginFactory, ProtocolsFactory
+from Smartscope.core.config import get_active_plugins_list, get_protocol_commands, PluginFactory, ProtocolsFactory
 # from Smartscope.core.ctf.ctf_fit_viewer import CTFFitViewer
 
 PROTOCOLS_MINIMAL_VERSION = '0.1'
 
 SCRATCH_DIR = Path(os.getenv('SCRATCH_DIR','/mnt/scratch/')).resolve()
-if not SCRATCH_DIR.exists():
-    raise ValueError(f'Scratch directory {SCRATCH_DIR} does not exist. Please create it and ensure it is writable.')
+assert SCRATCH_DIR.is_dir(), f'Scratch directory {SCRATCH_DIR} does not exist or is not a directory. Please create it and ensure it is writable.'
 
 SMARTSCOPE_CUSTOM_CONFIG = Path(os.getenv('CONFIG',''))
 SMARTSCOPE_DEFAULT_CONFIG = Path(__file__).parents[3] / 'config' / 'smartscope'
@@ -38,6 +36,7 @@ PROTOCOLS_FACTORY = ProtocolsFactory(SMARTSCOPE_DEFAULT_PROTOCOLS, SMARTSCOPE_CU
 PROTOCOL_COMMANDS_FACTORY = get_protocol_commands(EXTERNAL_PLUGINS_LIST)
 
 DEFAULT_PREPROCESSING_PIPELINE = [ SMARTSCOPE_CUSTOM_CONFIG / 'default_preprocessing.json', SMARTSCOPE_DEFAULT_CONFIG / 'default_preprocessing.json' ]
+NEXTPYP_PREPROCESSING_PIPELINE = [ SMARTSCOPE_CUSTOM_CONFIG / 'nextpyp_preprocessing.json', SMARTSCOPE_DEFAULT_CONFIG / 'nextpyp_preprocessing.json' ]
 
 FORCE_MDOC_TARGETING = eval(os.getenv('FORCE_MDOC_TARGETING','False'))
 SKIP_WEBSOCKET_DURING_DATACOLLECTION = eval(os.getenv('SKIP_WEBSOCKET_DURING_DATACOLLECTION','False'))
