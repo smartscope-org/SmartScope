@@ -22,9 +22,10 @@
             <li class="list-group-item p-1" data-bs-toggle="tooltip" title="View all sesssions">
                 <button id="sessionHistory"
                     class="btn btn-sm btn-outline-light"
+                    style="width: 32px; height: 32px; padding: 0; font-weight: 600; font-size: 14px;"
                     hx-get="{% url 'sessionHistory' %}"
                     hx-target="#main">
-                    <i class="bi bi-activity"></i>
+                    <span style="font-size: 16px; font-weight: 200;">S</span>
                 </button>
             </li>
         </ul>

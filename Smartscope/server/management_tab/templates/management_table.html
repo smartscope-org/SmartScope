@@ -1,82 +1,75 @@
-<div class="d-flex flex-row">
-    <div id="container">
-      <div id="data-grid" style="height: 600px; width: 100%" class="ag-theme-balham"></div>
-    </div>
-    <script type="text/javascript" charset="utf-8">
-      const numberFilterParams = {
-        filterParams: {
-          filterOptions: ["equals", "notEqual", "lessThan", "greaterThan"],
-          suppressAndOrCondition: true,
-        },
-      };
+<div class="d-flex flex-row p-2">
+  <div id="container" style="width: 100%">
+    <h4 class="pt-2 pb-1">Sessions history</h4>
+    <div id="data-grid" style="height: 600px; width: 100%" class="ag-theme-balham"></div>
+  </div>
+  <script type="text/javascript" charset="utf-8">
+    (function() {
+      // formats "2024-01-15T10:30:00Z" to "2024-01-15 10:30"
+    function formatDate(params) {
+        if (!params.value) return '';
+        var d = new Date(params.value);
+        return d.toISOString().slice(0, 16).replace('T', ' ');
+    }
 
-      var columnDefs = [
-        { headerName: "Name", field: "name", filter: "agTextColumnFilter" },
-        {
-          headerName: "Description",
-          field: "description",
-          filter: "agTextColumnFilter",
-        },
-        { headerName: "Category", field: "category", filter: "agTextColumnFilter" },
-        {
-          headerName: "Price",
-          field: "price",
-          filter: "agNumberColumnFilter",
-          ...numberFilterParams,
-        },
-        {
-          headerName: "Stock Quantity",
-          field: "stock_quantity",
-          filter: "agNumberColumnFilter",
-          ...numberFilterParams,
-        },
-        {
-          headerName: "Rating",
-          field: "rating",
-          filter: "agNumberColumnFilter",
-          ...numberFilterParams,
-        },
-      ];
+    // renders session name as a clickable link
+    function sessionLinkRenderer(params) {
+        if (!params.value) return '';
+        var data = params.data;
+        var url = `/smartscope/browse/?group=${data.group_id}&session_id=${data.session_id}&grid_id=${data.grid_id}`;
+        return `<a href="${url}" target="_blank">${params.value}</a>`;
+    }
+    var columnDefs = [
+        {headerName: "Session", field: "session_label", filter: "agTextColumnFilter", cellRenderer: sessionLinkRenderer},
+        {headerName: "Group", field: "group", filter: "agTextColumnFilter"},
+        {headerName: "StartTime", field: "creation_time", filter: "agTextColumnFilter", valueFormatter: formatDate},
+        {headerName: "EndTime", field: "last_update", filter: "agTextColumnFilter", valueFormatter: formatDate},
+        {headerName: "Microscope", field: "microscope", filter: "agTextColumnFilter"},
+        {headerName: "User", field: "user", filter: "agTextColumnFilter"},
+        {headerName: "SessionType", field: "session_type", filter: "agTextColumnFilter"},
+    ];
 
-      var gridOptions = {
+    var gridOptions = {
         columnDefs: columnDefs,
         defaultColDef: {
-          filterParams: {
-            suppressAndOrCondition: true,
-          },
+            filterParams: {suppressAndOrCondition: true},
+            resizable: true,
+            enableCellTextSelection: true,  // allows copying text from cells
         },
-        enableServerSideSorting: true,
-        enableServerSideFilter: true,
+        enableCellTextSelection: true,  // allows copying text from cells
         rowModelType: "infinite",
         cacheBlockSize: 100,
         maxBlocksInCache: 10,
-      };
+        datasource: {
+            getRows: function(params) {
+                var filtering = encodeURIComponent(JSON.stringify(params.filterModel));
+                var sorting = encodeURIComponent(JSON.stringify(params.sortModel));
+                var url = `/sessions_history/sessions/?startRow=${params.startRow}&endRow=${params.endRow}&filter=${filtering}&sort=${sorting}`;
+                fetch(url)
+                    .then((response) => response.json())
+                    .then((data) => {
+                        params.successCallback(data.rows, data.totalRows);
+                    })
+                    .catch(() => {
+                        params.failCallback();
+                    });
+            }
+        }
+    };
 
-      var dataSource = {
-        getRows: function (params) {
-          var filtering = encodeURIComponent(JSON.stringify(params.filterModel));
-          var sorting = encodeURIComponent(JSON.stringify(params.sortModel));
-
-          var startRow = params.startRow;
-          var endRow = params.endRow;
-
-          var url = `/products?startRow=${startRow}&endRow=${endRow}&filter=${filtering}&sort=${sorting}`;
-
-          fetch(url)
-            .then((response) => response.json())
-            .then((data) => {
-            params.successCallback(data.rows, data.totalRows);
-          })
-            .catch((err) => {
-            params.failCallback();
-          });
-        },
-      };
-
-      var gridDiv = document.querySelector("#data-grid");
-
-      new agGrid.Grid(gridDiv, gridOptions);
-      gridOptions.api.setDatasource(dataSource);
-      gridOptions.api.sizeColumnsToFit();
-    </script>
+    var gridDiv = document.querySelector("#data-grid");
+    var gridApi = agGrid.createGrid(gridDiv, gridOptions);
+    setTimeout(() => gridApi.sizeColumnsToFit(), 100);
+    })();
+  </script>
+  <style>
+    .ag-theme-balham a {
+        color: #222;
+        text-decoration: none;
+    }
+    .ag-theme-balham a:hover {
+        color: #555;
+        text-decoration: underline;
+    }
+  </style>
 </div>

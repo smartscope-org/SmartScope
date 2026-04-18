@@ -3,24 +3,35 @@ import json
 from django.shortcuts import render
 from django.views.generic.list import ListView
 from django.http import JsonResponse
-from django.db.models import Q
+from django.db.models import Q, Prefetch, Avg, Max, Min
 
-from core.models import Product
+from rest_framework.views import APIView
+from rest_framework.response import Response
+from rest_framework import permissions
+from rest_framework.renderers import TemplateHTMLRenderer
+
+from .serializers import SessionSerializer
+from Smartscope.core.models.screening_session import ScreeningSession
+from Smartscope.core.models.grid import AutoloaderGrid
+# from core.models import Product
 
 def table_view(request):
     return render(request, "management_table.html")
 
 
-class ProductListView(ListView):
-    model = Product
+class SessionsListView(APIView):
+    # permission_classes = [permissions.IsAuthenticated]
 
     def get_queryset(self):
-        """
-        Convert AgGrid filter and sort objects into a Django query.
-        An example filter:
-            {"category": {"type": "contains", "filter": "electronics"}}
-        """
-        queryset = super().get_queryset()
+        queryset = (ScreeningSession.objects
+                    .select_related(
+                        "group", "microscope_id", "user"
+                    ).annotate(
+                        grid_id=Min('autoloadergrid__grid_id'),
+                        last_update=Max('autoloadergrid__last_update'),
+                        avg_holes_per_square=Avg('autoloadergrid__params_id_id__holes_per_square'),
+                    ).order_by("-creation_time")
+                )
 
         filter_params = self.request.GET.get("filter", None)
         if filter_params:
@@ -32,52 +43,36 @@ class ProductListView(ListView):
                 filter_value = filter_info.get("filter")
 
                 if filter_type == "contains":
-                    lookup = f"{key}__icontains"
-                    q_objects &= Q(**{lookup: filter_value})
+                    q_objects &= Q(**{f"{key}__icontains": filter_value})
                 elif filter_type == "equals":
-                    lookup = f"{key}__exact"
-                    q_objects &= Q(**{lookup: filter_value})
+                    q_objects &= Q(**{f"{key}__exact": filter_value})
                 elif filter_type == "notEqual":
-                    lookup = f"{key}__exact"
-                    q_objects &= ~Q(**{lookup: filter_value})
+                    q_objects &= ~Q(**{f"{key}__exact": filter_value})
                 elif filter_type == "greaterThan":
-                    lookup = f"{key}__gt"
-                    q_objects &= Q(**{lookup: filter_value})
+                    q_objects &= Q(**{f"{key}__gt": filter_value})
                 elif filter_type == "lessThan":
-                    lookup = f"{key}__lt"
-                    q_objects &= Q(**{lookup: filter_value})
+                    q_objects &= Q(**{f"{key}__lt": filter_value})
 
             queryset = queryset.filter(q_objects)
 
         sort_params = self.request.GET.get("sort", None)
         if sort_params:
-            sort_objects = json.loads(sort_params)
             sort_fields = []
-            for sort_object in sort_objects:
-                col_id = sort_object["colId"]
-                sort_order = sort_object["sort"]
-                if sort_order == "asc":
-                    sort_fields.append(col_id)
-                elif sort_order == "desc":
-                    sort_fields.append(f"-{col_id}")
-
+            for s in json.loads(sort_params):
+                sort_fields.append(s["colId"] if s["sort"] == "asc" else f"-{s['colId']}")
             if sort_fields:
                 queryset = queryset.order_by(*sort_fields)
-        return queryset
 
-    def get(self, request, *args, **kwargs):
+        return queryset
+    
+    def get(self,request, *args, **kwargs):
         start_row = int(request.GET.get("startRow", 0))
         end_row = int(request.GET.get("endRow", 100))
 
         queryset = self.get_queryset()
-
         total_rows = queryset.count()
-        queryset = queryset[start_row:end_row]
+        page = queryset[start_row:end_row]
 
-        products = list(
-            queryset.values(
-                "name", "description", "category", "price", "stock_quantity", "rating"
-            )
-        )
-
-        return JsonResponse({"rows": products, "totalRows": total_rows})
+        serializer = SessionSerializer(page, many=True)
+        return Response({"rows": serializer.data, "totalRows": total_rows})
+    
