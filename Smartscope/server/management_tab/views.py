@@ -1,4 +1,5 @@
 import json
+import logging
 
 from django.shortcuts import render
 from django.views.generic.list import ListView
@@ -15,6 +16,16 @@ from Smartscope.core.models.screening_session import ScreeningSession
 from Smartscope.core.models.grid import AutoloaderGrid
 # from core.models import Product
 
+
+logger = logging.getLogger(__name__)
+
+
+FILTER_FIELD_MAP = {
+    "group": "group__name",
+    "microscope": "microscope_id__name",
+    "user": "user__username",
+}
+
 def table_view(request):
     return render(request, "management_table.html")
 
@@ -27,39 +38,52 @@ class SessionsListView(APIView):
                     .select_related(
                         "group", "microscope_id", "user"
                     ).annotate(
-                        grid_id=Min('autoloadergrid__grid_id'),
-                        last_update=Max('autoloadergrid__last_update'),
-                        avg_holes_per_square=Avg('autoloadergrid__params_id_id__holes_per_square'),
+                        grid_id=Min("autoloadergrid__grid_id"),
+                        last_update=Max("autoloadergrid__last_update"),
+                        avg_holes_per_square=Avg("autoloadergrid__params_id_id__holes_per_square"),
                     ).order_by("-creation_time")
                 )
 
         filter_params = self.request.GET.get("filter", None)
         if filter_params:
             filters = json.loads(filter_params)
-            q_objects = Q()
+            q_objects = []
 
             for key, filter_info in filters.items():
                 filter_type = filter_info.get("type")
                 filter_value = filter_info.get("filter")
+                print(f"key - {key}, filter - {filter_type}, value - {filter_value}")
 
+                if filter_value is None:
+                    continue
+
+                if key == "session_type":
+                    if filter_value in "collection":
+                        q_objects.append(Q(**{f"avg_holes_per_square__exact": 0}))
+                    else:
+                        q_objects.append(~Q(**{f"avg_holes_per_square__exact": 0}))
+                    continue
+                if  key == "session_label": 
+                    q_objects.append(Q(**{f"session__icontains": filter_value}) | Q(**{f"date__icontains": filter_value}))
+                    continue
+
+                db_field = FILTER_FIELD_MAP.get(key, key)
                 if filter_type == "contains":
-                    q_objects &= Q(**{f"{key}__icontains": filter_value})
+                    q_objects.append(Q(**{f"{db_field}__icontains": filter_value}))
                 elif filter_type == "equals":
-                    q_objects &= Q(**{f"{key}__exact": filter_value})
-                elif filter_type == "notEqual":
-                    q_objects &= ~Q(**{f"{key}__exact": filter_value})
+                    q_objects.append(Q(**{f"{db_field}__exact": filter_value}))
                 elif filter_type == "greaterThan":
-                    q_objects &= Q(**{f"{key}__gt": filter_value})
+                    q_objects.append(Q(**{f"{db_field}__gt": filter_value}))
                 elif filter_type == "lessThan":
-                    q_objects &= Q(**{f"{key}__lt": filter_value})
+                    q_objects.append(Q(**{f"{db_field}__lt": filter_value}))
 
-            queryset = queryset.filter(q_objects)
+            queryset = queryset.filter(*q_objects)
 
         sort_params = self.request.GET.get("sort", None)
         if sort_params:
             sort_fields = []
             for s in json.loads(sort_params):
-                sort_fields.append(s["colId"] if s["sort"] == "asc" else f"-{s['colId']}")
+                sort_fields.append(s["colId"] if s["sort"] == "asc" else f"-{s["colId"]}")
             if sort_fields:
                 queryset = queryset.order_by(*sort_fields)
 
@@ -68,10 +92,18 @@ class SessionsListView(APIView):
     def get(self,request, *args, **kwargs):
         start_row = int(request.GET.get("startRow", 0))
         end_row = int(request.GET.get("endRow", 100))
+        user = request.user
+        logger.debug(f"{request.user}, {user.groups.values_list('id', flat=True)}")
+        # print(user, user.groups)
 
         queryset = self.get_queryset()
-        total_rows = queryset.count()
-        page = queryset[start_row:end_row]
+        if user.is_staff:
+            total_rows = queryset.count()
+            page = queryset[start_row:end_row]
+        else:
+            subset = queryset.filter(group__in=user.groups.values_list("name", flat=True))
+            total_rows = subset.count()
+            page = subset[start_row:end_row]
 
         serializer = SessionSerializer(page, many=True)
         return Response({"rows": serializer.data, "totalRows": total_rows})

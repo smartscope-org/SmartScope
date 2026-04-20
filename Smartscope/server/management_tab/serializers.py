@@ -19,7 +19,7 @@ class SessionSerializer(serializers.ModelSerializer):
         avg = obj.avg_holes_per_square
         if avg is None:
             return None
-        return "screening" if avg == 0 else "collection"
+        return "collection" if avg == 0 else "screening"
 
     class Meta:
         model = ScreeningSession
