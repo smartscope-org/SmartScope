@@ -741,12 +741,11 @@ class SerialemInterface(MicroscopeInterface):
     
     def set_medium_mag_size_mini_montage(self, hole_pitch_um:float=2.5):
         x_size_um, y_size_um = self.check_medium_mag_size(hole_pitch_um)
-        min_size_um = min(x_size_um, y_size_um)
-        if min_size_um > hole_pitch_um * 3:
-            self.logger.warning(f'Medium mag image size is {x_size_um:.2f} x {y_size_um:.2f} um, which may be too large for reliable for geometry calculation.')
-        num_tiles_x = math.ceil(x_size_um / 7)
-        num_tiles_y = math.ceil(y_size_um / 7)
-        self.logger.info(f'Medium mag image size is {x_size_um:.2f} x {y_size_um:.2f} um. This corresponds to {num_tiles_x} x {num_tiles_y} tiles of 7 um for hole detection.')
+        size_to_set_um = hole_pitch_um * 4
+        num_tiles_x = max(1, math.ceil(size_to_set_um / x_size_um))
+        num_tiles_y = max(1, math.ceil(size_to_set_um / y_size_um))
+        self.logger.info(f'Medium mag FoV is {x_size_um:.2f} x {y_size_um:.2f} um. Mini montage size: {num_tiles_x} x {num_tiles_y} tiles.')
+        return num_tiles_x, num_tiles_y
 
 
 
