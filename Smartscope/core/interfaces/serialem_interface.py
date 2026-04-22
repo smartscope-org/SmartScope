@@ -295,12 +295,9 @@ class SerialemInterface(MicroscopeInterface):
             try:
                 buffer = sem.bufferImage(buffer)
                 break
-            except sem.PyBufferImage:
+            except Exception as e:
                 self.logger.error(f"Error getting the buffer image. Trying again in {delay} seconds.")
-                sem.Delay(delay)
-                delay +=1
-            except sem.SEMerror as e:
-                self.logger.error(f"SEM error getting the buffer image. Trying again in {delay} seconds.")
+                self.logger.error(str(e))
                 sem.Delay(delay)
                 delay +=1
         self.logger.info(f"Downloaded the buffer image successfully.")
