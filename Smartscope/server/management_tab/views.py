@@ -4,7 +4,7 @@ import logging
 from django.shortcuts import render
 from django.views.generic.list import ListView
 from django.http import JsonResponse
-from django.db.models import Q, Prefetch, Avg, Max, Min
+from django.db.models import Q, Prefetch, Avg, Max, Min, Count
 
 from rest_framework.views import APIView
 from rest_framework.response import Response
@@ -38,9 +38,12 @@ class SessionsListView(APIView):
                     .select_related(
                         "group", "microscope_id", "user"
                     ).annotate(
+                        grid_count=Count("autoloadergrid__grid_id"),
                         grid_id=Min("autoloadergrid__grid_id"),
                         last_update=Max("autoloadergrid__last_update"),
                         avg_holes_per_square=Avg("autoloadergrid__params_id_id__holes_per_square"),
+                        grid_good=Count("autoloadergrid__quality", filter=Q(autoloadergrid__quality='good')),
+                        grid_bad=Count("autoloadergrid__quality", filter=Q(autoloadergrid__quality='bad'))
                     ).order_by("-creation_time")
                 )
 
@@ -66,6 +69,8 @@ class SessionsListView(APIView):
                 if  key == "session_label": 
                     q_objects.append(Q(**{f"session__icontains": filter_value}) | Q(**{f"date__icontains": filter_value}))
                     continue
+                if key in ["grid_count", "grid_bad", "grid_good"]:
+                    filter_value = int(filter_value)
 
                 db_field = FILTER_FIELD_MAP.get(key, key)
                 if filter_type == "contains":

@@ -9,6 +9,9 @@ class SessionSerializer(serializers.ModelSerializer):
     user = serializers.CharField(source="user.username", read_only=True)
     last_update = serializers.DateTimeField(read_only=True)
     grid_id = serializers.CharField(read_only=True)
+    grid_count = serializers.IntegerField(read_only=True)
+    grid_good = serializers.IntegerField(read_only=True)
+    grid_bad = serializers.IntegerField(read_only=True)
     session_type = serializers.SerializerMethodField()
     session_label = serializers.SerializerMethodField()
 
@@ -33,5 +36,8 @@ class SessionSerializer(serializers.ModelSerializer):
             "creation_time",
             "last_update",
             "session_type",
-            "grid_id"
+            "grid_id",
+            "grid_count",
+            "grid_good",
+            "grid_bad"
         ]

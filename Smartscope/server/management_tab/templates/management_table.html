@@ -29,6 +29,12 @@
         suppressAndOrCondition: true,
         filterOptions: ["equals", "greaterThan", "lessThan"],
     };
+
+    var numberFilter = {
+        suppressAndOrCondition: true,
+        filterOptions: ["equals", "greaterThan", "lessThan"],
+    };
+
     var columnDefs = [
         {headerName: "Session", field: "session_label", filter: "agTextColumnFilter", cellRenderer: sessionLinkRenderer},
         {headerName: "Group", field: "group", filter: "agTextColumnFilter", filterParams: textFilter},
@@ -37,6 +43,9 @@
         {headerName: "Microscope", field: "microscope", filter: "agTextColumnFilter", filterParams: textFilter},
         {headerName: "User", field: "user", filter: "agTextColumnFilter"},
         {headerName: "SessionType", field: "session_type", filter: "agTextColumnFilter"},
+        {headerName: "#Grids", field: "grid_count", filter: "agNumberColumnFilter", filterParams: numberFilter},
+        {headerName: "#Grids.Good", field: "grid_good", filter: "agNumberColumnFilter", filterParams: numberFilter},
+        {headerName: "#Grids.Bad", field: "grid_bad", filter: "agNumberColumnFilter", filterParams: numberFilter},
     ];
 
     var gridOptions = {
