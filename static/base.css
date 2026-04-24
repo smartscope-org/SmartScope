@@ -150,3 +150,15 @@ body{
 .htmx-request.my-indicator{
   display:inline-block;
 }
+
+.custom-scroll {
+  max-height: 25vh;
+  overflow: auto;
+  scrollbar-width: thin;
+  scrollbar-color: #eee transparent;
+}
+
+.custom-scroll::-webkit-scrollbar { width: 6px; }
+.custom-scroll::-webkit-scrollbar-track { background: transparent; border-radius: 4px; }
+.custom-scroll::-webkit-scrollbar-thumb { background: #eee; border-radius: 4px; }
+.custom-scroll::-webkit-scrollbar-thumb:hover { background: var(--bs-secondary); }
