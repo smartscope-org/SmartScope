@@ -14,7 +14,7 @@ from Smartscope.core.selectors import selector_wrapper
 from Smartscope.core.models import HoleModel
 from Smartscope.core.status import status
 from Smartscope.core.protocols import get_or_set_protocol
-from Smartscope.core.db_manipulations import update, add_targets, group_holes_from_square_for_BIS, set_or_update_refined_finder
+from Smartscope.core.db_manipulations import update, add_targets, add_fiducials, group_holes_from_square_for_BIS, set_or_update_refined_finder
 from Smartscope.core.selection.strategies import TARGET_SELECTION_STRATEGIES
 from Smartscope.lib.image_manipulations import export_as_png
 from Smartscope.lib.image.montage import Montage
@@ -53,6 +53,9 @@ class RunSquare:
             set_or_update_refined_finder(square.pk, t.stage_x, t.stage_y, t.stage_z)
             targets, finder_method, classifier_method, _ = find_targets(montage, protocol.finders)
             holes = add_targets(grid, square, targets, HoleModel, finder_method, classifier_method)
+            if protocol.fiducial_finders:
+                fid_targets, fid_finder, fid_classifier, _ = find_targets(montage, protocol.fiducial_finders)
+                add_fiducials(grid, fid_targets, fid_finder, fid_classifier)
             square = update(square,
                 status=status.PROCESSED,
                 shape_x=montage.shape_x,

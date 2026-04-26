@@ -18,4 +18,6 @@ from .screening_session import ScreeningSession
 from .square import SquareModel
 from .target import Target
 from .target_label import Finder, Classifier, Selector
+from .focus_position import FocusPosition
+from .fiducial_area import FiducialArea
 
