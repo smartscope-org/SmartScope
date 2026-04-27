@@ -12,17 +12,11 @@ class SessionSerializer(serializers.ModelSerializer):
     grid_count = serializers.IntegerField(read_only=True)
     grid_good = serializers.IntegerField(read_only=True)
     grid_bad = serializers.IntegerField(read_only=True)
-    session_type = serializers.SerializerMethodField()
+    session_type = serializers.CharField()
     session_label = serializers.SerializerMethodField()
 
     def get_session_label(self, obj):
         return f"{obj.date}_{obj.session}"
-
-    def get_session_type(self, obj):
-        avg = obj.avg_holes_per_square
-        if avg is None:
-            return None
-        return "collection" if avg == 0 else "screening"
 
     class Meta:
         model = ScreeningSession

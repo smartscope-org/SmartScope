@@ -4,7 +4,7 @@ import logging
 from django.shortcuts import render
 from django.views.generic.list import ListView
 from django.http import JsonResponse
-from django.db.models import Q, Prefetch, Avg, Max, Min, Count
+from django.db.models import Q, Prefetch, Avg, Max, Min, Count, Case, When, Value, CharField
 
 from rest_framework.views import APIView
 from rest_framework.response import Response
@@ -48,6 +48,13 @@ class SessionsListView(APIView):
                         avg_holes_per_square=Avg("autoloadergrid__params_id_id__holes_per_square"),
                         grid_good=Count("autoloadergrid__quality", filter=Q(autoloadergrid__quality='good')),
                         grid_bad=Count("autoloadergrid__quality", filter=Q(autoloadergrid__quality='bad'))
+                    ).annotate(
+                        session_type=Case(
+                            When(avg_holes_per_square=0, then=Value('collection')),
+                            When(avg_holes_per_square__isnull=True, then=Value('unknown')),
+                            default=Value('screening'),
+                            output_field=CharField()
+                        )
                     ).order_by("-creation_time")
                 )
 
@@ -64,12 +71,6 @@ class SessionsListView(APIView):
                 if filter_value is None:
                     continue
 
-                if key == "session_type":
-                    if filter_value in "collection":
-                        q_objects.append(Q(**{f"avg_holes_per_square__exact": 0}))
-                    else:
-                        q_objects.append(~Q(**{f"avg_holes_per_square__exact": 0}))
-                    continue
                 if  key == "session_label": 
                     q_objects.append(Q(**{f"session__icontains": filter_value}) | Q(**{f"date__icontains": filter_value}))
                     continue
