@@ -15,7 +15,8 @@
                 <button id="microscopeActivity"
                     class="btn btn-sm btn-outline-light"
                     hx-get="{% url 'microscopeStatus' %}"
-                    hx-target="#main">
+                    hx-target="#main"
+                    hx-push-url="true">
                     <i class="bi bi-activity"></i>
                 </button>
             </li>
@@ -24,7 +25,8 @@
                     class="btn btn-sm btn-outline-light"
                     style="width: 32px; height: 32px; padding: 0; font-weight: 600; font-size: 14px;"
                     hx-get="{% url 'sessionHistory' %}"
-                    hx-target="#main">
+                    hx-target="#main"
+                    hx-push-url="true">
                     <span style="font-size: 16px; font-weight: 200;">S</span>
                 </button>
             </li>
@@ -105,7 +107,11 @@
         <div id="sidebar-resizer" 
             style="width: 4px; cursor: col-resize; background: #444; flex-shrink: 0;"></div>
         <div id='main' class="d-flex flex-column" 
-            style="flex: 1; background-color: #f5f5f5; overflow-y: scroll;"></div>
+            style="flex: 1; background-color: #f5f5f5; overflow-y: scroll;">
+            {% if initial_partial %}
+                {% include initial_partial %}
+            {% endif %}
+        </div>
     </div>
     
 {% endblock content %}

@@ -27,7 +27,11 @@ FILTER_FIELD_MAP = {
 }
 
 def table_view(request):
-    return render(request, "management_table.html")
+    if request.headers.get('HX-Request'):
+        return render(request, "management_table.html")
+    return render(request, 'autoscreenViewer/auto_screen_viewer.html', {
+        'initial_partial': 'management_table.html',
+    })
 
 
 class SessionsListView(APIView):
@@ -88,7 +92,11 @@ class SessionsListView(APIView):
         if sort_params:
             sort_fields = []
             for s in json.loads(sort_params):
-                sort_fields.append(s["colId"] if s["sort"] == "asc" else f"-{s["colId"]}")
+                key = FILTER_FIELD_MAP.get(s["colId"], s["colId"])
+                if key == "session_label":
+                    sort_fields.append("date" if s["sort"] == "asc" else f"-date")
+                    key = "session"
+                sort_fields.append(key if s["sort"] == "asc" else f"-{key}")
             if sort_fields:
                 queryset = queryset.order_by(*sort_fields)
 

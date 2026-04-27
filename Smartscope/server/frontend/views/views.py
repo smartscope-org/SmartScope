@@ -388,6 +388,7 @@ class ProtocolView(TemplateView):
         
 class MicroscopeStatus(TemplateView):
     template_name= "autoscreenViewer/microscopes_status.html"
+    template_full_name="autoscreenViewer/auto_screen_viewer.html"
 
     def get_context_data(self,*args, **kwargs):
         context = super().get_context_data(**kwargs)
@@ -397,7 +398,10 @@ class MicroscopeStatus(TemplateView):
     
     def get(self,request, *args, **kwargs):
         context = self.get_context_data(*args, **kwargs)
-        return render(request,self.template_name, context)
+        if request.headers.get('HX-Request'):
+            return render(request, self.template_name, context)
+        return render(request, self.template_full_name, {'initial_partial': self.template_name, **context})
+
     
 class PreprocessingPipeline(TemplateView):
     template_name= "smartscopeSetup/preprocessing/preprocessing_pipeline.html"
