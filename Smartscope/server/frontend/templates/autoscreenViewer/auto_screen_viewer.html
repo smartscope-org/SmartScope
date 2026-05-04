@@ -32,7 +32,7 @@
             </li>
         </ul>
         <ul class="list-group px-0">
-            <li class="list-group-item p-1" data-bs-toggle="tooltip" title="logout">
+            <li class="list-group-item p-1" data-bs-toggle="tooltip" title="Logout">
                 <form method="post" action="{% url 'logout' %}">
                     {% csrf_token %}
                     <button id="logout" type="submit" class="btn btn-sm btn-outline-danger">
