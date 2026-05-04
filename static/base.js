@@ -16,7 +16,7 @@ function delay(fn, ms) {
   }
 
 function selected() {
-    $('.active', '#sidebar-container').removeClass('active');
+    $('.list-group-item.active', '#sidebar-container').removeClass('active');
     for (const [key, val] of Object.entries(currentState)) {
         // console.log(`${key}, ${val}`)
         if (['group', 'session_id', 'grid_id'].includes(key) && val !== undefined) {
@@ -279,6 +279,7 @@ async function loadReport(requestfield = null, id = null, push = true) {
 
     await reportMain()
     websocketMain()
+    console.trace('htmx.process called here')
     htmx.process(htmx.find('#main'))
 }
 

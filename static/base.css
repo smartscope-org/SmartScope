@@ -119,12 +119,35 @@
   font-size: 16pt;
 }
 
-.quality-good {
-  color: green;
+.quality-controls {
+    display: flex;
+    gap: 4px;
+    margin-left: auto;
+    align-items: center;
+    flex-shrink: 0;
 }
-.quality-bad {
-  color: red;
+
+.quality-btn {
+    background: none;
+    border: none;
+    padding: 2px 4px;
+    cursor: pointer;
+    border-radius: 4px;
+    line-height: 1;
+    color: #6c757d;
+    font-size: 1rem;
+    transition: color 0.15s, background-color 0.15s;
 }
+
+.quality-btn:hover {
+    background-color: rgba(255, 255, 255, 0.1);
+}
+
+.quality-btn.tick:hover { color: #5cb85c; }
+.quality-btn.cross:hover { color: #d9534f; }
+
+.quality-btn.tick.active  { color: #28a745; }
+.quality-btn.cross.active { color: #dc3545; }
 
 body{
   max-width:100%;
