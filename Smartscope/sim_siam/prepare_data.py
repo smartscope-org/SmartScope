@@ -79,7 +79,7 @@ def sim_siam_prepare_data(mag_level:Literal['square','hole'],grid_id_list:List[s
         radius = extract_size_pixel // 2
         for target in item.targets:
             image_file = extract_path / f'{target.pk}.jpg'
-            file_list.append((image_file, Path('images', image_file.name)))
+            file_list.append((image_file, Path('images', item.pk, image_file.name)))
             if image_file.is_file():
                 skipped += 1
                 continue

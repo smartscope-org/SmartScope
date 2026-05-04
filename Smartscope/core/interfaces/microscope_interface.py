@@ -74,6 +74,10 @@ class MicroscopeInterface(ABC):
         pass
 
     @abstractmethod
+    def eucentric_height_after_distance(self, tilt_to:int=10, increments:int=-5, max_movement:int=200, distance_threshold:int=400):
+        pass
+
+    @abstractmethod
     def call(self, script):
         pass
 
