@@ -1,5 +1,6 @@
 $(document).ready(async function () {
 
+    initTooltips()
     checkState()
     await loadSidePanelState()
     pushState()
@@ -12,6 +13,7 @@ $(document).ready(async function () {
 
 // ---- Re-init on HTMX history restore (back/forward) ----
 document.addEventListener('htmx:historyRestore', async function() {
+    initTooltips()
     checkState()
     await loadSidePanelState()
     pushState()
@@ -22,29 +24,7 @@ document.addEventListener('htmx:historyRestore', async function() {
 
 function initBrowser() {
     // ---- Sidebar collapse ----
-    $('#sidebarCollapse').off('click').on('click', function () {
-        // console.log($(this).attr('aria-expanded'), $(this).attr('aria-expanded') == "false")
-        const sidebarNav = document.querySelector('#sidebarNav')
-        const isExpanded = parseInt($('#sidebar-container').css('width')) > 0
-        console.log('isExpanded:', isExpanded)
-        let tooltip = $(this).parent().attr('aria-describedby')
-        console.log(tooltip,  $(this).parent())
-        $(this).parent().removeAttr('aria-describedby')
-        $(`#${tooltip}`).remove()
-        if (isExpanded) {
-            console.log('>>> collapsing')
-            bootstrap.Collapse.getOrCreateInstance(sidebarNav).hide()
-            $('#sidebar-container').css({'width': '0', 'min-width': '0'})
-            $('#sidebar-resizer').hide()
-            $(this).attr('aria-expanded', 'false')
-        } else {
-            bootstrap.Collapse.getOrCreateInstance(sidebarNav).show()
-            console.log('>>> expanding')
-            $('#sidebar-container').css({'width': '200px', 'min-width': '100px'})
-            $('#sidebar-resizer').show()
-            $(this).attr('aria-expanded', 'true')
-        }
-    })
+    initSidebarCollapse()
 
     // ---- Sidebar search ----
     $('#sidebar-container').off('input').on('input', '.sidebar-search', function() {
@@ -72,22 +52,32 @@ function initBrowser() {
     })
 
     // ---- Section height resizers ----
-    $(document).off('mousedown.sectionResize', '.section-resizer').on('mousedown', '.section-resizer', function(e) {
-        const $section = $(this).prev()
-        const $list = $section.find('#sidebarGroups, #sidebarSessions, #sidebarGrids')
+    $(document).off('mousedown.sectionResize', '.section-resizer')
+                .on('mousedown.sectionResize', '.section-resizer', function(e) {
+        const $resizer = $(this)
+        const $above = $resizer.prev('.sidebar-section')
+        const $below = $resizer.next('.sidebar-section')
         const startY = e.clientY
-        const startHeight = $section.outerHeight()
+        const startAboveHeight = $above.outerHeight()
+        const startBelowHeight = $below.outerHeight()
+        const minHeight = 120
 
         $(document).on('mousemove.sectionResize', function(e) {
-            const newHeight = startHeight + (e.clientY - startY)
-            $section.css({
-                'max-height': newHeight + 'px',
-                'height': newHeight + 'px'
-            })
-            $list.css({
-                'max-height': (newHeight - 80) + 'px',
-                'height': 'auto'
-            })
+            const delta = e.clientY - startY
+            const newAbove = startAboveHeight + delta
+            const newBelow = startBelowHeight - delta
+
+            // Respect minimum height for both neighbors
+            if (newAbove < minHeight || newBelow < minHeight) return
+
+            $above.css({ 'flex': 'none', 'height': newAbove + 'px' })
+            $below.css({ 'flex': 'none', 'height': newBelow + 'px' })
+
+            // Sync scroll areas
+            $above.find('#sidebarGroups, #sidebarSessions, #sidebarGrids')
+                .css('max-height', getScrollMaxHeight($above, newAbove) + 'px') 
+            $below.find('#sidebarGroups, #sidebarSessions, #sidebarGrids')
+                .css('max-height', getScrollMaxHeight($below, newBelow) + 'px')
         })
 
         $(document).on('mouseup.sectionResize', function() {
@@ -114,6 +104,56 @@ function initBrowser() {
     })
 }
 
+function initTooltips() {
+    document.querySelectorAll('[data-bs-toggle="tooltip"]').forEach(el => {
+        bootstrap.Tooltip.getInstance(el)?.dispose()
+    })
+    document.querySelectorAll('[data-bs-toggle="tooltip"]').forEach(el => {
+        new bootstrap.Tooltip(el, { trigger: 'hover', container: 'body' })
+    })
+}
+
+function hideAllTooltips() {
+    document.querySelectorAll('[data-bs-toggle="tooltip"]').forEach(el => {
+        bootstrap.Tooltip.getInstance(el)?.hide()
+    })
+}
+
+function initSidebarCollapse() {
+  $('#sidebarCollapse').off('click.collapse').on('click.collapse', function () {
+    hideAllTooltips()
+    const isExpanded = parseInt($('#sidebar-container').css('width')) > 0
+    setSidebarOpen(!isExpanded)
+  })
+}
+
+function collapseSidebar() {
+  const isExpanded = $(sidebarNav).hasClass('show');
+  if (isExpanded) {
+    hideAllTooltips()
+    setSidebarOpen(false)
+  }
+}
+
+function setSidebarOpen(open) {
+    const sidebarNav = document.querySelector('#sidebarNav')
+    if (open) {
+        bootstrap.Collapse.getOrCreateInstance(sidebarNav).show()
+        $('#sidebar-container').css({ 'width': '200px', 'min-width': '100px' })
+        $('#sidebar-resizer').show()
+    } else {
+        bootstrap.Collapse.getOrCreateInstance(sidebarNav).hide()
+        $('#sidebar-container').css({ 'width': '0', 'min-width': '0' })
+        $('#sidebar-resizer').hide()
+    }
+}
+
+function getScrollMaxHeight($section, sectionHeight) {
+    const titleHeight = $section.find('.sidebar-separator-title').outerHeight(true) || 0
+    const searchHeight = $section.find('.position-relative:visible').outerHeight(true) || 0
+    return Math.max(0, sectionHeight - titleHeight - searchHeight)
+}
+
 function toggleCheckboxLabel() {
     const width = $('#sidebar-container').width()
     const $label = $('label[for="filterOwnSessions"]')
@@ -124,21 +164,5 @@ function toggleCheckboxLabel() {
     } else {
         $label.show()
         bootstrap.Tooltip.getOrCreateInstance($checkbox[0]).disable()
-    }
-}
-
-function collapseSidebar() {
-    const sidebarNav = document.querySelector('#sidebarNav')
-    const isExpanded = $(sidebarNav).hasClass('show')
-    if (isExpanded) {
-        const tooltip = $(this).parent().attr('aria-describedby')
-        $(this).parent().removeAttr('aria-describedby')
-        $(`#${tooltip}`).remove()
-
-        const toggleBtn = $('#sidebarCollapse')
-        bootstrap.Collapse.getOrCreateInstance(sidebarNav).hide()
-        toggleBtn.attr('aria-expanded', 'false')
-        $('#sidebar-container').css({'width': '0', 'min-width': '0'})
-        $('#sidebar-resizer').hide()
     }
 }
