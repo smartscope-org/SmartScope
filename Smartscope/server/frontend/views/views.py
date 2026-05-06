@@ -19,6 +19,7 @@ from django.utils.timezone import now
 
 from ..forms import *
 from Smartscope.core.db_manipulations import viewer_only
+from Smartscope.core.utils.plot_utils import plot_histogram
 from Smartscope.core.stats import get_hole_count
 from Smartscope.core.protocols import get_or_set_protocol
 from Smartscope.core.grid.grid_io import GridIO
@@ -494,52 +495,23 @@ class CollectionStatsView(TemplateView):
     def ctfGraph(self,grid_id):
         ### NEED TO MOVE THE GRAPHING LOGIC OUTSIDE OF HERE
         all_data = list(HighMagModel.objects.filter(status='completed', grid_id=grid_id).order_by('completion_time').values_list('ctffit', flat=True)) # replace with your own data source
-        all_data = list(map(lambda x: 15 if x > 15 else x, all_data))
-        latest_data = all_data[-100:]
-        hist_all = go.Histogram(x=all_data, nbinsx=30, name='All')
-        hist_latest = go.Histogram(x=latest_data, nbinsx=30, name='Latest 100')
-
-
-        layout = go.Layout(
-                            title='CTF fit distribution',
-                            xaxis=dict(
-                                title='CTF fit resolution (Angstrom)',
-                            ),
-                            yaxis=dict(
-                                title='Number of exposures'
-                            ),
-                            showlegend=True,
-                        )
-        fig = go.Figure(data=[hist_all,hist_latest],layout=layout,)
-
-        
-        graph = fig.to_html(full_html=False)
+        graph = plot_histogram(
+            all_data,
+            15,
+            'CTF fit distribution',
+            'CTF fit resolution (Angstrom)'
+        )
         return graph
     
     def ice_thickness_graph(self,grid_id):
         ### NEED TO MOVE THE GRAPHING LOGIC OUTSIDE OF HERE
         all_data = list(HighMagModel.objects.filter(status='completed', grid_id=grid_id, ice_thickness__isnull=False).order_by('completion_time').values_list('ice_thickness', flat=True)) # replace with your own data source
-        all_data = list(map(lambda x: 1000 if x > 1000 else x, all_data))
-        latest_data = all_data[-100:]
-        hist_all = go.Histogram(x=all_data, nbinsx=30, name='All')
-        hist_latest = go.Histogram(x=latest_data, nbinsx=30, name='Latest 100')
-
-
-        layout = go.Layout(
-                            title='Ice thickness distribution',
-                            xaxis=dict(
-                                title='Esstimated ice thickness (nm)',
-                                # range=[0, 500]
-                            ),
-                            yaxis=dict(
-                                title='Number of exposures'
-                            ),
-                            showlegend=True,
-                        )
-        fig = go.Figure(data=[hist_all,hist_latest],layout=layout,)
-
-        
-        graph = fig.to_html(full_html=False)
+        graph = plot_histogram(
+            all_data,
+            1000,
+            'Ice thickness distribution',
+            'Esstimated ice thickness (nm)'
+        )
         return graph
 
     def get_context_data(self, grid_id, **kwargs):
