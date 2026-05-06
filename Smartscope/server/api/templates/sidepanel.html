@@ -10,12 +10,12 @@
             <button class="quality-btn tick {% if item.quality == 'good' %}active{% endif %}"
                     onmousedown="rateGrid(this, '{{ item.pk }}', 'good')"
                     title="Good">
-                <i class="bi bi-hand-thumbs-up"></i>
+                <i class="bi bi-hand-thumbs-up-fill"></i>
             </button>
             <button class="quality-btn cross {% if item.quality == 'bad' %}active{% endif %}"
                     onmousedown="rateGrid(this, '{{ item.pk }}', 'bad')"
                     title="Bad">
-                <i class="bi bi-hand-thumbs-down"></i>
+                <i class="bi bi-hand-thumbs-down-fill"></i>
             </button>
         </div>
         {% endif %}
