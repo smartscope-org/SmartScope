@@ -16,7 +16,7 @@ function delay(fn, ms) {
   }
 
 function selected() {
-    $('.active', '#sidebar-container').removeClass('active');
+    $('.list-group-item.active', '#sidebar-container').removeClass('active');
     for (const [key, val] of Object.entries(currentState)) {
         // console.log(`${key}, ${val}`)
         if (['group', 'session_id', 'grid_id'].includes(key) && val !== undefined) {
@@ -58,22 +58,40 @@ function updateFullMeta(data) {
     console.log(fullmeta)
 }
 
-let idGen = () => {
-    return Math.floor((1 + Math.random()) * 0x10000)
-        .toString(16)
-        .substring(1);
-}
+(function() {
+    const idGen = () => {
+        return Math.floor((1 + Math.random()) * 0x10000)
+            .toString(16)
+            .substring(1);
+    }
 
-let createLoadingMessage = (message) => {
-    let id = idGen()
-    $('#loadingMessages').append(
-        `<div class="notification d-inline-flex justify-content-end">
-            <div id="${id}" class="alert mb-0 mt-1 alert-primary fade show" role="alert">
-                <span>${message}</span>
-            </div>
-        </div>`)
-    return id
-}
+    const createLoadingMessage = (message) => {
+        let id = idGen()
+        $('#loadingMessages').append(
+            `<div class="notification d-inline-flex justify-content-end">
+                <div id="${id}" class="alert mb-0 mt-1 alert-primary fade show" role="alert">
+                    <span>${message}</span>
+                </div>
+            </div>`)
+        return id
+    }
+
+    const processLoadingMessage = (response, id) => {
+        let elem = $(`#loadingMessages [id="${id}"]`)
+        if (response.ok) {
+            elem.removeClass('alert-primary').addClass('alert-success')
+            setTimeout(function() {
+                $(`#loadingMessages [id="${id}"]`).alert('close');
+                $(`#loadingMessages [id="${id}"]`).parent().remove()
+            }, 2000);
+        } else {
+            elem.removeClass('alert-primary').addClass('alert-danger')
+        }
+    }
+
+    window.createLoadingMessage = createLoadingMessage;
+    window.processLoadingMessage = processLoadingMessage;
+})()
 
 function createHTMXloadingMessage(event, message) {
     console.log('Creating htmx loading message')
@@ -94,19 +112,6 @@ function processHTMXloadingMessage(event) {
     const responseCode = event.detail.xhr.status;
     const response = {ok: responseCode < 400}
     processLoadingMessage(response, event.target.getAttribute('messageid'))
-}
-
-let processLoadingMessage = (response, id) => {
-    let elem = $(`#loadingMessages [id="${id}"]`)
-    if (response.ok) {
-        elem.removeClass('alert-primary').addClass('alert-success')
-        setTimeout(function() {
-            $(`#loadingMessages [id="${id}"]`).alert('close');
-            $(`#loadingMessages [id="${id}"]`).parent().remove()
-        }, 2000);
-    } else {
-        elem.removeClass('alert-primary').addClass('alert-danger')
-    }
 }
 
 async function fetchAsync(url, message='alert') {
@@ -274,6 +279,7 @@ async function loadReport(requestfield = null, id = null, push = true) {
 
     await reportMain()
     websocketMain()
+    console.trace('htmx.process called here')
     htmx.process(htmx.find('#main'))
 }
 

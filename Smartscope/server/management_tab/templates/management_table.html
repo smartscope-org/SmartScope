@@ -1,0 +1,101 @@
+
+<div id="container" class="d-flex flex-column p-2" style="width: 100%; height: 100%; display: flex; flex-direction: column;">
+<h4 class="pt-2 pb-1">Sessions history</h4>
+<div id="data-grid" style="flex: 1; width: 100%; min-height: 0;" class="ag-theme-balham"></div>
+</div>
+<script type="text/javascript" charset="utf-8">
+(function() {
+    // formats "2024-01-15T10:30:00Z" to "2024-01-15 10:30"
+function formatDate(params) {
+    if (!params.value) return "";
+    var d = new Date(params.value);
+    return d.toISOString().slice(0, 16).replace("T", " ");
+}
+
+// renders session name as a clickable link
+function sessionLinkRenderer(params) {
+    if (!params.value) return "";
+    var data = params.data;
+    var url = `/smartscope/browse/?group=${data.group_id}&session_id=${data.session_id}&grid_id=${data.grid_id}`;
+    return `<a href="${url}" target="_blank">${params.value}</a>`;
+}
+
+var textFilter = {
+    suppressAndOrCondition: true,
+    filterOptions: ["contains", "equals"],
+};
+
+var dateFilter = {
+    suppressAndOrCondition: true,
+    filterOptions: ["equals", "greaterThan", "lessThan"],
+};
+
+var numberFilter = {
+    suppressAndOrCondition: true,
+    filterOptions: ["equals", "greaterThan", "lessThan"],
+};
+
+var columnDefs = [
+    {headerName: "Session", field: "session_label", filter: "agTextColumnFilter", cellRenderer: sessionLinkRenderer},
+    {headerName: "Group", field: "group", filter: "agTextColumnFilter", filterParams: textFilter},
+    {headerName: "StartTime", field: "creation_time", filter: "agTextColumnFilter", valueFormatter: formatDate, filterParams: dateFilter},
+    {headerName: "EndTime", field: "last_update", filter: "agTextColumnFilter", valueFormatter: formatDate, filterParams: dateFilter},
+    {headerName: "Microscope", field: "microscope", filter: "agTextColumnFilter", filterParams: textFilter},
+    {headerName: "User", field: "user", filter: "agTextColumnFilter"},
+    {headerName: "SessionType", field: "session_type", filter: "agTextColumnFilter"},
+    {headerName: "#Grids", field: "grid_count", filter: "agNumberColumnFilter", filterParams: numberFilter},
+    {headerName: "#Grids.Good", field: "grid_good", filter: "agNumberColumnFilter", filterParams: numberFilter},
+    {headerName: "#Grids.Bad", field: "grid_bad", filter: "agNumberColumnFilter", filterParams: numberFilter},
+];
+
+var gridOptions = {
+    columnDefs: columnDefs,
+    defaultColDef: {
+        filterParams: {suppressAndOrCondition: true, filterOptions: ["contains"]},
+        resizable: true,
+        enableCellTextSelection: true,  // allows copying text from cells
+    },
+    enableCellTextSelection: true,  // allows copying text from cells
+    rowModelType: "infinite",
+    cacheBlockSize: 100,
+    maxBlocksInCache: 10,
+    datasource: {
+        getRows: function(params) {
+            var filtering = encodeURIComponent(JSON.stringify(params.filterModel));
+            var sorting = encodeURIComponent(JSON.stringify(params.sortModel));
+            var url = `/sessions_history/sessions/?startRow=${params.startRow}&endRow=${params.endRow}&filter=${filtering}&sort=${sorting}`;
+            fetch(url)
+                .then((response) => response.json())
+                .then((data) => {
+                    params.successCallback(data.rows, data.totalRows);
+                })
+                .catch(() => {
+                    params.failCallback();
+                });
+        }
+    }
+};
+
+var gridDiv = document.querySelector("#data-grid");
+var gridApi = agGrid.createGrid(gridDiv, gridOptions);
+setTimeout(() => gridApi.sizeColumnsToFit(), 100);
+})();
+</script>
+<style>
+.ag-theme-balham a {
+    color: #222;
+    text-decoration: none;
+}
+.ag-theme-balham a:hover {
+    color: #555;
+    text-decoration: underline;
+}
+.badge-cell {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 4px;
+    font-size: 12px;
+    font-weight: 500;
+    line-height: 1.5;
+}
+</style>

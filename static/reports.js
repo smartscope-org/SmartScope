@@ -286,23 +286,18 @@ async function changeGridStatus(status) {
     }
 }
 
-function rateGrid(el) {
-    var url = `/api/grids/${fullmeta.grid_id}/`;
-    var value = el.value
-    let sidebar_element = $(`#sidebarGrids #${fullmeta.grid_id} div`)
+function rateGrid(el, gridId, value) {
+    var url = `/api/grids/${gridId}/`;
     if ( el.classList.contains('active')) {
         value = null
     }
-    document.getElementById("goodGrid").classList.remove('active');
-    document.getElementById("badGrid").classList.remove('active');
+    const container = el.closest('.quality-controls');
+    container.querySelectorAll('.quality-btn').forEach(btn => btn.classList.remove('active'));
     
     apifetchAsync(url, { 'quality': value }, "PATCH", message=`Setting grid quality to ${value}`);
     
-    sidebar_element.removeClass(function (index, className) {
-        return (className.match(/(^|\s)quality-\S+/g) || []).join(' ')})
     if (value != null) {
         el.classList.add('active');
-        sidebar_element.addClass(`quality-${value}`)
     }
 }
 

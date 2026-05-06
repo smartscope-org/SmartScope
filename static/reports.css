@@ -9,6 +9,7 @@
 
 #sidebar-container {
     /* min-height: 100vh;    */
+    overflow: hidden;
     background-color: rgb(33 37 41);
     padding: 0;
 }
@@ -40,6 +41,32 @@
     padding-left: 30px;
 }
 
+#sidebar-container .list-group-item.active {
+    border: 1px solid #0d6efd !important;
+    border-radius: 4px;
+    box-sizing: border-box;
+    margin: 2px 7px;
+    width: calc(100% - 14px);
+}
+
+/* Closed submenu icon */
+#sidebar-container .list-group .list-group-item[aria-expanded="false"] .submenu-icon::after {
+    content: " \f0d7";
+    font-family: FontAwesome;
+    display: inline;
+    text-align: right;
+    padding-left: 10px;
+}
+
+/* Opened submenu icon */
+#sidebar-container .list-group .list-group-item[aria-expanded="true"] .submenu-icon::after {
+    content: " \f0da";
+    font-family: FontAwesome;
+    display: inline;
+    text-align: right;
+    padding-left: 10px;
+}
+
 .sidebar-section {
     border: 1px solid #444;
     border-radius: 8px;
@@ -58,14 +85,6 @@
     background: #444;
     border-radius: 2px;
     margin: 4px 8px;
-}
-
-#sidebar-container .list-group-item.active {
-    border: 1px solid #0d6efd !important;
-    border-radius: 4px;
-    box-sizing: border-box;
-    margin: 2px 7px;
-    width: calc(100% - 14px);
 }
 
 #sidebarGroups::-webkit-scrollbar-track,
@@ -96,29 +115,47 @@
     height: 60px;
 }
 
-/* Closed submenu icon */
-#sidebar-container .list-group .list-group-item[aria-expanded="false"] .submenu-icon::after {
-    content: " \f0d7";
-    font-family: FontAwesome;
-    display: inline;
-    text-align: right;
-    padding-left: 10px;
+#sidebarNav {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    overflow: hidden;
 }
+
+#sidebarNav > ul.list-group {
+    display: flex;
+    flex-direction: column;
+    min-height: 120px;             /* lets flex children shrink below content size */
+    overflow: hidden;
+    height: 100%;
+    padding-bottom: 8px;
+}
+
+.sidebar-section {
+    display: flex;
+    flex-direction: column;
+    flex: none;              /* don't grow or shrink */
+    overflow: hidden;
+}
+
+.sidebar-section:last-child {
+    flex: 1 1 0;
+    min-height: 120px;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    /* justify-content: flex-start; */
+}
+
 #sideNav {
     background-color:rgb(33 37 41);
+    /* overflow: hidden; */
 }
+
+#sideNav .tooltip { pointer-events: none; }
 
 #sideNav .list-group .list-group-item {
     background: inherit;
-}
-
-/* Opened submenu icon */
-#sidebar-container .list-group .list-group-item[aria-expanded="true"] .submenu-icon::after {
-    content: " \f0da";
-    font-family: FontAwesome;
-    display: inline;
-    text-align: right;
-    padding-left: 10px;
 }
 
 .close-btn {
