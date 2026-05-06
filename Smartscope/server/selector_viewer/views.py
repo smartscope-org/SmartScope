@@ -12,6 +12,7 @@ from Smartscope.core.selector_sorter import SelectorSorter, initialize_selector,
 from Smartscope.core.settings.worker import PLUGINS_FACTORY
 from Smartscope.core.svg_plots import drawSelector
 from Smartscope.core.status import status
+from Smartscope.core.utils.plot_utils import apply_default_style
 
 logger =logging.getLogger(__name__)
 
@@ -44,7 +45,7 @@ def plot_scatter_selector(selector_sorter:SelectorSorter):
     data = list(selector_sorter.values)
     fig = px.scatter(y=data, labels={'x': 'Holes','y': 'Selector Value', 'color': 'Clusters'})
     fig.add_hrect(y0=selector_sorter.limits[0], y1=selector_sorter.limits[1], fillcolor='lightgreen', opacity=0.5, line_width=0)
-    fig = set_transparent_background(fig)
+    fig = apply_default_style(fig)
     return fig.to_html(full_html=False, config = {'displayModeBar': False}, div_id='selectorPlot')
 
 def draw_selector_image(selector:str, grid:AutoloaderGrid,maglevel=SquareModel, num_to_plot=3):

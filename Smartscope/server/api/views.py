@@ -199,9 +199,8 @@ class SidePanel(APIView):
             field = 'group'
 
         for item in items:
-            item.extraCSS = ''
-            if hasattr(item, 'quality'):
-                item.extraCSS = f'quality-{item.quality}'
+            if not hasattr(item, 'quality') or item.quality is None:
+                item.quality = ''
 
         return Response(dict(items=items, nextsection=nextsection, field=field, jsfunction=self.jsfunction))
 
