@@ -65,6 +65,7 @@ class AutoScreenViewer(LoginRequiredMixin, TemplateView):
 
 class AutoScreenSetup(LoginRequiredMixin, TemplateView):
     template_name = "smartscopeSetup/run_setup.html"
+    template_full_name="autoscreenViewer/auto_screen_viewer.html"
     login_url = '/login'
     redirect_field_name = 'redirect_to'
 
@@ -137,8 +138,9 @@ class AutoScreenSetup(LoginRequiredMixin, TemplateView):
                 return redirect(f'../session/{session.session_id}')
 
         context = self.get_context_data(form_general=form_general, form_params=form_params)
-
-        return render(request, self.template_name, context)
+        if request.headers.get('HX-Request'):
+            return render(request, self.template_name, context)
+        return render(request, self.template_full_name, {'initial_partial': self.template_name, **context})
 
 
 class AutoScreenRun(LoginRequiredMixin, TemplateView):

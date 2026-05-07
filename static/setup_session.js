@@ -5,23 +5,23 @@ function validateField(check) {
     return true
 };
 
-$("#id_session").on('change', function () {
-    console.log($(this).get(0))
-    $(this).parent().addClass('was-validated')
-    return $(this).get(0).checkValidity()
-});
+// $("#id_session").on('change', function () {
+//     console.log($(this).get(0))
+//     $(this).parent().addClass('was-validated')
+//     return $(this).get(0).checkValidity()
+// });
 
-$("input[name$='-name']").on('change', function () {
-    console.log($(this).val())
-    $(this).parent().addClass('was-validated')
-    $(this).get(0).checkValidity()
-    if ($(this).val()) {
-        console.log($(this).parents().eq(4))
-        $(this).parents().eq(4).find('select').prop('required', true)
-        return
-    }
-    $(this).parents().eq(4).find('select').removeAttr('required')
-});
+// $("input[name$='-name']").on('change', function () {
+//     console.log($(this).val())
+//     $(this).parent().addClass('was-validated')
+//     $(this).get(0).checkValidity()
+//     if ($(this).val()) {
+//         console.log($(this).parents().eq(4))
+//         $(this).parents().eq(4).find('select').prop('required', true)
+//         return
+//     }
+//     $(this).parents().eq(4).find('select').removeAttr('required')
+// });
 
 // $("img[id$='_help']").tooltip();
 
@@ -133,3 +133,7 @@ function validateForm(event) {
 $(document).ready(function () {
     $('input,textarea,select').filter('[required]:visible')
 })
+
+document.querySelectorAll('[data-bs-toggle="tooltip"]').forEach(el => {
+        new bootstrap.Tooltip(el);
+    });
