@@ -39,67 +39,29 @@
 
 <body hx-headers='{"X-CSRFToken": "{{ csrf_token }}"}'>
     <title>{% block title %}{% endblock %}</title>
-    <div class="d-flex flex-row" style="min-height: 100vh;">
-        {% block sidebar %}{% endblock sidebar %}
-    <!-- <nav class="navbar navbar-default navbar-expand-md navbar-dark bg-dark fixed-top" role="navigation">
-        <div class="navbar-brand m-0 p-0 pl-1">
-            <a class="" href="#"><img src="{% static 'images/icon256px.png' %}" height='40'></a>
-        </div>
-        <div class="navbar-brand m-0 mr-auto p-0 pl-1" style="font-size: 0.9rem;">
-            <p class="p-0 m-0">{{request.user}}</p>
-        </div> -->
-        <!-- <button class="navbar-toggler collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav" aria-expanded="false" aria-controls="navbarNav" aria-label="Toggle navigation">
-            <span class="navbar-toggler-icon"></span>
-        </button> -->
-        <!-- <div class="navbar-collapse collapse d-flex flex-row justify-content-between" id="navbarNav"> -->
-            <!-- <ul class="navbar-nav mr-auto">
-                <li class="nav-item">
-                    <a class="nav-link " id="browse" href="{% url 'browser' %}">Session Browser</a>
-                </li>
-                {% if USE_MICROSCOPE %}
-                <li class="nav-item">
-                    <a class="nav-link" id="run" href="{% url 'run' %}">Run Smartscope</a>
-                </li>
-                {% endif %}
-            </ul> -->
-            <!-- <ul class="navbar-nav">
-                <li class="nav-item d-flex align-items-center">
-                    <button class="btn btn-outline-info">v{{VERSION}}</button>
-                </li>
-                <li class="nav-item d-flex align-items-center">
-                    <a class="nav-link py-0" href="https://github.com/smartscope-org/SmartScope/issues" target="_blank">Report issue 
-                        <i class="bi bi-github"></i>
-                    </a>
-                </li>               
-                <li class="nav-item d-flex align-items-center"><a class="nav-link bi bi-question-square py-0"
-                        href="https://docs.smartscope.org" style="font-size:1.5rem;" target="_blank"></a></li>
-                {% comment %}{% if request.user.is_staff %}<li class="nav-item"><a class="nav-link" href="/admin">Admin</a></li>
-                {% endif %}{% endcomment %}
+    <div class="d-flex flex-row overflow-hidden" style="min-height: 100vh; max-width: 100vw;">
+        {% include "sidebar.html" %}
 
-            </ul>
-        </div>
-    </nav> -->
-    <!-- </div> -->
-
-
-        <div class="mainContent flex-grow-1">
-            <div id="body-row" class='d-flex flex-row h-100'>    
+        <div class="mainContent flex-grow-1 d-flex flex-column min-width-0">
+            <div id="body-row" class='d-flex flex-row flex-grow-1'>    
                 {% block content %}{% endblock content %}
             </div>
         </div>  
-        <div id="loadingMessagesContainer" class="">
-            <div id="loadingMessages" class="mx-2 d-flex flex-column">
-                <div class="notification d-inline-flex justify-content-end">
-                    <div id="test" class="alert mb-0 mt-1 alert-primary fade d-flex align-items-center" role="alert">
-                        <span>test</span>
-                    </div>
+    </div>
+    <div id="loadingMessagesContainer" class="">
+        <div id="loadingMessages" class="mx-2 d-flex flex-column">
+            <div class="notification d-inline-flex justify-content-end">
+                <div id="test" class="alert mb-0 mt-1 alert-primary fade d-flex align-items-center" role="alert">
+                    <span>test</span>
                 </div>
             </div>
-    
-            <div class="mx-2 d-flex justify-content-end"><button id='clearAlerts' class="btn btn-light" data-bs-toggle="tooltip" data-placement="left" title="Clear all alerts" onclick="$('#loadingMessages').html('')"><i class="bi bi-x-circle"></i></button></div>
-        
         </div>
-    </body>
+
+        <div class="mx-2 d-flex justify-content-end"><button id='clearAlerts' class="btn btn-light" data-bs-toggle="tooltip" data-placement="left" title="Clear all alerts" onclick="$('#loadingMessages').html('')"><i class="bi bi-x-circle"></i></button></div>
+    
+    </div>
+
+</body>
 
     <svg xmlns="http://www.w3.org/2000/svg" style="display: none;">
         <symbol id="check-circle-fill" viewBox="0 0 16 16">
@@ -112,16 +74,6 @@
           <path d="M8.982 1.566a1.13 1.13 0 0 0-1.96 0L.165 13.233c-.457.778.091 1.767.98 1.767h13.713c.889 0 1.438-.99.98-1.767L8.982 1.566zM8 5c.535 0 .954.462.9.995l-.35 3.507a.552.552 0 0 1-1.1 0L7.1 5.995A.905.905 0 0 1 8 5zm.002 6a1 1 0 1 1 0 2 1 1 0 0 1 0-2z"/>
         </symbol>
       </svg>
-
-<style>
-    .mainContent {
-        position:fixed;
-        top: 56px;
-        right: 0;
-        left: 0;
-        bottom:0;
-    }
-</style>
 
 <script>
     $(document).ready(function(){

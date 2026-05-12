@@ -9,6 +9,7 @@ $(document).ready(async function () {
     toggleSearchBar('sidebarSessions')
     toggleCheckboxLabel()
     initBrowser()
+    setSidebarOpen(true)
 })
 
 // ---- Re-init on HTMX history restore (back/forward) ----
@@ -20,9 +21,11 @@ document.addEventListener('htmx:historyRestore', async function() {
     selected()
     toggleCheckboxLabel()
     initBrowser()
+    setSidebarOpen(true)
 })
 
 function initBrowser() {
+    console.log('typing: init browser')
     // ---- Sidebar collapse ----
     initSidebarCollapse()
 
@@ -97,11 +100,6 @@ function initBrowser() {
         pushState()
     })
 
-    // ---- microscopeActivity / sessionHistory collapse sidebar ----
-    document.querySelectorAll('#microscopeActivity, #sessionHistory').forEach(btn => {
-        btn.removeEventListener('click', collapseSidebar)
-        btn.addEventListener('click', collapseSidebar)
-    })
 }
 
 function initTooltips() {
@@ -121,18 +119,24 @@ function hideAllTooltips() {
 
 function initSidebarCollapse() {
   $('#sidebarCollapse').off('click.collapse').on('click.collapse', function () {
+    // e.preventDefault()
     hideAllTooltips()
     const isExpanded = parseInt($('#sidebar-container').css('width')) > 0
+    console.log('InitSidebar: ', isExpanded)
+    const hasBrowserState = ['group', 'session_id', 'grid_id'].some(
+        key => currentState[key] !== undefined
+    )
+
+    if (!hasBrowserState && !isExpanded) {
+        // not on browser page, sidebar closed -> navigate to browser page
+        // setSidebarOpen(true) will be called on DOMContentLoaded
+        window.location.href = $(this).attr('href')
+        return
+    }
+
+    // all other cases just toggle
     setSidebarOpen(!isExpanded)
   })
-}
-
-function collapseSidebar() {
-  const isExpanded = $(sidebarNav).hasClass('show');
-  if (isExpanded) {
-    hideAllTooltips()
-    setSidebarOpen(false)
-  }
 }
 
 function setSidebarOpen(open) {
