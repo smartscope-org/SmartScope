@@ -188,3 +188,15 @@ body{
 .custom-scroll::-webkit-scrollbar-track { background: transparent; border-radius: 4px; }
 .custom-scroll::-webkit-scrollbar-thumb { background: #eee; border-radius: 4px; }
 .custom-scroll::-webkit-scrollbar-thumb:hover { background: var(--bs-secondary); }
+
+#sideNav .dropdown-menu a.dropdown-item {
+    color: rgba(255, 255, 255, 0.85) !important;
+    cursor: pointer !important;
+    pointer-events: auto !important;
+    text-decoration: none;
+}
+
+#sideNav .dropdown-menu a.dropdown-item:hover {
+    color: white !important;
+    background-color: rgba(255, 255, 255, 0.15) !important;
+}
