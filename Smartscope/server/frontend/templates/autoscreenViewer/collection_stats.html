@@ -1,44 +1,53 @@
-{% extends "general/right_sidebar.html" %}
-{% block title %}Collection statistics{% endblock %}
-{% block sidebar_content %}
-    <hr class="mx-3 my-2">
-    <div class="col justify-content-center">
-        <!-- <div class='row'>
-            <div class='col-5 pr-0'><b>Holes in queue:</b></div>
-            <div id='holeCountQueued' class='col-auto pl-0'>{{queued}}</div>
-        </div> -->
-        <div class='row'>
-            <div class='col-5 pr-0'><b>Exposures in queue:</b></div>
-            <div id='holeCountQueued' class='col-auto pl-0'>{{queued_exposures}}</div>
-        </div>
-        <div class='row'>
-            <div class='col-5 pr-0'><b>Exposures acquired:</b></div>
-            <div id='holeCountAcquired' class='col-auto pl-0'>{{completed}}</div>
-        </div>
-        <div class='row'>
-            <div class='col-5 pr-0'><b>Exposures per hour:</b></div>
-            <div id='holeCountPerhour' class='col-auto pl-0'>{{perhour}}</div>
-        </div>
-        <div class='row'>
-            <div class='col-5 pr-0'><b>Exposures in the last hour:</b></div>
-            <div id='holeLasthour' class='col-auto pl-0'>{{lasthour}}</div>
-        </div>
-        <div class='row'>
-            <div class='col-5 pr-0'><b>Total time spent:</b></div>
-            <div id='holeLasthour' class='col-auto pl-0'>{{elapsed}}</div>
-        </div>
-        <div class='row'>
-            <div class='col-5 pr-0'><b>Estimated time remaining:</b></div>
-            <div id='holeLasthour' class='col-auto pl-0'>{{remaining}}</div>
-        </div>
-        {{graph|safe}}
-        {{ice_thickness_graph|safe}}
-    </div>
-    </div>
+
+<div class="d-flex flex-column p-1">
+    <!-- <div class="flex-column justify-content-center"></div> -->
+        <h3 class="title pt-2">Collection Statistics</h3>
+    <!-- <hr class="mx-1 my-2"> -->
+    <!-- <div class="flex-row"> -->
+        <!-- <div class="flex-column justify-content-center"> -->
+            <!-- <div class='row'>
+                <div class='col-5 pr-0'><b>Holes in queue:</b></div>
+                <div id='holeCountQueued' class='col-auto pl-0'>{{queued}}</div>
+            </div> -->
+            <div class='d-flex flex-row'>
+                <div class='col-5 pr-0'><b>Exposures in queue:</b></div>
+                <div id='holeCountQueued' class='col-auto pl-0'>{{queued_exposures}}</div>
+            </div>
+            <div class='d-flex flex-row'>
+                <div class='col-5 pr-0'><b>Exposures acquired:</b></div>
+                <div id='holeCountAcquired' class='col-auto pl-0'>{{completed}}</div>
+            </div>
+            <div class='d-flex flex-row'>
+                <div class='col-5 pr-0'><b>Exposures per hour:</b></div>
+                <div id='holeCountPerhour' class='col-auto pl-0'>{{perhour}}</div>
+            </div>
+            <div class='d-flex flex-row'>
+                <div class='col-5 pr-0'><b>Exposures in the last hour:</b></div>
+                <div id='holeLasthour' class='col-auto pl-0'>{{lasthour}}</div>
+            </div>
+            <div class='d-flex flex-row'>
+                <div class='col-5 pr-0'><b>Total time spent:</b></div>
+                <div id='holeLasthour' class='col-auto pl-0'>{{elapsed}}</div>
+            </div>
+            <div class='d-flex flex-row'>
+                <div class='col-5 pr-0'><b>Estimated time remaining:</b></div>
+                <div id='holeLasthour' class='col-auto pl-0'>{{remaining}}</div>
+            </div>
+            <div class='d-flex flex-row justify-content-between'>
+                <div class="col-12 col-lg-6">
+                    {{graph|safe}}
+                </div>
+                <div class="col-12 col-lg-6">
+                    {{ice_thickness_graph|safe}}
+                </div>
+            </div>
+        <!-- </div> -->
+    <!-- </div> -->
+</div>
 
 <script>
     $("img[id$='_help']").tooltip();
 </script>
 
-{% endblock %}
+
 
