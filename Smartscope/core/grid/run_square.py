@@ -93,7 +93,6 @@ class RunSquare:
         except Exception as e:
             square = update(square,
                     status=status.ERROR,
-                    selected=False,
                     completion_time=timezone.now()
                 )
             logger.info(f"Status of the square {square.name} is set to ERROR")
