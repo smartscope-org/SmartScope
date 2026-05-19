@@ -276,6 +276,12 @@
     color: orange;
 }
 
+.error {
+    stroke: rgb(194, 19, 19);
+    /* fill: green; */
+    color: rgb(194, 19, 19);
+}
+
 .completed.has_queued {
     fill-opacity: 0.6;
     fill: orange;
