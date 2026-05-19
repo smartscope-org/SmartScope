@@ -85,6 +85,7 @@ def send_find_squares_from_montage(montage, class_map:Dict[str,BaseModel], **kwa
     res = AsyncResult(task_id, app=app)
     coords, labels = res.get(interval=1, timeout=120)
     yolo_class_map = class_map_to_yolo(class_map=class_map)
+    print(labels)
     labels_converted =  [yolo_class_map[item] for item in labels]
     print(coords, labels_converted)
     return (coords,labels_converted), True, dict()

@@ -1,5 +1,5 @@
 name: Junk Finder
-method: send_find_holes_from_square
+method: send_find_squares_from_montage
 module: Smartscope.tasks.base_tasks
 kwargs: 
   imgsz: 1280
@@ -15,8 +15,8 @@ description: |
   Junk finder that uses the YOLO architecture to identify the junk.
   Has a built-in classifier to sort out the dark contamination spots that are often labeled as junk on carbon mesh grids.
 classes:
-  "0":
-    label_training: "0"
+  "5":
+    label_training: "5"
     value: 1
     name: Contamination
     color: LightGrey
