@@ -64,6 +64,9 @@ class FakeScopeInterface(MicroscopeInterface):
     def eucentricity(self):
         pass
 
+    def eucentric_height_after_distance(self, tilt_to:int=10, increments:int=-5, max_movement:int=200, distance_threshold:int=400):
+        pass
+    
     def autofocus_by_z(self):
         return False
 
