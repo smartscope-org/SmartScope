@@ -482,6 +482,9 @@ class SerialemInterface(MicroscopeInterface):
             if error_code != 0:
                 self.logger.info('Autofocus seems to have failed')
                 return False
+            if iteration == 5:
+                self.logger.info('Autofocus by Z did not converge after 4 iterations.')
+                return False
             if abs(defocus-self.state.defocusTarget) < 0.5:
                 sem.ChangeFocus(movement)
                 break
