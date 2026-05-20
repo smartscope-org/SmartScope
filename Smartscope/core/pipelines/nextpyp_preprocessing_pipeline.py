@@ -87,8 +87,9 @@ class NextPYPPreprocessingPipeline(PreprocessingPipeline):
             self.token = f.read().strip()
             
         self.frames_directory = self.cmd_data.frames_directory
-        self.pixel_size = self.cmd_data.scope_pixel
-        
+        self.remote_user = self.cmd_data.remote_user
+        self.remote_host = self.cmd_data.remote_host
+
         self.client = self.initialize_client()
         self.session = None
         self.session_path = None
@@ -108,16 +109,16 @@ class NextPYPPreprocessingPipeline(PreprocessingPipeline):
             )
         )
 
-    def configure_session_args(self):
+    def configure_session_args(self, pixel_size: float):
         self.pyp_args = PypArgValues(block_args(PypBlock.SESSION_SINGLE_PARTICLE))
 
         self.pyp_args.data_path = self.cmd_data.frames_directory
         self.pyp_args.gain_reference = self.cmd_data.gain_reference
-        self.pyp_args.gain_flipv = self.cmd_data.gain_flipv
+        self.pyp_args.gain_flipv = self.detector.gain_flip
 
-        self.pyp_args.scope_pixel = self.cmd_data.scope_pixel
-        self.pyp_args.scope_voltage = self.cmd_data.scope_voltage
-        self.pyp_args.scope_cs = self.cmd_data.scope_cs
+        self.pyp_args.scope_pixel = pixel_size
+        self.pyp_args.scope_voltage = self.microscope.voltage
+        self.pyp_args.scope_cs = self.microscope.spherical_abberation
 
         self.pyp_args.stream_transfer_operation = self.cmd_data.stream_transfer_operation
         self.pyp_args.stream_transfer_restart = self.cmd_data.stream_transfer_restart
@@ -135,16 +136,31 @@ class NextPYPPreprocessingPipeline(PreprocessingPipeline):
         self.pyp_args.slurm_memory = self.cmd_data.slurm_memory
         self.pyp_args.slurm_daemon_walltime = self.cmd_data.slurm_daemon_walltime
 
+    def _wait_for_pixel_size(self, timeout=600, interval=5):
+        logger.info("Waiting for first acquired HighMagModel to determine pixel_size...")
+        waited = 0
+        while waited < timeout:
+            instance = (self.grid.highmagmodel_set
+                        .filter(pixel_size__isnull=False)
+                        .first())
+            if instance:
+                logger.info(f"Got pixel_size={instance.pixel_size} from {instance.name}")
+                return instance.pixel_size
+            time.sleep(interval)
+            waited += interval
+        raise TimeoutError(f"Timed out after {timeout}s waiting for pixel_size from HighMagModel")
+
     def start(self):
         self.incomplete_processes = self.list_incomplete_processes()
         logger.info(f'Starting NextPYP Preprocessing')
-        self.configure_session_args()
+        pixel_size = self._wait_for_pixel_size()
+        self.configure_session_args(pixel_size)
 
         path = self.client.services.sessions.pick_folder()
         args = SingleParticleSessionArgs(
-            name='new_test',
+            name=self.grid.grid_id,
             path=path,
-            group_id='fmqVThRKDCY7WqgK',
+            group_id=self.cmd_data.group_id,
             values=self.pyp_args.write(),
         )
         self.session_path = path
@@ -253,8 +269,7 @@ class NextPYPPreprocessingPipeline(PreprocessingPipeline):
             # assert os.path.exists(micrograph_source_path), f"Micrograph source path does not exist: {micrograph_source_path}"
             # assert os.path.exists(ctf_source_path), f"CTF source path does not exist: {ctf_source_path}"
             
-            real_data_root = "/srv/homedir/smartscope"
-            png_path = instance.png #.replace('/mnt', real_data_root)
+            png_path = instance.png
             ctf_path = instance.ctf_img #.replace('/mnt', real_data_root)
             
             if not os.path.exists(os.path.dirname(png_path)):
@@ -277,12 +292,12 @@ class NextPYPPreprocessingPipeline(PreprocessingPipeline):
                     update_fields(parent, dict(status='completed'))
                 ]
 
-    def copy_file_from_remote(self, remote_path, local_path, user='sh696', host='hpc-bartesaghi-login-01.oit.duke.edu'):
+    def copy_file_from_remote(self, remote_path, local_path):
         cmd = [
             "scp",
             '-o', 'StrictHostKeyChecking=no',
             '-o', 'UserKnownHostsFile=/dev/null',
-            f"{user}@{host}:{remote_path}",
+            f"{self.remote_user}@{self.remote_host}:{remote_path}",
             local_path
         ]
         subprocess.run(cmd, check=True)
@@ -294,7 +309,6 @@ class NextPYPPreprocessingPipeline(PreprocessingPipeline):
         target_path_webp = target_path.replace('.png', '.webp')
         logger.info("Copying file from remote host...")
         self.copy_file_from_remote(
-            host="hpc-bartesaghi-login-01.oit.duke.edu",
             remote_path=webp_path,
             local_path=target_path_webp
         )
