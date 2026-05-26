@@ -589,6 +589,8 @@
 .full-page-card {
   flex-direction: column;
   height: calc(100vh - 45px);
+  position: relative;
+  overflow: hidden;
 }
 
 .full-page-card > .card-body {
@@ -600,4 +602,50 @@
 .full-page-card > .card-header,
 .full-page-card > .card-footer {
   flex-shrink: 0;   /* prevents header/footer from being squeezed */
+}
+
+.tab-switchers .form-check-input { 
+    width: 1.75em;   /* smaller than default 2em */
+    height: 0.85em;  /* smaller height */
+    background-color: #f7f7f7;  /* grey when unchecked */
+    border-color: #adb5bd;
+
+}
+.tab-switchers .form-check-input:checked {
+    background-color: rgba(33, 37, 41, 0.494);  /* darker grey when checked */
+    border-color: #dee2e6;
+}
+.tab-switchers .form-check-input:focus {
+    border-color: #adb5bd;
+    box-shadow: 0 0 0 0.15rem rgba(108, 117, 125, 0.25); 
+}
+.tab-switchers .form-check-label {
+    font-size: 0.9rem; 
+}
+
+.btn-ghost {
+    background: transparent;
+    border: 1px solid transparent;
+    color: inherit;
+    padding-top: 0px;
+    padding-bottom: 0px;
+}
+
+.btn-ghost:hover {
+    background-color: rgba(0, 0, 0, 0.08);
+    border-color: transparent;
+}
+
+.btn-ghost:active,
+.btn-ghost:focus {
+    background-color: rgba(0, 0, 0, 0.12);
+    border-color: transparent;
+    box-shadow: none;
+    outline: none;
+}
+
+#offcanvasShell {
+    position: absolute !important;
+    height: 100%;
+    top: 0;
 }

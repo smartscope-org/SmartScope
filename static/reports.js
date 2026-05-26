@@ -301,24 +301,41 @@ function rateGrid(el, gridId, value) {
     }
 }
 
+// --- Tab visibility ---
+function updateSwitchers(activeTabId) {
+    document.querySelectorAll('.tab-switchers').forEach(switcher => {
+        switcher.classList.toggle('d-none', switcher.dataset.tab !== activeTabId);
+    });
+}
+
+document.querySelectorAll('[data-bs-toggle="tab"]').forEach(tab => {
+    tab.addEventListener('shown.bs.tab', e => {
+        const activeTab = e.target.getAttribute('data-bs-target').replace('#', '');
+        updateSwitchers(activeTab);
+    });
+});
+
+// Show correct switchers on page load
+const activeTab = document.querySelector('[data-bs-toggle="tab"].active');
+if (activeTab) updateSwitchers(activeTab.getAttribute('data-bs-target').replace('#', ''));
+
+
 function hideSVG(el) {
-    let final = 'visible'
-    if (el.classList.contains('active')) {
-        final = 'hidden'
-        el.classList.remove('active')
-    } else {
-        el.classList.add('active')
+    const visibility = el.checked ? 'visible' : 'hidden'
+
+    if (el.dataset.action == 'Numbers') {
+        $('#atlasText,#squareText,#holeText').attr('visibility', visibility);
     }
-    if (el.value == 'Numbers') {
-        $('#atlasText,#squareText,#holeText').attr('visibility', final);
-    }
-    if (el.value == 'Labels') {
-        $('#atlasText,#squareText,#holeText,#atlasShapes,#squareShapes,#holeShapes').attr('visibility', final);
-    }
-    if (el.value == 'Legends') {
-        $('.legend').attr('visibility', final);
+    if (el.dataset.action == 'Labels') {
+        $('#atlasText,#squareText,#holeText,#atlasShapes,#squareShapes,#holeShapes').attr('visibility', visibility);
     }
 }
+
+document.querySelectorAll('.form-check-input[data-action]').forEach(input => {
+    input.addEventListener('change', function() {
+        hideSVG(this);
+    });
+});
 
 function hideSVGlabel(el, parentid) {
     elements = document.getElementById(parentid).getElementsByClassName(el.value);

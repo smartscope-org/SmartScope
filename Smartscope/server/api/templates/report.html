@@ -58,31 +58,46 @@
                             name="notes"
                             rows="1"
                             placeholder="Notes..."
-                            style="font-size: 1.0rem; resize: both; rgb(206, 212, 218);">{{grid.notes|default:''}}</textarea>
+                            style="font-size: 1.0rem; resize: vertical; rgb(206, 212, 218);">{{grid.notes|default:''}}</textarea>
                     </form>
                 </div>
-                <div class="col-2 flex-row d-flex align-items-start justify-content-between p-2">
-                            <button id="stop-button" class="btn btn-xs btn-outline-danger col-6 flex-fill" type="button" value="aborting"
-                                onmousedown="changeGridStatus(this.value)" 
-                                data-bs-toggle="tooltip" data-bs-placement="bottom" title="Abort current grid. This will skip all remaining targets and move to the next sample.">
-                                Abort
-                            </button>
-                            <button id="restart-button" class="btn btn-xs btn-outline-primary col-6 flex-fill"
-                                type="button" value="started" onmousedown="changeGridStatus(this.value)" 
-                                data-bs-toggle="tooltip" data-bs-placement="top" title="Sets the status from 'completed' back to 'started'. Useful to resume a finished grid and add new targets to the queue.">
-                                Restart
-                            </button>
+                <div class="col-2 flex-row d-flex align-items-start gap-2 p-2">
+                    <button id="stop-button" class="btn btn-xs btn-outline-danger w-50" type="button" value="aborting"
+                        onmousedown="changeGridStatus(this.value)" 
+                        data-bs-toggle="tooltip" data-bs-placement="bottom" title="Abort current grid. This will skip all remaining targets and move to the next sample.">
+                        Abort
+                    </button>
+                    <button id="restart-button" class="btn btn-xs btn-outline-primary w-50"
+                        type="button" value="started" onmousedown="changeGridStatus(this.value)" 
+                        data-bs-toggle="tooltip" data-bs-placement="top" title="Sets the status from 'completed' back to 'started'. Useful to resume a finished grid and add new targets to the queue.">
+                        Restart
+                    </button>
                 </div>
             </div>
-            <ul class="nav nav-tabs card-header-tabs p-1 m-0" style="height: 30px;">
+            <ul class="nav nav-tabs card-header-tabs p-1 m-0 d-flex w-100" style="height: 30px;">
                 <li class="nav-item">
                     <button class="nav-link active" data-bs-toggle="tab" data-bs-target="#tab-report" type="button" role="tab">Report</button>
                 </li>
                 <li class="nav-item">
-                    <button class="nav-link" data-bs-toggle="tab" data-bs-target="#tab-history" type="button" role="tab">History/Queue</button>
-                </li>
-                <li class="nav-item">
                     <button class="nav-link" data-bs-toggle="tab" data-bs-target="#tab-stats" type="button" role="tab">Stats</button>
+                </li>
+                <li class="nav-item ms-auto d-flex align-items-center me-2">
+                    <!-- Only shown on Report tab -->
+                    <div class="tab-switchers d-none" data-tab="tab-report">
+                        <div class="d-flex gap-2">
+                            <div class="form-check form-switch mb-0">
+                                <input class="form-check-input" type="checkbox" data-action="Numbers" id="switchNumbers" checked>
+                                <label class="form-check-label" for="switchNumbers">Show targets numbers</label>
+                            </div>
+                            <div class="form-check form-switch mb-0">
+                                <input class="form-check-input" type="checkbox" data-action="Labels" id="switchLabels" checked>
+                                <label class="form-check-label" for="switchLabels">Show targets outline</label>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Only shown on other tab -->
+                    <!-- <div class="tab-switchers d-flex gap-2 align-items-center d-none" data-tab="tab-history"></div> -->
                 </li>
             </ul>
         </div>
@@ -164,60 +179,50 @@
                 </div>
             </div>
         </div>
-        <div class="card-footer bg-light py-0 px-1 d-flex justify-content-between align-items-center">
-            <div class='d-flex flex-wrap align-items-stretch justify-content-end gap-1'>
-                <button id='gridParamBtn' class="btn btn-sm btn-outline-primary col-3 col-md-auto" type="button"
-                    data-bs-toggle="collapse" data-bs-target="#collapseGridParams" aria-expanded="false"
-                    aria-controls="collapseExample">
+        <div class="card-footer bg-light py-1 px-1 pe-5 d-flex align-items-center w-100 h-80">
+            <div class='d-flex align-items-center gap-1'>
+                <button id='gridParamBtn' class="btn btn-sm btn-ghost" type="button"
+                    data-bs-toggle="tooltip" data-bs-placement="top" title="View/Edit collection parameters">
                     Collection Parameters
                 </button>
-                <button id='gridPreprocessingBtn' hx-get="{% url 'preprocessingPipeline' %}{{grid.grid_id}}" hx-target="#main" hx-swap="beforeend"
-                data-bs-toggle="tooltip" data-bs-placement="top" title="Show/Edit preprocessingpipeline." class="btn btn-sm btn-outline-primary col-3 col-md-auto" type="button">
+                <button id='gridPreprocessingBtn' class="btn btn-sm btn-ghost" type="button"
+                    hx-get="{% url 'preprocessingPipeline' %}{{grid.grid_id}}" hx-target="#main" hx-swap="beforeend"
+                    data-bs-toggle="tooltip" data-bs-placement="top" title="View/Edit preprocessing pipeline">
                     Preprocessing
                 </button>
-                <button id='gridProtocolBtn' class="btn btn-sm btn-outline-primary col-3 col-md-auto" type="button"
-                    hx-get="{% url 'protocol' grid_id=grid.grid_id %}"
-                    hx-target="#main"
-                    hx-swap="beforeend">
+                <button id='gridProtocolBtn' class="btn btn-sm btn-ghost" type="button"
+                    hx-get="{% url 'protocol' grid_id=grid.grid_id %}" hx-target="#main" hx-swap="beforeend"
+                    data-bs-toggle="tooltip" data-bs-placement="top" title="View/Edit session protocol">
                     Protocol
                 </button>
                 {% if tagsFeatureFlag %}
-                <button id='gridTagsBtn' hx-get="{% url 'tagsManager' grid_id=grid.grid_id %}" hx-target="#main" hx-swap="beforeend" class="btn btn-sm btn-outline-primary col-3 col-md-auto" type="button">
+                <button id='gridTagsBtn' class="btn btn-sm btn-ghost" type="button"
+                    hx-get="{% url 'tagsManager' grid_id=grid.grid_id %}" hx-target="#main" hx-swap="beforeend">
                     Tags
                 </button>
                 {% endif %}
-                <button id='gridTargetHistory' hx-get="{% url 'targetHistory' grid_id=grid.grid_id %}" hx-target="#main" hx-swap="beforeend" class="btn btn-sm btn-outline-primary col-3 col-md-auto" type="button">
-                    History/Queue
+            </div>
+            <div class="ms-auto">
+                <button id='gridTargetHistory' class="btn btn-sm btn-ghost" type="button"
+                    hx-get="{% url 'targetHistory' grid_id=grid.grid_id %}" 
+                    hx-target="#offcanvasShellBody" hx-swap="innerHTML"
+                    data-bs-toggle="offcanvas" data-bs-placement="top" 
+                    data-bs-target="#offcanvasShell" data-offcanvas-title="History / Queue"
+                    onclick="document.getElementById('offcanvasShellTitle').textContent = this.dataset.offcanvasTitle"
+                    title="View the history and queue of targets for the grid">
+                    History / Queue
                 </button>
-                <button id='legendsBtn' class="btn btn-sm btn-outline-primary col-3 col-md-auto" type="button"
+                <!-- <button id='legendsBtn' class="btn btn-sm btn-outline-primary col-3 col-md-auto" type="button"
                     data-bs-toggle="collapse" data-bs-target="#legends" aria-expanded="false" aria-controls="collapseExample">
                     Display
-                </button>
+                </button> -->
             </div>
         </div>
+        {% include 'general/base_offcanvas.html' %}
     </div>
 </div>
-<!-- <div id="collapseGridStats" class="collapse">
-    <div class='row align-items-center'>
-        <div class='row col-3'>
-            <div class='col-auto pr-0'><b>Holes in queue:</b></div>
-            <div id='holeCountQueued' class='col-auto pl-0'></div>
-        </div>
-        <div class='row col-3'>
-            <div class='col-auto pr-0'><b>Holes acquired:</b></div>
-            <div id='holeCountAcquired' class='col-auto pl-0'></div>
-        </div>
-        <div class='row col-3'>
-            <div class='col-auto pr-0'><b>Holes per hour:</b></div>
-            <div id='holeCountPerhour' class='col-auto pl-0'></div>
-        </div>
-        <div class='row col-3'>
-            <div class='col-auto pr-0'><b>Holes in the last hour:</b></div>
-            <div id='holeLasthour' class='col-auto pl-0'></div>
-        </div>
-    </div>
-    <hr>
-</div> -->
+{% include 'general/base_modal.html' %}
+
 <div id="collapseGridParams" class="collapse px-1">
     <form id='editGridForm' action='#'>
         {% include 'forms/formFieldsBase.html' with form=gridform row=True includeSubmitButton=True %}
@@ -229,8 +234,8 @@
     <hr>
 </div>
 
-<div id='legends' class="collapse px-1">
-    <div class='col-12'>
+<!-- <div id='legends' class="collapse px-1"> -->
+    <!-- <div class='col-12'>
         <div class='d-flex flex-row align-items-center'>
             <b>General Toggle:</b>
             <button class='btn btn-xs btn-outline-primary active' onmousedown='hideSVG(this)' value='Numbers'>
@@ -240,8 +245,8 @@
             <button class='btn btn-xs btn-outline-primary active' onmousedown='hideSVG(this)' value='Legends'>
                 Legends</button>
         </div>
-    </div>
-    <div class='col-6'>
+    </div> -->
+    <!-- <div class='col-6'>
         <div id='atlasLegend' class='d-flex flex-row'>
             <b>Atlas labels:</b>
             <button class="btn btn-xs completed active" onmousedown="hideSVGlabel(this,'Atlas_im')"
@@ -260,7 +265,7 @@
         </div>
     </div>
     <hr>
-</div>
+</div> -->
 
 
 
