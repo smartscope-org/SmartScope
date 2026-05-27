@@ -44,11 +44,11 @@ class NextPYPPreprocessingPipelineForm(forms.Form):
         help_text="Hostname of the HPC cluster for SCP file transfer"
     )
 
-    gain_reference = forms.CharField(
-        label="Gain Reference Path",
-        help_text="Path to the gain reference file (from nextPYP perspective)",
-        required=False
-    )
+    # gain_reference = forms.CharField(
+    #     label="Gain Reference Path",
+    #     help_text="Path to the gain reference file (from nextPYP perspective)",
+    #     required=False
+    # )
 
     # SLURM settings
     slurm_tasks = forms.IntegerField(

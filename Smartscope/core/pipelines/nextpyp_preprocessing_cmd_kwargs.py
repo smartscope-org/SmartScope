@@ -21,7 +21,7 @@ class NextPYPPreprocessingCmdKwargs(BaseModel):
     remote_host:str = ""
 
     # Dataset settings
-    gain_reference:str = ""
+    # gain_reference:str = ""
 
     # File transfer settings
     stream_transfer_operation:str = "link"
