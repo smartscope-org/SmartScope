@@ -28,7 +28,6 @@ from .nextpyp_preprocessing_pipeline_form import NextPYPPreprocessingPipelineFor
 from nextpyp.client import Client
 from nextpyp.client.credentials import Credentials
 from nextpyp.client.args import block_args, PypArgValues, PypBlock
-from PIL import Image
 from nextpyp.client.gen import (
     SingleParticleSessionArgs,
     SessionsService,
@@ -87,8 +86,9 @@ class NextPYPPreprocessingPipeline(PreprocessingPipeline):
             self.token = f.read().strip()
             
         self.frames_directory = self.cmd_data.frames_directory
-        self.pixel_size = self.cmd_data.scope_pixel
-        
+        self.remote_user = self.cmd_data.remote_user
+        self.remote_host = self.cmd_data.remote_host
+
         self.client = self.initialize_client()
         self.session = None
         self.session_path = None
@@ -100,6 +100,7 @@ class NextPYPPreprocessingPipeline(PreprocessingPipeline):
         
         
     def initialize_client(self):
+        # print(f"[DEBUG] url base: {self.cmd_data.url_base}, userid: {self.nextpyp_userid}, token: {self.token}")
         return Client(
             url_base=self.cmd_data.url_base,
             credentials=Credentials(
@@ -108,16 +109,17 @@ class NextPYPPreprocessingPipeline(PreprocessingPipeline):
             )
         )
 
-    def configure_session_args(self):
+    def configure_session_args(self, pixel_size: float, gain_reference_path: str):
         self.pyp_args = PypArgValues(block_args(PypBlock.SESSION_SINGLE_PARTICLE))
 
+        logger.info(f"NextPYP data_path: {self.cmd_data.frames_directory}")
         self.pyp_args.data_path = self.cmd_data.frames_directory
-        self.pyp_args.gain_reference = self.cmd_data.gain_reference
-        self.pyp_args.gain_flipv = self.cmd_data.gain_flipv
+        self.pyp_args.gain_reference = gain_reference_path
+        self.pyp_args.gain_flipv = self.detector.gain_flip
 
-        self.pyp_args.scope_pixel = self.cmd_data.scope_pixel
-        self.pyp_args.scope_voltage = self.cmd_data.scope_voltage
-        self.pyp_args.scope_cs = self.cmd_data.scope_cs
+        self.pyp_args.scope_pixel = float(pixel_size)
+        self.pyp_args.scope_voltage = self.microscope.voltage
+        self.pyp_args.scope_cs = self.microscope.spherical_abberation
 
         self.pyp_args.stream_transfer_operation = self.cmd_data.stream_transfer_operation
         self.pyp_args.stream_transfer_restart = self.cmd_data.stream_transfer_restart
@@ -135,16 +137,44 @@ class NextPYPPreprocessingPipeline(PreprocessingPipeline):
         self.pyp_args.slurm_memory = self.cmd_data.slurm_memory
         self.pyp_args.slurm_daemon_walltime = self.cmd_data.slurm_daemon_walltime
 
+    def _wait_for_mdoc_fields(self, frames_dir: Path, timeout=600, interval=5):
+        """Wait for the first .mdoc file and return (pixel_size, gain_reference_path)."""
+        from Smartscope.lib.image.image_file import parse_mdoc
+        logger.info(f"Waiting for first .mdoc file in {frames_dir} to determine pixel_size and gain reference...")
+        waited = 0
+        while waited < timeout:
+            if self.is_stop_file():
+                raise KeyboardInterrupt("Stop requested while waiting for mdoc fields")
+            mdoc_files = list(frames_dir.glob('*.mdoc'))
+            if mdoc_files:
+                mdoc_file = mdoc_files[0]
+                try:
+                    metadata = parse_mdoc(str(mdoc_file), movie=True)
+                    row = metadata.iloc[0]
+                    pixel_size = row.PixelSpacing
+                    gain_ref_name = row.GainReference
+                    gain_reference_path = str(frames_dir / gain_ref_name)
+                    logger.info(f"Got pixel_size={pixel_size}, gain_reference={gain_reference_path} from {mdoc_file.name}")
+                    return pixel_size, gain_reference_path
+                except Exception as e:
+                    logger.warning(f"Failed to parse {mdoc_file}: {e}, retrying...")
+            time.sleep(interval)
+            waited += interval
+        raise TimeoutError(f"Timed out after {timeout}s waiting for a .mdoc file in {frames_dir}")
+
     def start(self):
         self.incomplete_processes = self.list_incomplete_processes()
         logger.info(f'Starting NextPYP Preprocessing')
-        self.configure_session_args()
+        from Smartscope.core.frames import get_smartscope_frames_dir
+        smartscope_frames_dir = get_smartscope_frames_dir(self.grid)
+        pixel_size, gain_reference_path = self._wait_for_mdoc_fields(smartscope_frames_dir)
+        self.configure_session_args(pixel_size, gain_reference_path)
 
         path = self.client.services.sessions.pick_folder()
         args = SingleParticleSessionArgs(
-            name='new_test',
+            name=self.grid.grid_id,
             path=path,
-            group_id='fmqVThRKDCY7WqgK',
+            group_id=self.cmd_data.group_id,
             values=self.pyp_args.write(),
         )
         self.session_path = path
@@ -152,10 +182,13 @@ class NextPYPPreprocessingPipeline(PreprocessingPipeline):
         self.session = self.client.services.single_particle_sessions.create(args)
         assert self.session is not None, "Session not created"
 
-        thread = threading.Thread(
-            target=lambda: asyncio.run(self.listen_to_session(self.session.session_id, path)),
-            daemon=True
-        )
+        def _run_listener():
+            try:
+                asyncio.run(self.listen_to_session(self.session.session_id, path))
+            except Exception as e:
+                logger.exception(f"Listener thread crashed: {e}")
+
+        thread = threading.Thread(target=_run_listener, daemon=True)
         thread.start()
         logger.info("Started async listener thread for session updates.")
         
@@ -195,6 +228,7 @@ class NextPYPPreprocessingPipeline(PreprocessingPipeline):
                 #     break
 
                 msg = await srv.recv()
+                # logger.debug(f"[listen_to_session] Received message type: {type(msg).__name__}")
                 if isinstance(msg, RealTimeS2CSessionMicrograph):
                     movie = SimpleNamespace(
                         name=msg.micrograph.id,
@@ -253,22 +287,19 @@ class NextPYPPreprocessingPipeline(PreprocessingPipeline):
             # assert os.path.exists(micrograph_source_path), f"Micrograph source path does not exist: {micrograph_source_path}"
             # assert os.path.exists(ctf_source_path), f"CTF source path does not exist: {ctf_source_path}"
             
-            real_data_root = "/srv/homedir/smartscope"
-            png_path = instance.png #.replace('/mnt', real_data_root)
-            ctf_path = instance.ctf_img #.replace('/mnt', real_data_root)
-            
-            if not os.path.exists(os.path.dirname(png_path)):
-                logger.warning(f"PNG path does not exist: {os.path.dirname(png_path)}")
-            else:
-                logger.info(f"PNG path exists: {os.path.dirname(png_path)}")
-            if not os.path.exists(os.path.dirname(ctf_path)):
-                logger.warning(f"CTF path does not exist: {os.path.dirname(ctf_path)}")
-                os.makedirs(os.path.dirname(ctf_path), exist_ok=True)
-                logger.info(f"Creating directory for CTF path: {os.path.dirname(ctf_path)}")
-            else:
-                logger.info(f"CTF path exists: {os.path.dirname(ctf_path)}")
-            await asyncio.to_thread(self.wait_and_convert_webp_to_png, micrograph_source_path, png_path, timeout=60)
-            await asyncio.to_thread(self.wait_and_convert_webp_to_png, ctf_source_path, ctf_path, timeout=60)
+            # Destination paths: write webp directly, no conversion needed
+            png_path = os.path.join(instance.working_dir, 'pngs', f'{instance.name}.webp')
+            ctf_path = os.path.join(instance.working_dir, instance.name, 'ctf.webp')
+
+            os.makedirs(os.path.dirname(png_path), exist_ok=True)
+            os.makedirs(os.path.dirname(ctf_path), exist_ok=True)
+
+            img_ok  = await asyncio.to_thread(self.copy_webp_image, micrograph_source_path, png_path, timeout=60)
+            ctf_ok  = await asyncio.to_thread(self.copy_webp_image, ctf_source_path, ctf_path, timeout=60)
+            if not img_ok:
+                logger.warning(f"Micrograph image copy failed for {movie.name}")
+            if not ctf_ok:
+                logger.warning(f"CTF image copy failed for {movie.name}")
             
             parent = await asyncio.to_thread(lambda: instance.hole_id)
             with self._lock:
@@ -277,48 +308,38 @@ class NextPYPPreprocessingPipeline(PreprocessingPipeline):
                     update_fields(parent, dict(status='completed'))
                 ]
 
-    def copy_file_from_remote(self, remote_path, local_path, user='sh696', host='hpc-bartesaghi-login-01.oit.duke.edu'):
+    def copy_file_from_remote(self, remote_path, local_path):
         cmd = [
             "scp",
             '-o', 'StrictHostKeyChecking=no',
             '-o', 'UserKnownHostsFile=/dev/null',
-            f"{user}@{host}:{remote_path}",
+            f"{self.remote_user}@{self.remote_host}:{remote_path}",
             local_path
         ]
         subprocess.run(cmd, check=True)
 
-    def wait_and_convert_webp_to_png(self, webp_path, target_path, timeout=30, interval=0.5):
+    def copy_webp_image(self, remote_webp_path, local_webp_path, timeout=60):
         """
-        Waits for a .webp file to exist, converts it to PNG, and saves it to target_path.
+        SCPs a .webp file from the remote nextPYP host to local_webp_path.
+        Returns True on success, False on failure.
         """
-        target_path_webp = target_path.replace('.png', '.webp')
-        logger.info("Copying file from remote host...")
-        self.copy_file_from_remote(
-            host="hpc-bartesaghi-login-01.oit.duke.edu",
-            remote_path=webp_path,
-            local_path=target_path_webp
-        )
-        
-        logger.info(f"Waiting for {target_path_webp} to exist...")
+        try:
+            logger.info(f"Copying {remote_webp_path} → {local_webp_path}")
+            self.copy_file_from_remote(remote_path=remote_webp_path, local_path=local_webp_path)
+        except Exception as e:
+            logger.error(f"SCP failed for {remote_webp_path}: {e}")
+            return False
+
         waited = 0
-        while not os.path.exists(target_path_webp):
+        while not os.path.exists(local_webp_path):
             time.sleep(1)
             waited += 1
             if waited > timeout:
-                logger.warning(f"Timeout waiting for {target_path_webp}")
+                logger.warning(f"Timeout waiting for {local_webp_path}")
                 return False
 
-        try:
-            img = Image.open(target_path_webp).convert("RGB")
-            os.makedirs(os.path.dirname(target_path), exist_ok=True)
-            img.save(target_path, "PNG")
-            logger.info(f"Saved converted PNG to {target_path}")
-            os.remove(target_path_webp)
-            logger.info(f"Removed temporary file {target_path_webp}")
-            return True
-        except Exception as e:
-            logger.error(f"Failed to convert {target_path_webp} → {target_path}: {e}")
-            return False
+        logger.info(f"Image ready at {local_webp_path}")
+        return True
     
     def save_all_updates(self):
         with transaction.atomic():
@@ -337,6 +358,12 @@ class NextPYPPreprocessingPipeline(PreprocessingPipeline):
 
     def stop(self):
         logger.info("Stopping NextPYP Preprocessing Pipeline")
+        for proc in self.child_process:
+            self.to_process_queue.put('exit')
+        for proc in self.child_process:
+            proc.join()
+        logger.debug('Process joined')
+        
         self._stop_event.set()
         if not self.client or not self.session:
             print("Client or session not initialized, cannot cancel.")
