@@ -1,0 +1,22 @@
+
+<form id='editGridForm' 
+    hx-post="{% url 'collectionParams' grid_id=grid.grid_id %}"
+    hx-target="#editGridForm"
+    hx-swap="outerHTML">
+    {% csrf_token %}
+    <input type="hidden" name="form_type" value="grid">
+    {% include 'forms/formFieldsBase.html' with form=gridform row=True includeSubmitButton=True %}
+</form>
+<hr>
+<form id='editCollectionParamsForm' 
+    hx-post="{% url 'collectionParams' grid_id=grid.grid_id %}"
+    hx-target="#editCollectionParamsForm"
+    hx-swap="outerHTML">
+    {% csrf_token %}
+    <input type="hidden" name="form_type" value="collection_params">
+    {% include 'forms/formFieldsBase.html' with form=gridCollectionParamsForm row=True includeSubmitButton=True %}
+</form>
+
+<script>
+    $("img[id$='_help']").tooltip();
+</script>
