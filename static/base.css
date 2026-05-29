@@ -177,8 +177,8 @@ body{
 .custom-scroll {
   flex: none;
   min-height: 0;
-  max-height: 150px;
-  /* max-height: 25vh; */
+  max-height: calc((100vh - 230px) / 3);
+  /* max-height: 50vh; */
   overflow: auto;
   scrollbar-width: thin;
   scrollbar-color: #eee transparent;
