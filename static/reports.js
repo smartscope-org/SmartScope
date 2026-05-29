@@ -440,16 +440,33 @@ $('#main').on('keyup', '#editNotesForm', delay(function (e) {
 }, 500));
 
 
-$('#main').on('submit', '#editNotesForm, #editGridForm', function (e) {
+$('#main').on('submit', '#editNotesForm', function (e) {
     let data = grabFormData(e)
     var url = `/api/grids/${currentState.grid_id}/`
     apifetchAsync(url, data, "PATCH", message=`Edit grid notes`)
 });
 
-$('#main').on('submit', '#editCollectionParamsForm', function (e) {
-    let data = grabFormData(e)
-    var url = `/api/grids/${currentState.grid_id}/editcollectionparams/`
-    apifetchAsync(url, data, "PATCH", message=`Changing grid collection parameters`)
+// $('#main').on('submit', '#editCollectionParamsForm', function (e) {
+//     let data = grabFormData(e)
+//     var url = `/api/grids/${currentState.grid_id}/editcollectionparams/`
+//     apifetchAsync(url, data, "PATCH", message=`Changing grid collection parameters`)
+// });
+
+document.querySelectorAll('[data-bs-target="#modalShell"]').forEach(btn => {
+    btn.addEventListener('click', function() {
+        document.getElementById('modalShellTitle').textContent = this.dataset.modalTitle;
+        document.querySelector('#modalShell .modal-dialog').className = `modal-dialog ${this.dataset.modalSize || 'modal-lg'}`;
+    });
+});
+
+document.addEventListener("pipelineSelected", (e) => {
+    const label = e.detail?.label;
+    if (label) document.getElementById("gridPreprocessingBtn").textContent = label;
+});
+
+document.addEventListener("protocolSelected", (e) => {
+    const label = e.detail?.label;
+    if (label) document.getElementById("gridProtocolBtn").textContent = label;
 });
 
 // $('#main').on('click', '#gridParamBtn', function (e) {
