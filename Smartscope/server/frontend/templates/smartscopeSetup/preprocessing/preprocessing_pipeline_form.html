@@ -6,20 +6,30 @@
         
         {% include "forms/formFieldsBase.html" with form=form row=false %}
         <div class="d-flex flex-row align-content-center">
-            <button type="submit" class="btn btn-primary" 
-                hx-post="{% url 'setPreprocessingPipeline' pipeline=pipeline grid_id=grid_id %}" 
-                hx-indicator="#spinner" 
-                {% if not grid_id %}
-                hx-target="#formPreprocess"
-                {% else %}
-                hx-target="#rightSidebarMenu"
-                hx-swap="outerHTML"
+            <div class="d-flex align-items-center gap-2 mt-2">
+                <button type="submit" class="btn btn-primary" 
+                    hx-post="{% url 'setPreprocessingPipeline' pipeline=pipeline grid_id=grid_id %}" 
+                    hx-indicator="#spinner" 
+                    {% if not grid_id %}
+                    hx-target="#formPreprocess"
+                    {% else %}
+                    hx-target="#modalShellBody"
+                    hx-swap="innerHTML"
+                    {% endif %}
+                    >
+                    Save
+                </button>
+                <div id="spinner" class="my-indicator spinner-border text-primary" role="status">
+                    <span class="sr-only"></span>
+                </div>
+                {% if success %}
+                <div class="alert alert-success py-1 px-2 mb-0 flex-grow-1 small">
+                    Preprocessing Pipeline saved successfully!
+                    <div class="small mt-0">
+                        If the preprocessing is currently running, you must stop and restart the pipeline for the new settings to be applied.
+                    </div>
+                </div>
                 {% endif %}
-                >
-                Save
-            </button>
-            <div id="spinner" class="my-indicator spinner-border text-primary" role="status">
-                <span class="sr-only"></span>
             </div>
         </div>
     </form>

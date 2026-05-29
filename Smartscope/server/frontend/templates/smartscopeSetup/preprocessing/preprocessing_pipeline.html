@@ -1,7 +1,4 @@
-{% extends "general/right_sidebar.html" %}
-{% block title %}Preprocessing Pipeline{% endblock %}
 
-{% block sidebar_content %}
 <div class="col justify-content-center">
     <form   method="get" 
             hx-get="{% url 'getPreprocessingPipeline' %}"
@@ -28,4 +25,3 @@
 <script>
     $("img[id$='_help']").tooltip();
 </script>
-{% endblock %}
