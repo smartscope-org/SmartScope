@@ -29,6 +29,7 @@ from Smartscope.core.grid.run_hole import RunHole
 from Smartscope.core.cache import save_json_from_cache
 from Smartscope.core.protocols import load_protocol, set_protocol
 from Smartscope.core.preprocessing_pipelines import PREPROCESSING_PIPELINE_FACTORY, load_preprocessing_pipeline
+from Smartscope.server.service.collection_params import update_collection_params, update_grid
 
 from Smartscope.core.models.grid import AutoloaderGrid
 from Smartscope.core.models.grid_collection_params import GridCollectionParams
@@ -380,7 +381,9 @@ class ProtocolView(TemplateView):
                 protocol = set_protocol(data['protocol'],context['grid'].protocol)
                 context = self.get_context_data(grid_id, **kwargs)
                 context['success'] = True
-                return render(request,self.template_name, context) 
+                response = render(request,self.template_name, context) 
+                response["HX-Trigger"] = json.dumps({'protocolSelected': {'label': context['protocol'].name},})
+                return response 
             return HttpResponse("<div>INVALID!</div>")
         except Exception as err:
             logger.exception(err)
@@ -401,6 +404,79 @@ class MicroscopeStatus(TemplateView):
         # if request.headers.get('HX-Request'):
         #     return render(request, self.template_name, context)
         return render(request, self.template_name, context)
+    
+
+class CollectionParams(TemplateView):
+    template_name= "smartscopeSetup/collection_parameters.html"
+    template_form= "forms/formFieldsBase.html"
+
+    def get_context_data(self, grid_id, **kwargs):
+        context = dict()
+        grid = AutoloaderGrid.objects.get(pk=grid_id)
+        context['grid'] = grid
+        context['gridform'] = AutoloaderGridReportForm(instance=grid)
+        context['gridCollectionParamsForm'] = GridCollectionParamsForm(
+                                                                instance=grid.params_id, 
+                                                                grid_id=grid.grid_id, 
+                                                                initial={
+                                                                    'detector': str(grid.session_id.detector_id.pk), 
+                                                                    'mode': grid.collection_mode
+                                                                }
+                                                            )
+        return context
+    
+    def get(self, request, grid_id, **kwargs):
+        context = self.get_context_data(grid_id, **kwargs)
+        return render(request, self.template_name, context)
+    
+    def post(self, request, grid_id):
+        form_type = request.POST.get("form_type")
+        if form_type == 'grid':
+            form_params = AutoloaderGridReportForm(request.POST)
+            
+        elif form_type == 'collection_params':
+            form_params = GridCollectionParamsForm(request.POST)
+            
+        context = {
+            'form': form_params,
+            'row': True,
+            'includeSubmitButton': True
+            }
+        if form_params.is_valid():
+            data = form_params.cleaned_data
+            result = self.update_params(request, data, grid_id, form_type)
+            context.update({'success': result['success']})
+            return render(request, self.template_form, context)
+        return render(request, self.template_form, context)
+    
+    def update_params(self, request, data, grid_id, form_type):
+        # here the custom logic can be applied. If we want to call external app, call it here, otherwise 
+        # use internal tool to make an update
+        grid = AutoloaderGrid.objects.get(pk=grid_id)
+        if form_type == 'collection_params':
+            result = update_collection_params(grid, data)
+        elif form_type == 'grid':
+            result = update_grid(grid, data)
+        return result
+
+        # uri = f'/api/grids/{grid_id}/'  -- form_type == 'grid'
+        # uri = f'/api/grids/{grid_id}/editcollectionparams/'  --  form_type == 'collection_params'
+        # url = request.build_absolute_uri(uri)
+        # data.pop('multishot_per_hole_id')
+        # logger.debug(data)
+        # response = requests.patch(
+        #                             url, 
+        #                             json=data, 
+        #                             headers={
+        #                                 'Content-Type': 'application/json',
+        #                                 'Accept': 'application/json',
+        #                                 'mode': 'same-origin',
+        #                                 'X-CSRFToken': request.COOKIES.get('csrftoken', ''),
+        #                             },
+        #                             cookies=request.COOKIES,
+        #                         )
+        # logger.debug(response.ok)
+        # return {'success': response.ok, 'data': response.json()}
 
     
 class PreprocessingPipeline(TemplateView):
@@ -428,10 +504,10 @@ class PreprocessingPipeline(TemplateView):
         context['pipeline_data'] = pipeline_data
         return context
 
-    def get_grid_pipeline(self, request, *args ,grid_id, **kwargs):
+    def get_grid_pipeline(self, request, grid_id, success=False, **kwargs):
         context = self.get_grid_context_data(grid_id)
+        context["success"] = success
         return render(request,self.template_name, context)
-
     
     def get_pipeline(self, request, *args, **kwargs,):
         try:
@@ -474,19 +550,23 @@ class PreprocessingPipeline(TemplateView):
                 pipeline_data.process_pid = context['pipeline_data'].process_pid
                 Path(context['grid'].directory,'preprocessing.json').write_text(pipeline_data.json(exclude={'cache_id'}))
                 logger.info('Updated pipeline for existing grid')
-                return self.get_grid_pipeline(request, grid_id=grid_id)
+                response = self.get_grid_pipeline(request, grid_id=grid_id, success=True)
+                response["HX-Trigger"] = json.dumps({
+                                                    'pipelineSelected': {'label': PREPROCESSING_PIPELINE_FACTORY[context['pipeline']].verbose_name},
+                                                })
+                return response
         except Exception as err:
             logger.exception(err)
 
     def start(self, request, grid_id, *args, **kwargs):
         context = self.get_grid_context_data(grid_id)
         context['pipeline_data'].start(context['grid'])
-        return self.get_grid_pipeline(request,grid_id=grid_id)
+        return self.get_grid_pipeline(request, grid_id=grid_id)
 
     def stop(self, request, grid_id, *args, **kwargs):
         context = self.get_grid_context_data(grid_id)
         context['pipeline_data'].stop(context['grid'])
-        return self.get_grid_pipeline(request,grid_id=grid_id)
+        return self.get_grid_pipeline(request, grid_id=grid_id)
 
 class CollectionStatsView(TemplateView):
     template_name = "autoscreenViewer/collection_stats.html"
@@ -530,7 +610,7 @@ def getUsersInGroup(request):
     if group is None:
         return HttpResponse('Group not specified')
     users = User.objects.filter(groups__name=group)
-    options = [{"value":u.username,"field":u.username} for u in users] 
+    options = [{"value": None, "field": "----------"}] + [{"value":u.username,"field":u.username} for u in users]
 
     return render(request, "general/options_fields.html", {"options": options})
 
