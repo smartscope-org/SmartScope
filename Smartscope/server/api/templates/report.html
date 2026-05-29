@@ -182,18 +182,29 @@
         <div class="card-footer bg-light py-1 px-1 pe-5 d-flex align-items-center w-100 h-80">
             <div class='d-flex align-items-center gap-1'>
                 <button id='gridParamBtn' class="btn btn-sm btn-ghost" type="button"
-                    data-bs-toggle="tooltip" data-bs-placement="top" title="View/Edit collection parameters">
+                    hx-get="{% url 'collectionParams' grid_id=grid.grid_id %}" 
+                    hx-target="#modalShellBody" hx-swap="innerHTML"
+                    data-bs-toggle="modal" data-bs-placement="top" 
+                    data-bs-target="#modalShell" data-modal-title="Collection Parameters"
+                    data-modal-size="modal-xl"
+                    title="View/Edit collection parameters">
                     Collection Parameters
                 </button>
                 <button id='gridPreprocessingBtn' class="btn btn-sm btn-ghost" type="button"
-                    hx-get="{% url 'preprocessingPipeline' %}{{grid.grid_id}}" hx-target="#main" hx-swap="beforeend"
-                    data-bs-toggle="tooltip" data-bs-placement="top" title="View/Edit preprocessing pipeline">
-                    Preprocessing
+                    hx-get="{% url 'preprocessingPipeline' %}{{grid.grid_id}}" 
+                    hx-target="#modalShellBody" hx-swap="innerHTML"
+                    data-bs-toggle="modal" data-bs-placement="top" 
+                    data-bs-target="#modalShell" data-modal-title="Preprocessing Pipeline"
+                    title="View/Edit preprocessing pipeline">
+                    {{ pipeline|default:"Preprocessing" }}
                 </button>
                 <button id='gridProtocolBtn' class="btn btn-sm btn-ghost" type="button"
-                    hx-get="{% url 'protocol' grid_id=grid.grid_id %}" hx-target="#main" hx-swap="beforeend"
-                    data-bs-toggle="tooltip" data-bs-placement="top" title="View/Edit session protocol">
-                    Protocol
+                    hx-get="{% url 'protocol' grid_id=grid.grid_id %}" 
+                    hx-target="#modalShellBody" hx-swap="innerHTML"
+                    data-bs-toggle="modal" data-bs-placement="top" 
+                    data-bs-target="#modalShell" data-modal-title="Protocol Details"
+                    title="View/Edit session protocol">
+                    {{ protocol|default:"Protocol" }}
                 </button>
                 {% if tagsFeatureFlag %}
                 <button id='gridTagsBtn' class="btn btn-sm btn-ghost" type="button"
@@ -212,10 +223,6 @@
                     title="View the history and queue of targets for the grid">
                     History / Queue
                 </button>
-                <!-- <button id='legendsBtn' class="btn btn-sm btn-outline-primary col-3 col-md-auto" type="button"
-                    data-bs-toggle="collapse" data-bs-target="#legends" aria-expanded="false" aria-controls="collapseExample">
-                    Display
-                </button> -->
             </div>
         </div>
         {% include 'general/base_offcanvas.html' %}
