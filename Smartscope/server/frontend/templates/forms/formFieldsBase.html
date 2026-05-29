@@ -2,9 +2,23 @@
 <div id="{{id}}" class='{% if row %}row{% endif %} align-items-center'>
     {% for field in form %}
     {% if not field.field.widget.attrs.hidden %}
-    <div class="{% if row %}col-3{% endif %} my-1">
-        <div class="input-group">
-            <span class="input-group-text" id="{{field.label}}" data-bs-toggle="tooltip" data-bs-placement="top" title="{{field.help_text}}">{{field.label}}</span>
+    <div class="{% if row %}col-3{% else %}col-8{% endif %} my-1">
+        <div class="input-group input-group-sm flex-wrap flex-md-nowrap">
+            <span class="input-group-text flex-shrink-0" 
+            style="
+                    width: {% if row %}60%{% else %}35%{% endif %}; 
+                    background-color: #f7f7f7; 
+                    white-space: normal; 
+                    word-break: break-word;
+                "
+            id="{{field.label}}" 
+            data-bs-toggle="tooltip" data-bs-placement="top" 
+            title="{{field.help_text}}">
+                {{field.label}}
+                {% if field.field.required %}
+                    <span class="text-primary ms-1">*</span>
+                {% endif %}
+            </span>
  
             {{field}}
         </div>
@@ -14,8 +28,15 @@
     {% endif %}
     {% endfor %}
     {% if includeSubmitButton %}
-    <div class="{% if row %}col-3{% endif %} my-1">
-        <input class="btn btn-sm btn-outline-primary" type="submit" value="Save">
+    <div class="flex-grow-1 my-1">
+        <div class="d-flex align-items-center gap-2">
+            <input class="btn btn-sm btn-outline-primary" type="submit" value="Save">
+            {% if success %}
+            <div class="alert alert-success py-1 px-2 mb-0 w-auto small">
+                Saved successfully!
+            </div>
+            {% endif %}
+        </div>
     </div>
     {% endif %}
 </div>

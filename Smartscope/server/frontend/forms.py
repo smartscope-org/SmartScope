@@ -64,7 +64,10 @@ class ScreeningSessionForm(forms.ModelForm):
             "hx-include":"#id_detector_id",
         })
         for visible in self.visible_fields():
-            visible.field.widget.attrs['class'] = 'form-control'
+            if visible.field.label != "Session Name":
+                visible.field.widget.attrs['class'] = 'form-select'
+            else:
+                visible.field.widget.attrs['class'] = 'form-control'
 
 
 def read_config_legacy(filename = 'default_collection_params.yaml'):
@@ -287,7 +290,7 @@ class SelectProtocolForm(forms.Form):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.fields['protocol'].widget.attrs.update({
-            'class': 'form-control'
+            'class': 'form-select'
         })
 
 class SelectPeprocessingPipilelineForm(forms.Form):
@@ -296,5 +299,5 @@ class SelectPeprocessingPipilelineForm(forms.Form):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.fields['pipeline'].widget.attrs.update({
-            'class': 'form-control',
+            'class': 'form-select',
         })
