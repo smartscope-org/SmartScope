@@ -109,12 +109,14 @@ class NextPYPPreprocessingPipeline(PreprocessingPipeline):
             )
         )
 
-    def configure_session_args(self, pixel_size: float, gain_reference_path: str):
+    def configure_session_args(self, pixel_size: float, gain_reference_name: str):
         self.pyp_args = PypArgValues(block_args(PypBlock.SESSION_SINGLE_PARTICLE))
 
-        logger.info(f"NextPYP data_path: {self.cmd_data.frames_directory}")
+        # logger.info(f"NextPYP data_path: {self.cmd_data.frames_directory}")
+        real_frames_directory = os.path.dirname(self.cmd_data.frames_directory)
         self.pyp_args.data_path = self.cmd_data.frames_directory
-        self.pyp_args.gain_reference = gain_reference_path
+        self.pyp_args.gain_reference = os.path.join(real_frames_directory, gain_reference_name)
+        # logger.info(f"Gain reference path: {self.pyp_args.gain_reference}")
         self.pyp_args.gain_flipv = self.detector.gain_flip
 
         self.pyp_args.scope_pixel = float(pixel_size)
@@ -154,8 +156,8 @@ class NextPYPPreprocessingPipeline(PreprocessingPipeline):
                     pixel_size = row.PixelSpacing
                     gain_ref_name = row.GainReference
                     gain_reference_path = str(frames_dir / gain_ref_name)
-                    logger.info(f"Got pixel_size={pixel_size}, gain_reference={gain_reference_path} from {mdoc_file.name}")
-                    return pixel_size, gain_reference_path
+                    logger.info(f"Got pixel_size={pixel_size}, gain_reference={gain_ref_name} from {mdoc_file.name}")
+                    return pixel_size, gain_ref_name
                 except Exception as e:
                     logger.warning(f"Failed to parse {mdoc_file}: {e}, retrying...")
             time.sleep(interval)
@@ -167,8 +169,10 @@ class NextPYPPreprocessingPipeline(PreprocessingPipeline):
         logger.info(f'Starting NextPYP Preprocessing')
         from Smartscope.core.frames import get_smartscope_frames_dir
         smartscope_frames_dir = get_smartscope_frames_dir(self.grid)
-        pixel_size, gain_reference_path = self._wait_for_mdoc_fields(smartscope_frames_dir)
-        self.configure_session_args(pixel_size, gain_reference_path)
+        pixel_size, gain_ref_name = self._wait_for_mdoc_fields(smartscope_frames_dir)
+        gain_reference_path = os.path.join(self.frames_directory, gain_ref_name)
+        # logger.info("Gain reference path: ", os.path.join(self.cmd_data.frames_directory, gain_ref_name))
+        self.configure_session_args(pixel_size, gain_ref_name)
 
         path = self.client.services.sessions.pick_folder()
         args = SingleParticleSessionArgs(
