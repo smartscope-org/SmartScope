@@ -629,6 +629,7 @@ class SerialemInterface(MicroscopeInterface):
         self.logger.debug(f'Image shift by microns: {isX}, {isY}, {tiltAngle}, {afis}, {goToRecord}, {delay_multiplier}, {additional_delay}')
         if goToRecord:
             sem.GoToLowDoseArea('Record')
+        isY = isY*np.cos(math.radians(tiltAngle))
         sem.ImageShiftByMicrons(isX - self.state.imageShiftX, isY - self.state.imageShiftY, delay_multiplier, int(afis))
         if goToRecord:
             self.state.imageShiftX = isX
