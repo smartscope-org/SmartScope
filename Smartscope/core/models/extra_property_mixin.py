@@ -36,7 +36,11 @@ class ExtraPropertyMixin:
 
     @ property
     def png(self):
-        return self.get_full_path(os.path.join(self.working_dir, 'pngs', f'{self.name}.png'))
+        webp_path = os.path.join(self.working_dir, 'pngs', f'{self.name}.webp')
+        png_path  = os.path.join(self.working_dir, 'pngs', f'{self.name}.png')
+        if not self.is_aws and os.path.exists(webp_path):
+            return self.get_full_path(webp_path)
+        return self.get_full_path(png_path)
 
     @ property
     def mrc(self):
@@ -52,4 +56,8 @@ class ExtraPropertyMixin:
 
     @ property
     def ctf_img(self):
-        return self.get_full_path(os.path.join(self.working_dir, self.name, 'ctf.png'))
+        webp_path = os.path.join(self.working_dir, self.name, 'ctf.webp')
+        png_path  = os.path.join(self.working_dir, self.name, 'ctf.png')
+        if not self.is_aws and os.path.exists(webp_path):
+            return self.get_full_path(webp_path)
+        return self.get_full_path(png_path)
