@@ -105,15 +105,17 @@ class AutoloaderGridForm(forms.ModelForm):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
+        
+        for visible in self.visible_fields():
+            visible.field.widget.attrs['class'] = 'form-select col-7'
+            # visible.label = ''
+            visible.field.required = False
+        
         self.fields['position'].widget.attrs.update({
             'class': 'form-control',
             'min': 0,
             'max': 99999
         })
-        for visible in self.visible_fields():
-            visible.field.widget.attrs['class'] = 'form-control col-7'
-            # visible.label = ''
-            visible.field.required = False
 
         self.fields['name'].widget.attrs.update({'class': 'form-control',
                                                 'placeholder': self.fields['name'].label, 'aria-label': "...",
@@ -136,7 +138,7 @@ class AutoloaderGridReportForm(forms.ModelForm):
         self.form_labels = ('Hole Type', 'Mesh Size', 'Mesh Material')
         for visible in self.visible_fields():
 
-            visible.field.widget.attrs['class'] = 'form-control'
+            visible.field.widget.attrs['class'] = 'form-select'
             visible.field.required = False
 
 class MyCheckBox(forms.CheckboxInput):
@@ -253,6 +255,11 @@ class GridCollectionParamsForm(forms.ModelForm):
 
 class PreprocessingPipelineIDForm(forms.Form):
     preprocessing_pipeline_id = forms.CharField(label='Preprocessing pipeline ID', required=False)
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        for visible in self.visible_fields():
+            visible.field.widget.attrs['class'] = 'form-control'
 
 
 class AssingBisGroupsForm(forms.Form):

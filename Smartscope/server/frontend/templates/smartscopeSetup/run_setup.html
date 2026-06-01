@@ -1,36 +1,38 @@
 {% extends "base.html" %}
 {% load static %}
 {% block title %}Smartscope Session Setup{% endblock %}
+{% block main_content_class %}overflow-y-auto{% endblock %}
 {% block content %}
-    <div id='setup' class="container-fluid m-0 px-2 py-2">
-        <form class="needs-validation" novalidate method="post" onsubmit="validateForm(event)">
+    <div id='setup' class="container-fluid m-0 px-0 py-2 overflow-x-hidden">
+        <form class="needs-validation " novalidate method="post" onsubmit="validateForm(event)">
             {% csrf_token %}
-            <h3>GENERAL</h3>
-
+            <h3 class="px-2 mt-1 mb-0">GENERAL</h3>
             {% include "forms/formFieldsBase.html" with form=form_general row=True%}
-            <h3 class="col-auto pr-1 mb-0">COLLECTION PARAMETERS</h3>
+            <h3 class="col-auto px-2 mb-0 mt-1">COLLECTION PARAMETERS</h3>
             <div id="collection-params-form">
                 {% include "forms/formFieldsBase.html" with form=form_params row=True id='formParams' %}
             </div>
-
-            <h3 class="col-auto pr-1 mb-0">PREPROCESSING PIPELINE</h3>
-            <button class="btn btn-outline-secondary" 
-            hx-get="{% url 'preprocessingPipeline' %}{{grid_id}}" hx-target="#main" hx-swap="beforeend"
-            data-bs-toggle="tooltip" data-bs-placement="top" title="Show/Edit preprocessingpipeline.">
-                <i class="bi bi-pencil-square"></i>
-            
-            </button>
+            <h3 class="col-auto px-2 mb-0 mt-1">PREPROCESSING PIPELINE</h3>
+            <div class="px-2">
+                <button class="btn btn-outline-secondary" 
+                hx-get="{% url 'preprocessingPipeline' %}{{grid_id}}" hx-target="#main" hx-swap="beforeend"
+                data-bs-toggle="tooltip" data-bs-placement="top" title="Show/Edit preprocessingpipeline.">
+                    <i class="bi bi-pencil-square"></i>
+                
+                </button>
+            </div>
             {% include "forms/formFieldsBase.html" with form=form_preprocess row=True id='formPreprocess' %}
-            <h3 class="col-auto pr-1 mb-0">AUTOLOADER</h3>
+            
+            <h3 class="col-auto px-2 mb-0 mt-1">AUTOLOADER</h3>
             <div class="form-group">
                 <input id="autoloaderForm" class="form-control" type="hidden"></input>
                 <div id="autoloaderFormError" class="alert alert-danger collapse">At least one grid is required</div>
             </div>
-            <div id='autoloader' class="d-flex flex-row flex-wrap">
+            <div id='autoloader' class="row px-0 m-0 g-3">
                 {% for grid in grids %}
-                <div id="grid-{{ forloop.counter }}" class='col-12 col-md-6 col-lg-4 col-xl-3 p-1 topgrid'>
+                <div id="grid-{{ forloop.counter }}" class='col-12 col-md-6 col-lg-4 col-xl-3 topgrid my-1'>
                     <div class="card">
-                        <div class="card-header">
+                        <div class="card-header p-1">
                             <div class=" d-flex flex-row mw-100 align-items-center p-0 m-0 justify-content-between">
                                 <div class="col-8">
                                 {{ grid.name }}
@@ -38,19 +40,21 @@
                                 {% if grid.name.help_text %}
                                 <div class="invalid-tooltip">{{ grid.name.help_text }}</div>
                                 {% endif %}
-                                <div class="div col-1 p-0 justify-content-end">
-                                    <img id="copy_help" src="{% static 'images/clipboard.svg' %}" data-bs-toggle="tooltip"
-                                        title="Fill from preceding grid card"
-                                        onmousedown="fillFromPreviousWrapper(this)">
-                                    <img id="copy_help" src="{% static 'images/x-lg.svg' %}" data-bs-toggle="tooltip"
-                                        title="Remove Grid" onmousedown="removeGrid(this)">
+                                <div class="d-flex justify-content-end gap-2 pe-2">
+                                    <!-- <div class="div col-1 p-0 justify-content-end"> -->
+                                        <img id="copy_help" src="{% static 'images/clipboard.svg' %}" data-bs-toggle="tooltip"
+                                            title="Fill from preceding grid card"
+                                            onmousedown="fillFromPreviousWrapper(this)">
+                                        <img id="copy_help" src="{% static 'images/x-lg.svg' %}" data-bs-toggle="tooltip"
+                                            title="Remove Grid" onmousedown="removeGrid(this)">
+                                    <!-- </div> -->
                                 </div>
                             </div>
                         </div>
-                        <div class="card-body">
+                        <div class="card-body px-2 py-1">
                             {% for field in grid %}
                             {% if field != grid.name %}
-                            <div class="d-flex flex-row w-100 mb-0">
+                            <div class="d-flex flex-row w-100 my-1 p-0">
                                 <label class="col-form-label col-5 mb-0" for="{{field.id}}">{{ field.label }}</label>
                                 
                                 <div class="col-7">{{ field }}</div>
@@ -61,7 +65,7 @@
                         </div>
                     </div>
                 </div>
-                <div id="addGridDiv" class='col-12 col-md-6 col-lg-4 col-xl-3 p-1'>
+                <div id="addGridDiv" class='col-12 col-md-6 col-lg-4 col-xl-3 px-2 my-1'>
                     <div class="card h-100">
                         <div class="card-body justify-content-center align-items-center d-flex">
                             <button id='addGridbtn' class='col-auto btn btn-outline-secondary h-50 w-50' type="button" data-bs-toggle="tooltip" title="Add additional grid"
@@ -77,7 +81,17 @@
                     </div>
                 </div>
             </div>
-            <button class="btn btn-primary" type="submit" value="Submit">Submit</button>
+            <!-- <a class="text-muted small" data-bs-toggle="collapse" href="#moreInfo" role="button">
+                More information<i class="bi bi-chevron-down"></i>
+            </a>
+            <div class="collapse" id="moreInfo">
+                <div class="card card-body py-1 small">
+                    If the grid is currently running, you must stop and restart the session for the new protocol to be applied.
+                </div>
+            </div> -->
+            <div class="px-2 mt-2">
+                <button class="btn btn-primary" type="submit" value="Submit">Submit</button>
+            </div>
         </form>
     </div>
 

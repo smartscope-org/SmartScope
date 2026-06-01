@@ -156,6 +156,10 @@ body{
   overflow-y: hidden;
 }
 
+.mainContent {
+  max-height: 100vh;
+  overflow-y: auto; /* fallback, the block class handles per-page */
+}
 
 #loadingMessagesContainer {
   position: fixed;
@@ -199,4 +203,8 @@ body{
 #sideNav .dropdown-menu a.dropdown-item:hover {
     color: white !important;
     background-color: rgba(255, 255, 255, 0.15) !important;
+}
+
+#addGridDiv .card {
+    min-height: 271px; /* adjust to match your grid cards */
 }

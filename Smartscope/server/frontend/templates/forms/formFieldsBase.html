@@ -1,5 +1,5 @@
 
-<div id="{{id}}" class='{% if row %}row{% endif %} align-items-center'>
+<div id="{{id}}" class='{% if row %}row{% endif %} align-items-center m-0 gx-3'>
     {% for field in form %}
     {% if not field.field.widget.attrs.hidden %}
     <div class="{% if row %}col-3{% else %}col-8{% endif %} my-1">
