@@ -485,3 +485,57 @@ def add_to_training_set(mag_level: str, id: str, dataset_name:str,export_type='y
     from Smartscope.core.utils.training_data import add_to_training_set
     add_to_training_set(mag_level, id, dataset_name,export_type, output_directory)
 
+def save_jeol_optics(detector_id:str, mag_level:Literal['atlas', 'square', 'medium_mag', 'high_mag']):
+    from .models import Detector
+    from .interfaces.microscope import Detector, AtlasSettings
+    from .interfaces.microscope_methods import select_microscope_interface
+    if mag_level not in ['atlas', 'square', 'medium_mag', 'high_mag']:
+        print(f'Mag level {mag_level} not recognized. Please choose from atlas, square, medium_mag, high_mag.')
+        return
+    detector = Detector.objects.get(pk=detector_id)
+    if detector is None:
+        print(f'Could not find detector with name {detector_id}')
+        return
+    microscope_id = detector.microscope_id
+    if microscope_id.vendor != 'JEOL':
+        print(f'Microscope {microscope_id} is not a JEOL. This function is only compatible with JEOL microscopes.')
+        return
+    scopeInterface, microscope, additional_settings = select_microscope_interface(microscope_id)
+
+    with scopeInterface(
+            microscope = microscope.model_validate(microscope_id),
+            detector= Detector.model_validate(detector) ,
+            atlas_settings= AtlasSettings.model_validate(detector),
+            additional_settings=additional_settings
+        ) as scope:
+        scope.logger.info(f'Saving lens data for mag level {mag_level}')
+        len_file = getattr(scope.microscope, f'{mag_level}_lens_file')
+        scope.save_lens_data(len_file)
+        scope.logger.info(f'Lens data saved to {len_file}')
+
+
+def set_jeol_optics(detector_id:str, mag_level:Literal['atlas', 'square', 'medium_mag', 'high_mag']):
+    from .models import Detector
+    from .interfaces.microscope import Detector, AtlasSettings
+    from .interfaces.microscope_methods import select_microscope_interface
+    if mag_level not in ['atlas', 'square', 'medium_mag', 'high_mag']:
+        print(f'Mag level {mag_level} not recognized. Please choose from atlas, square, medium_mag, high_mag.')
+        return
+    detector = Detector.objects.get(pk=detector_id)
+    if detector is None:
+        print(f'Could not find detector with name {detector_id}')
+        return
+    microscope_id = detector.microscope_id
+    if microscope_id.vendor != 'JEOL':
+        print(f'Microscope {microscope_id} is not a JEOL. This function is only compatible with JEOL microscopes.')
+        return
+    scopeInterface, microscope, additional_settings = select_microscope_interface(microscope_id)
+
+    with scopeInterface(
+            microscope = microscope.model_validate(microscope_id),
+            detector= Detector.model_validate(detector) ,
+            atlas_settings= AtlasSettings.model_validate(detector),
+            additional_settings=additional_settings
+        ) as scope:
+       ##NEEDS TO ADD STUFF HERE
+       pass

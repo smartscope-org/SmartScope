@@ -31,6 +31,7 @@ mediumMag:
     - moveStage
     - zeroImageShift
     - mediumMagHole
+    - setHighMag
     - rollDefocus
     - autoFocus
     - waitDrift

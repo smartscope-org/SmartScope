@@ -1,11 +1,14 @@
 import serialem as sem
 import math
+import json
+from pathlib import Path
 from typing import Callable
 from pydantic import BaseModel
 import time
 import logging
 from .serialem_interface import SerialemInterface, CartridgeLoadingError
 from .microscope_interface import Apertures
+from .microscope import Microscope
 
 logger = logging.getLogger(__name__)
 
@@ -23,10 +26,45 @@ class JEOLExtraApertures(Apertures):
 class JEOLadditionalSettings(BaseModel):
     transfer_cartridge_path: str = r'C:\Program Data\SerialEM\PyTool\Transfer_Cartridge.bat'
 
+
+class JEOLmicroscope(Microscope):
+
+    @property
+    def atlas_lens_file(self):
+        return str(Path(self.directory, 'reference', 'atlas_lenses.json'))
+    
+    @property
+    def square_lens_file(self):
+        return str(Path(self.directory, 'reference', 'square_lenses.json'))
+    
+    @property
+    def medium_mag_lens_file(self): 
+        return str(Path(self.directory, 'reference', 'medium_mag_lenses.json'))
+    
+    @property
+    def high_mag_lens_file(self):
+        return str(Path(self.directory, 'reference', 'high_mag_lenses.json'))
+
+
 class JEOLSerialemInterface(SerialemInterface):
     additional_settings: JEOLadditionalSettings = JEOLadditionalSettings()
+    microscope: JEOLmicroscope
     apertures: Apertures = None
     # record_mag: int = 0
+
+    def load_lens_data(self, file:str):
+        with open(file, 'r') as f:
+            data = json.load(f)
+        for lens, value in data.items():
+            sem.PluginAllDoubles("JEOL", f"SetDec{lens}", *value)
+
+    def save_lens_data(self, file:str):
+        data = {}
+        for lens in ['GunA1', 'GunA2', 'SpotA', 'CLA1', 'CLA2', 'FLA1', 'FLA2', 'Cls', 'OLs', 'IS1', 'IS2', 'PLA']:
+            sem.PluginAllDoubles("JEOL", f"Get{lens}")
+            data[lens] = [sem.GetVariable("JEOLVal1"), sem.GetVariable("JEOLVal2")]
+        with open(file, 'w') as f:
+            json.dump(data, f, indent=4)
         
     def checkPump(self, wait=30):
         pass
@@ -44,23 +82,60 @@ class JEOLSerialemInterface(SerialemInterface):
         sem.SetMag(self.record_mag)
         
     def set_atlas_optics(self):
-        return self.set_atlas_optics_imaging_state()
-    
-    def atlas(self, size, file=''):
-        sem.GoToLowDoseArea('S')
+        if self.state.current_mag == 'atlas':
+            return
+        sem.SetLowDoseMode(1)
+        sem.GoToLowDoseArea('R')
+        sem.Delay(3, 's')
+        sem.SetLowDoseMode(0)
+        #Need a round of square mag cycling here
+        sem.SetMag(self.atlas_settings.mag)
+        # sem.Delay(3, 's')
+        sem.SetSlitIn(0)
+        sem.SetSpotSize(self.atlas_settings.spot_size)
+        sem.SetPercentC2(self.atlas_settings.c2)
         sem.SetEucentricFocus()
-        sem.ParamSetToUseForMontage(3)
-        super().atlas(size, file)
-        msg = 'Atlas finished, Restoring Search state.'
-        self.logger.info(msg)
-        sem.RestoreState()
+        self.load_lens_data(self.microscope.atlas_lens_file) ##Need to set this up
+        sem.ResetDefocus()
+        self.state.current_mag = 'atlas'
+
+    def set_square_mag_optics(self):
+        if self.state.current_mag == 'square':
+            return
+        sem.SetLowDoseMode(0)
+        sem.SetMag(self.atlas_settings.mag)
+        sem.Delay(3, 's')
+        sem.SetLowDoseMode(1)
+        sem.GoToLowDoseArea('R')
+        sem.Delay(3, 's')
+        sem.GoToLowDoseArea('S')
+        sem.PluginString("JEOL", "SetHexOM", "0000") #FOR ON-free Low Mag
+        sem.ResetDefocus()
+        sem.SetEucentricFocus()
+        sem.Delay(3, 's')
+        self.load_lens_data(self.microscope.square_lens_file)
+        super().set_square_mag_optics()
+    
+    def set_medium_mag_optics(self):
+        if self.state.current_mag == 'medium_mag':
+            return
+        sem.SetLowDoseMode(1)
+        sem.GoToLowDoseArea('R')
+        sem.SetEucentricFocus()
+        self.load_lens_data(self.microscope.medium_mag_lens_file)
+        super().set_medium_mag_optics()
+
+
+    def set_high_mag_optics(self):
+        super().set_high_mag_optics()
+        self.load_lens_data(self.microscope.high_mag_lens_file)
+
 
     def setup(self, *args, **kwargs):
         super().setup(*args, **kwargs)
         self.apertures = self._apertures_setter()
         sem.SetLowDoseMode(1)
-        # self.logger.info(f'Checking microscope inventory.')
-        # sem.LongOperation('In')
+
 
     def _apertures_setter(self):
         if not self.microscope.apertureControl:

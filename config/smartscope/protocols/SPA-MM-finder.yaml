@@ -29,12 +29,14 @@ mediumMag:
   steps:
     - setAperturesForHighMag
     - setFocusPosition
+    - setHighMag 
     - rollDefocus
     - refineEucentricityByFocus
     - tiltToAngle
     - moveStage
     - zeroImageShift
     - mediumMagHole
+    - setHighMag
     - autoFocusAfterDistance:
         distance: 15
     - waitDrift

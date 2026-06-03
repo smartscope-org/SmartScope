@@ -81,7 +81,7 @@ class SerialemInterface(MicroscopeInterface):
         binning = sem.ReportBinning('V')
         self.logger.info(f'Doing eucentric height by beam tilt, setting View binning to 4.')
         sem.SetBinning('V', 4)
-        sem.GoToLowDoseArea('V')
+        self.set_medium_mag_optics()
 
         target_Z = sem.ReportLDDefocusOffset('V')
         sem.SetEucentricFocus(1)
@@ -120,7 +120,7 @@ class SerialemInterface(MicroscopeInterface):
         binning = sem.ReportBinning('V')
         self.logger.info(f'Doing eucentric height, setting View binning to 4.')
         sem.SetBinning('V', 4)
-        sem.GoToLowDoseArea('V')
+        self.set_medium_mag_optics()
         sem.Eucentricity(1)
         self.logger.info(f'Eucentric heigh done, setting View binning back to {binning}.')
         sem.SetBinning('V', int(binning))
@@ -135,7 +135,7 @@ class SerialemInterface(MicroscopeInterface):
         self.logger.info(f'Doing eucentric height by beam tilt, setting View binning to 4.')
         binning = sem.ReportBinning('V')
         sem.SetBinning('V', 4)
-        sem.GoToLowDoseArea('V')
+        self.set_medium_mag_optics()
         sem.Eucentricity(-1,-1)
         self.logger.info(f'Eucentric heigh done, setting View binning back to {binning}.')
         sem.SetBinning('V', int(binning))
@@ -256,10 +256,16 @@ class SerialemInterface(MicroscopeInterface):
         sem.Trial()
         self.state.last_autocenter_time = time.time()
 
-    def square(self, file=''):
-        self.state.current_mag = 'square'
+    def set_square_mag_optics(self):
+        if self.state.current_mag == 'square':
+            return
         sem.SetLowDoseMode(1)
         sem.GoToLowDoseArea('S')
+        self.state.current_mag = 'square'
+        
+
+    def square(self, file=''):
+        self.set_square_mag_optics()
         self.checkDewars()
         self.checkPump()
         sem.Search()
@@ -274,7 +280,7 @@ class SerialemInterface(MicroscopeInterface):
         return area_x_um, area_y_um
 
     def medium_mag_montage(self, size, file=''):
-        self.state.current_mag = 'medium_mag_montage'
+        self.state.current_mag = 'medium_mag'
         sem.ParamSetToUseForMontage(2)
         sem.OpenNewMontage(size[0],size[1], file)
         sem.SetMontageParams(2)
@@ -345,7 +351,7 @@ class SerialemInterface(MicroscopeInterface):
     def realign_to_square_medium_mag(self, max_image_shift:float=7.0):
         self.tiltTo(0)
         init_x, init_y, init_z = sem.ReportStageXYZ()
-        sem.GoToLowDoseArea('V')
+        self.set_medium_mag_optics()
         image_shift_steps = [(0,0), 
                              (max_image_shift,0), 
                              (np.cos(0.78)*max_image_shift, np.sin(0.78)*max_image_shift), 
@@ -438,10 +444,15 @@ class SerialemInterface(MicroscopeInterface):
         self.hole_crop_size = int(shape_x)
         self.has_hole_ref = True
 
-    def acquire_medium_mag(self):
-        self.state.current_mag = 'hole'
+    def set_medium_mag_optics(self):
+        if self.state.current_mag == 'medium_mag':
+            return
         sem.GoToLowDoseArea('V')
+        self.state.current_mag = 'medium_mag'
         time.sleep(1)
+
+    def acquire_medium_mag(self):
+        self.set_medium_mag_optics()
         self.checkDewars()
         self.checkPump()
         sem.View()
@@ -463,6 +474,8 @@ class SerialemInterface(MicroscopeInterface):
             self.state.eucentricDefocus = sem.ReportDefocus()
 
     def roll_defocus(self, def1, def2, step):
+
+        ###THIS NEEDS TO BE LOOKED AT. SHOULDN'T CHANGE THE MAG HERE.
         sem.GoToLowDoseArea('Record')
         self.save_eucentric_focus()
         self._rollDefocus(def1, def2, step)
@@ -628,6 +641,7 @@ class SerialemInterface(MicroscopeInterface):
     def image_shift_by_microns(self,isX,isY,tiltAngle, afis:bool=False, goToRecord=True, delay_multiplier=1, additional_delay=0):
         self.logger.debug(f'Image shift by microns: {isX}, {isY}, {tiltAngle}, {afis}, {goToRecord}, {delay_multiplier}, {additional_delay}')
         if goToRecord:
+            ##THIS SEEMS UNESSESARY
             sem.GoToLowDoseArea('Record')
         isY = isY*np.cos(math.radians(tiltAngle))
         sem.ImageShiftByMicrons(isX - self.state.imageShiftX, isY - self.state.imageShiftY, delay_multiplier, int(afis))
@@ -664,6 +678,16 @@ class SerialemInterface(MicroscopeInterface):
         
     def get_property(self, property_name:str):
         return sem.ReportProperty(property_name)
+    
+
+    def set_high_mag_optics(self):
+        if self.state.current_mag == 'high_mag':
+            return
+        sem.SetLowDoseMode(1)
+        sem.GoToLowDoseArea('Record')
+        self.state.current_mag = 'high_mag'
+        sem.SetEucentricFocus()
+        sem.ResetDefocus()
     
 
     def report_aperture_size(self, aperture:int):
