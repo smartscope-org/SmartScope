@@ -537,5 +537,6 @@ def set_jeol_optics(detector_id:str, mag_level:Literal['atlas', 'square', 'mediu
             atlas_settings= AtlasSettings.model_validate(detector),
             additional_settings=additional_settings
         ) as scope:
-       ##NEEDS TO ADD STUFF HERE
-       pass
+        scope.logger.info(f'Setting lens data for mag level {mag_level}')
+        len_file = getattr(scope.microscope, f'{mag_level}_lens_file')
+        scope.set_lens_data(len_file)
