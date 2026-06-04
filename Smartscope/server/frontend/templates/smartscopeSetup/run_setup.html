@@ -3,7 +3,7 @@
 {% block title %}Smartscope Session Setup{% endblock %}
 {% block main_content_class %}overflow-y-auto{% endblock %}
 {% block content %}
-    <div id='setup' class="container-fluid m-0 px-0 py-2 overflow-x-hidden">
+    <div id='setup' class="container-fluid m-0 px-0 py-2 overflow-x-hidden" style="background-color: #f5f5f5;">
         <form class="needs-validation " novalidate method="post" onsubmit="validateForm(event)">
             {% csrf_token %}
             <h3 class="px-2 mt-1 mb-0">GENERAL</h3>

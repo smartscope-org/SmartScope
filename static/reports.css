@@ -567,13 +567,15 @@
 }
 
 .category-screening {
-    background-color: rgba(48, 184, 41, 0.705);
-    border-color: rgba(21, 88, 18, 0.906);
+    background-color: #e1cb947d;
+    color: #a26b0d;
+    border: 0.5px solid #a26b0d;
 }
 
 .category-collection {
-    background-color: rgba(88, 18, 217, 0.681);
-    border-color: rgba(42, 8, 103, 0.854);
+    background-color: rgba(88, 18, 217, 0.341);
+    color: rgba(42, 8, 103, 0.854);
+    border-color: 0.5px solid rgba(42, 8, 103, 0.854);
 }
 
 .nav-tabs.card-header-tabs .nav-link {

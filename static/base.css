@@ -208,3 +208,11 @@ body{
 #addGridDiv .card {
     min-height: 271px; /* adjust to match your grid cards */
 }
+
+.badge {
+  --bs-border-width: 0.5px;
+}
+
+.badge[class*="bg-"] {
+  --bs-bg-opacity: 0.2 !important;
+}

@@ -38,15 +38,17 @@
                     <div class="d-flex flex-row"  style="font-size: 0.85rem;">
                         <span class="pe-2 border-end border-secondary">Session Type:
                             {% if grid.collection_mode == "screening" %}
-                            <span class="badge rounded-pill category-screening">SCREENING</span>
+                            <span class="badge rounded-3 category-screening" style="font-size: 0.7rem;">SCREENING</span>
                             {% else %}
-                            <span class="badge rounded-pill category-collection">DATA COLLECTION</span>
+                            <span class="badge rounded-3 category-collection"  style="font-size: 0.7rem;">DATA COLLECTION</span>
                             {% endif %}
                         </span>
                         <span class="px-2 border-end border-secondary">Last update: 
-                            <span id="gridLastUpdate" class="badge rounded-pill bg-secondary">loading...</span>
+                            <span id="gridLastUpdate" class="badge rounded-3 bg-dark text-dark border border-dark" style="font-size: 0.7rem;">loading...</span>
                         </span>
-                        <span class="px-2">Status: <span id="gridStatus">loading...</span></span>
+                        <span class="px-2">Status: 
+                            <span id="gridStatus" class="badge rounded-3 bg-secondary" style="font-size: 0.7rem;">loading...</span>
+                        </span>
                     </div>
                     
                 </div>
