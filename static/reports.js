@@ -681,6 +681,23 @@ function populateReportHead() {
     var date = new Date(fullmeta.last_update)
     $('#gridLastUpdate').html(date.toLocaleString('en-CA', { 'localeMatcher': 'lookup', 'hour12': false }))
     $('#gridStatus').html(`${fullmeta.status}`)
+
+    const colorMap = {
+        'complete': 'success',
+        'started': 'info',
+        'skipped': 'secondary',
+        'error': 'danger',
+        'aborting': 'warning',
+        'paused': 'secondary',
+    };
+    const color = colorMap[fullmeta.status] || 'secondary';
+
+    // apply colors
+    $('#gridStatus')
+        .removeClass()
+        .addClass(`badge rounded-3 bg-${color} text-${color} border border-${color}`)
+        .css('text-transform', 'capitalize');
+
     if (fullmeta.status == 'complete') {
         $('#stop-button').prop("disabled", true)
         $('#restart-button').prop("disabled", false)
