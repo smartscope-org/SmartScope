@@ -42,7 +42,7 @@ mediumMag:
     - alignToHoleRef
     - zeroImageShift
     - mediumMagHole
-    - setHighMag
+    - setHighMagOptics
     - rollDefocus
     - autoFocus
     - waitDrift

@@ -37,7 +37,7 @@ mediumMag:
     - moveStage
     - zeroImageShift
     - mediumMagHole
-    - setHighMag
+    - setHighMagOptics
     - autoFocusAfterDistance:
         distance: 15
     - waitDrift
