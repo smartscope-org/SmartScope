@@ -14,6 +14,7 @@ atlas:
 square:
   steps:
     - setAperturesForLowMag
+    - setSquareMagOptics
     - moveStageWithAtlasToSearchOffset
     - realignToSquare
     - eucentricSearchAfterDistance:

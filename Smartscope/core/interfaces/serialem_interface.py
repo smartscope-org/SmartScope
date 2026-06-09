@@ -265,7 +265,7 @@ class SerialemInterface(MicroscopeInterface):
         
 
     def square(self, file=''):
-        self.set_square_mag_optics()
+        # self.set_square_mag_optics()
         self.checkDewars()
         self.checkPump()
         sem.Search()

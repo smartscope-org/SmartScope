@@ -159,7 +159,15 @@ def loadHoleRef(scope:MicroscopeInterface,params,instance, content:Dict, *args, 
 
 def setHighMagOptics(scope:MicroscopeInterface,params,instance, content:Dict, *args, **kwargs) :
     """Sets the high mag optics. Mainly used to speed up the transition between medium and high mag when the same aperture can be used."""
-    scope.go_to_high_mag()
+    scope.set_high_mag_optics()
+
+def setMediumMagOptics(scope:MicroscopeInterface,params,instance, content:Dict, *args, **kwargs) :
+    """Sets the medium mag optics."""
+    scope.set_medium_mag_optics()
+
+def setSquareMagOptics(scope:MicroscopeInterface,params,instance, content:Dict, *args, **kwargs) :
+    """Sets the square mag optics."""
+    scope.set_square_mag_optics()
 
 def highMag(scope:MicroscopeInterface, params,instance, content:Dict, *args, **kwargs) :
     """Acquires the highmag image. 
@@ -463,6 +471,8 @@ protocolCommandsFactory = dict(
     alignToHoleNoTemplate=alignToHoleNoTemplate,
     loadHoleRef=loadHoleRef,
     setHighMagOptics=setHighMagOptics,
+    setSquareMagOptics=setSquareMagOptics,
+    setMediumMagOptics=setMediumMagOptics,
     highMag=highMag,
     setFocusPosition=setFocusPosition,
     setAperturesForHighMag=set_apertures_for_highmag,
