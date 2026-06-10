@@ -31,19 +31,19 @@ class JEOLmicroscope(Microscope):
 
     @property
     def atlas_lens_file(self):
-        return str(Path(self.directory, 'reference', 'atlas_lenses.json'))
+        return str(Path(self.scopePath, 'reference', 'atlas_lenses.json'))
     
     @property
     def square_lens_file(self):
-        return str(Path(self.directory, 'reference', 'square_lenses.json'))
+        return str(Path(self.scopePath, 'reference', 'square_lenses.json'))
     
     @property
     def medium_mag_lens_file(self): 
-        return str(Path(self.directory, 'reference', 'medium_mag_lenses.json'))
+        return str(Path(self.scopePath, 'reference', 'medium_mag_lenses.json'))
     
     @property
     def high_mag_lens_file(self):
-        return str(Path(self.directory, 'reference', 'high_mag_lenses.json'))
+        return str(Path(self.scopePath, 'reference', 'high_mag_lenses.json'))
 
 
 class JEOLSerialemInterface(SerialemInterface):
