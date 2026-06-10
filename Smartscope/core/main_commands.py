@@ -515,13 +515,13 @@ def save_jeol_optics(detector_id:str, mag_level:Literal['atlas', 'square', 'medi
 
 
 def save_jeol_optics(detector_id:str, mag_level:Literal['atlas', 'square', 'medium_mag', 'high_mag']):
-    from .models import Detector
+    from .models import Detector as DetectorModel
     from .interfaces.microscope import Detector, AtlasSettings
     from .interfaces.microscope_methods import select_microscope_interface
     if mag_level not in ['atlas', 'square', 'medium_mag', 'high_mag']:
         print(f'Mag level {mag_level} not recognized. Please choose from atlas, square, medium_mag, high_mag.')
         return
-    detector = Detector.objects.get(pk=detector_id)
+    detector = DetectorModel.objects.get(pk=detector_id)
     if detector is None:
         print(f'Could not find detector with name {detector_id}')
         return
