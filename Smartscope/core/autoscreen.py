@@ -20,29 +20,29 @@ def autoscreen(session_id:str, screening_mode: bool=False, skip_loading: bool=Fa
     major procedure: autoscreen
     '''
     session = ScreeningSession.objects.get(session_id=session_id)
-    microscope = session.microscope_id
+    microscope_model = session.microscope_id
     add_log_handlers(directory=session.directory, name='run.out')
     logger.debug(f'Main Log handlers:{logger.handlers}')
     process = create_process(session)
     clear_stop_file(session.session_id)
-    if microscope.isLocked:
+    if microscope_model.isLocked:
         logger.warning(f"""
             The requested microscope is busy.
-            Lock file {microscope.lockFile} found
+            Lock file {microscope_model.lockFile} found
             Session id: {session} is currently running.
             If you are sure that the microscope is not running,
             remove the lock file and restart.
             Exiting.
         """)
         sys.exit(0)
-    write_sessionLock(session, microscope.lockFile)
+    write_sessionLock(session, microscope_model.lockFile)
 
     try:
         # grids = list(session.autoloadergrid_set.all().order_by('position'))
         logger.info(f'Process: {process}')
         logger.info(f'Session: {session}')
         # logger.info(f"Grids: {', '.join([grid.__str__() for grid in grids])}")
-        scopeInterface, microscope, additional_settings = select_microscope_interface(microscope)
+        scopeInterface, microscope, additional_settings = select_microscope_interface(microscope_model)
 
 
         with scopeInterface(
@@ -73,7 +73,7 @@ def autoscreen(session_id:str, screening_mode: bool=False, skip_loading: bool=Fa
         logger.info('Stopping Smartscope.py autoscreen')
         status = 'killed'
     finally:
-        os.remove(microscope.lockFile)
+        os.remove(microscope_model.lockFile)
         update(process, status=status)
         logger.info('Done.')
 
@@ -99,25 +99,25 @@ def run_protocol_command(grid_id:str, command:str):
     from Smartscope.core.settings.worker import PROTOCOL_COMMANDS_FACTORY
     grid = AutoloaderGrid.objects.get(pk=grid_id)
     session = grid.session_id
-    microscope = session.microscope_id
+    microscope_model = session.microscope_id
     params = grid.params_id
     add_log_handlers(directory=session.directory, name='run.out')
     logger.debug(f'Main Log handlers:{logger.handlers}')
     clear_stop_file(session.session_id)
-    if microscope.isLocked:
+    if microscope_model.isLocked:
         logger.warning(f"""
             The requested microscope is busy.
-            Lock file {microscope.lockFile} found
+            Lock file {microscope_model.lockFile} found
             Session id: {session} is currently running.
             If you are sure that the microscope is not running,
             remove the lock file and restart.
             Exiting.
         """)
         sys.exit(0)
-    write_sessionLock(session, microscope.lockFile)
+    write_sessionLock(session, microscope_model.lockFile)
 
     try:
-        scopeInterface, microscope, additional_settings = select_microscope_interface(microscope)
+        scopeInterface, microscope, additional_settings = select_microscope_interface(microscope_model)
 
 
         with scopeInterface(
@@ -138,6 +138,6 @@ def run_protocol_command(grid_id:str, command:str):
     except KeyboardInterrupt:
         logger.info('Stopping Smartscope.py run_prototol_command')
     finally:
-        os.remove(microscope.lockFile)
+        os.remove(microscope_model.lockFile)
 
 
