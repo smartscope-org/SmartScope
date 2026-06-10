@@ -56,6 +56,7 @@ class JEOLSerialemInterface(SerialemInterface):
         with open(file, 'r') as f:
             data = json.load(f)
         for lens, value in data.items():
+            self.logger.debug(f"Loading lens data for {lens}: {value}")
             sem.PluginAllDoubles("JEOL", f"SetDec{lens}", *value)
 
     def save_lens_data(self, file:str):
