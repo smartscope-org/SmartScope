@@ -461,12 +461,12 @@ document.querySelectorAll('[data-bs-target="#modalShell"]').forEach(btn => {
 
 document.addEventListener("pipelineSelected", (e) => {
     const label = e.detail?.label;
-    if (label) document.getElementById("gridPreprocessingBtn").textContent = label;
+    if (label) document.getElementById("gridPreprocessingLabel").textContent = label;
 });
 
 document.addEventListener("protocolSelected", (e) => {
     const label = e.detail?.label;
-    if (label) document.getElementById("gridProtocolBtn").textContent = label;
+    if (label) document.getElementById("gridProtocolLabel").textContent = label;
 });
 
 // $('#main').on('click', '#gridParamBtn', function (e) {
