@@ -3,8 +3,12 @@
     <span><b>Description:</b> {{description}}</span>
     <form  method="post">
         {% csrf_token %}
-        
+
+        {% if grid_id %}
         {% include "forms/formFieldsBase.html" with form=form row=false col_width=8 input_ratio=40 %}
+        {% else %}
+        {% include "forms/formFieldsBase.html" with form=form row=false%}
+        {% endif %}
         <div class="d-flex flex-row align-content-center">
             <div class="d-flex align-items-center gap-2 mt-2">
                 <button type="submit" class="btn btn-primary" 
@@ -12,6 +16,7 @@
                     hx-indicator="#spinner" 
                     {% if not grid_id %}
                     hx-target="#formPreprocess"
+                    hx-swap="outerHTML"
                     {% else %}
                     hx-target="#modalShellBody"
                     hx-swap="innerHTML"

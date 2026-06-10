@@ -534,7 +534,7 @@ class PreprocessingPipeline(TemplateView):
             context['pipeline'] = pipeline
             context['description'] = pipeline_obj.description
             context['form'] = pipeline_obj.form()
-            # context['grid_id'] = None
+            context['grid_id'] = request.GET.get('grid_id', None)
             return TemplateResponse(request=request,template="smartscopeSetup/preprocessing/preprocessing_pipeline_form.html",context=context)
         except Exception as err:
             logger.exception(err)
@@ -551,17 +551,20 @@ class PreprocessingPipeline(TemplateView):
                     cache.set(pipeline_data.cache_id,pipeline_data.json(exclude={'cache_id'}),timeout=30*60)
                     logger.debug(pipeline_data)
                     return TemplateResponse(request=request,
-                                            template='forms/formFieldsBase.html',
-                                            context=dict(form=PreprocessingPipelineIDForm(data=dict(preprocessing_pipeline_id=pipeline_data.cache_id)), 
-                                                                                        row=True, 
-                                                                                        id='formPreprocess'))
+                                            template='forms/expand_form.html',
+                                            context=dict(form=PreprocessingPipelineIDForm(data=dict(preprocessing_pipeline=True, preprocessing_pipeline_id=pipeline_data.cache_id)), 
+                                                        row=True, 
+                                                        id='formPreprocess',
+                                                        trigger='preprocessing_pipeline',
+                                                        url=reverse('preprocessingPipeline')
+                                                        ))
                 context = self.get_grid_context_data(grid_id)
                 pipeline_data.process_pid = context['pipeline_data'].process_pid
                 Path(context['grid'].directory,'preprocessing.json').write_text(pipeline_data.json(exclude={'cache_id'}))
                 logger.info('Updated pipeline for existing grid')
                 response = self.get_grid_pipeline(request, grid_id=grid_id, success=True)
                 response["HX-Trigger"] = json.dumps({
-                                                    'pipelineSelected': {'label': PREPROCESSING_PIPELINE_FACTORY[context['pipeline']].verbose_name},
+                                                    'pipelineSelected': {'label': PREPROCESSING_PIPELINE_FACTORY[pipeline].verbose_name},
                                                 })
                 return response
         except Exception as err:

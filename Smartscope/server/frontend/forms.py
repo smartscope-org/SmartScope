@@ -179,11 +179,11 @@ class GridCollectionParamsForm(forms.ModelForm):
             hardwaredark_delay= 'Delay in hours for the hardware dark acquisition. Use -1 to deactivate',
             offset_targeting='Enable targeting off-center to sample the ice gradient and carbon mesh particles. Use the Offset Distance setting to change behavior. Disabled in data collection mode unless offset distance is set.',
             offset_distance='Set a fixed offset value in microns. During screening, use -1 for a random offset dependent of the hole size. During data collection, only fixed values are allowed.',
-            multishot_per_hole='Enable multishot per hole.'
+            multishot_per_hole='Enable multishot per hole. A setup form will appear after checking it'
         )
 
     # multishot_per_hole = forms.BooleanField(label='Multishot per hole', initial=False,help_text='Enable multishot per hole. The mutlishot menu will need to be filled.')
-    multishot_per_hole_id = forms.CharField(label='Multishot per hole ID', required=False)
+    multishot_per_hole_id = forms.CharField(label='Multishot per hole ID', required=False, help_text='Applied automatically after setting up Multishot per hole settings')
 
 
     def __init__(self, *args, grid_id=None, detector_id=None, **kwargs):
@@ -228,7 +228,7 @@ class GridCollectionParamsForm(forms.ModelForm):
             "min": -1,
             "step": 0.05
         })
-        self.fields['multishot_per_hole'].widget = MultishotCheckBox(grid_id=grid_id)
+        self.fields['multishot_per_hole'].widget = MyCheckBox()
         self.fields['afis'].widget = MyCheckBox()
 
         for visible in self.visible_fields():
@@ -252,14 +252,18 @@ class GridCollectionParamsForm(forms.ModelForm):
             
             self.fields[field].widget.attrs.update(data)
 
+        # self.fields['multishot_per_hole_id'].widget.attrs['hidden'] = True
+
 
 class PreprocessingPipelineIDForm(forms.Form):
-    preprocessing_pipeline_id = forms.CharField(label='Preprocessing pipeline ID', required=False)
+    preprocessing_pipeline = forms.BooleanField(label='Set up preprocessing pipeline ', required=False, help_text='Check it up to set up Preprocess pipeline')
+    preprocessing_pipeline_id = forms.CharField(label='Preprocessing pipeline ID', required=False, 
+                                                help_text='Applied automatically after setting up Preprocess pipeline settings')
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        for visible in self.visible_fields():
-            visible.field.widget.attrs['class'] = 'form-control'
+        self.fields['preprocessing_pipeline'].widget = MyCheckBox()
+        self.fields['preprocessing_pipeline_id'].widget.attrs['class'] = 'form-control'
 
 
 class AssingBisGroupsForm(forms.Form):

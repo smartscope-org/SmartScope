@@ -4,8 +4,13 @@
             hx-get="{% url 'getPreprocessingPipeline' %}"
             hx-target="#preprocessingPipelineForm"
             hx-indicator="#spinner"
-            hx-trigger="change">
+            hx-trigger="change"
+            hx-vals='{"grid_id": "{{ grid.grid_id }}"}'>
+        {% if grid %}
         {% include "forms/formFieldsBase.html" with form=form row=false col_width=8 input_ratio=40 %}
+        {% else %}
+        {% include "forms/formFieldsBase.html" with form=form row=false%}
+        {% endif %}
         <div id="spinner" class="my-indicator spinner-border text-primary" role="status">
             <span class="sr-only"></span>
         </div>

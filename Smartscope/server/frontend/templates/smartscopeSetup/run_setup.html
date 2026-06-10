@@ -14,15 +14,8 @@
                 {% include "forms/expand_form.html" with form=form_params row=True id='formParams' trigger='multishot_per_hole' url=multishot_url %}
             </div>
             <h3 class="col-auto px-2 mb-0 mt-1">PREPROCESSING PIPELINE</h3>
-            <div class="px-2">
-                <button class="btn btn-outline-secondary" 
-                hx-get="{% url 'preprocessingPipeline' %}{{grid_id}}" hx-target="#main" hx-swap="beforeend"
-                data-bs-toggle="tooltip" data-bs-placement="top" title="Show/Edit preprocessingpipeline.">
-                    <i class="bi bi-pencil-square"></i>
-                
-                </button>
-            </div>
-            {% include "forms/formFieldsBase.html" with form=form_preprocess row=True id='formPreprocess' %}
+            {% url 'preprocessingPipeline' as pipeline_url %}
+            {% include "forms/expand_form.html" with form=form_preprocess row=True id='formPreprocess' trigger='preprocessing_pipeline' url=pipeline_url %}
             
             <h3 class="col-auto px-2 mb-0 mt-1">AUTOLOADER</h3>
             <div class="form-group">
