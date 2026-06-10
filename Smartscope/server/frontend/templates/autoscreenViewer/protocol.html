@@ -4,7 +4,7 @@
         {% csrf_token %}
         {% include "forms/formFieldsBase.html" with form=form row=false col_width=8 input_ratio=40 %}
         <div class="d-flex align-items-center gap-2 mt-2">
-            <button type="submit" class="btn btn-primary" 
+            <button type="submit" class="btn btn-sm btn-outline-primary" style="background-color: #dfeefc"
                     hx-post="{% url 'protocol' grid_id=grid.pk %}" hx-indicator="#spinner" 
                     hx-target="#modalShellBody" hx-swap="innerHTML">
                 Save

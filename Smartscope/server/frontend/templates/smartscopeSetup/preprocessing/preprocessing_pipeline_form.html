@@ -11,7 +11,7 @@
         {% endif %}
         <div class="d-flex flex-row align-content-center">
             <div class="d-flex align-items-center gap-2 mt-2">
-                <button type="submit" class="btn btn-primary" 
+                <button type="submit" class="btn btn-sm btn-outline-primary" style="background-color: #dfeefc"
                     hx-post="{% url 'setPreprocessingPipeline' pipeline=pipeline grid_id=grid_id %}" 
                     hx-indicator="#spinner" 
                     {% if not grid_id %}
