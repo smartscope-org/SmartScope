@@ -382,6 +382,36 @@ def add_targets(grid, parent, targets, model, finder, classifier=None, start_num
     return output
 
 
+def add_fiducials(grid, targets, finder, classifier=None):
+    from Smartscope.core.models.fiducial_area import FiducialArea
+    model_content_type_id = ContentType.objects.get_for_model(FiducialArea)
+    with transaction.atomic():
+        for ind, target in enumerate(targets):
+            obj = FiducialArea(
+                grid_id=grid,
+                number=ind,
+                area_type=target.quality,
+            )
+            obj.save()
+            models.Finder(
+                content_type=model_content_type_id,
+                object_id=obj.pk,
+                method_name=finder,
+                x=target.x,
+                y=target.y,
+                stage_x=target.stage_x,
+                stage_y=target.stage_y,
+                stage_z=target.stage_z,
+            ).save()
+            if classifier is not None:
+                models.Classifier(
+                    content_type=model_content_type_id,
+                    object_id=obj.pk,
+                    method_name=classifier,
+                    label=target.quality,
+                ).save()
+
+
 def add_high_mag(grid, parent):
     
     hm, created = models.HighMagModel.objects.get_or_create(

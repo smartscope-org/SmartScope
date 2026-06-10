@@ -1,10 +1,24 @@
 {% load rest_framework %}
 
 {% for item in items %}
-<a class="bg-dark list-group-item list-group-item-action h-100" id="{{item.pk}}"
+<a class="bg-dark list-group-item list-group-item-action" id="{{item.pk}}"
     onclick={{jsfunction}}("{{field}}","{{item.pk}}") href="#">
-    <div class="d-flex w-100 justify-content-start align-items-center {{item.extraCSS}}">
+    <div class="d-flex w-100 justify-content-start align-items-center">
         <span class="menu-collapsed">{{ item }}</span>
+        {% if field == 'grid_id' %}
+        <div class="quality-controls" onclick="event.stopPropagation()">
+            <button class="quality-btn tick {% if item.quality == 'good' %}active{% endif %}"
+                    onmousedown="rateGrid(this, '{{ item.pk }}', 'good')"
+                    title="Good">
+                <i class="bi bi-hand-thumbs-up-fill"></i>
+            </button>
+            <button class="quality-btn cross {% if item.quality == 'bad' %}active{% endif %}"
+                    onmousedown="rateGrid(this, '{{ item.pk }}', 'bad')"
+                    title="Bad">
+                <i class="bi bi-hand-thumbs-down-fill"></i>
+            </button>
+        </div>
+        {% endif %}
     </div>
 </a>
 {% endfor %}

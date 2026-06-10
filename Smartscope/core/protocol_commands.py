@@ -157,6 +157,18 @@ def loadHoleRef(scope:MicroscopeInterface,params,instance, content:Dict, *args, 
         return
     scope.load_hole_ref()
 
+def setHighMagOptics(scope:MicroscopeInterface,params,instance, content:Dict, *args, **kwargs) :
+    """Sets the high mag optics. Mainly used to speed up the transition between medium and high mag when the same aperture can be used."""
+    scope.set_high_mag_optics()
+
+def setMediumMagOptics(scope:MicroscopeInterface,params,instance, content:Dict, *args, **kwargs) :
+    """Sets the medium mag optics."""
+    scope.set_medium_mag_optics()
+
+def setSquareMagOptics(scope:MicroscopeInterface,params,instance, content:Dict, *args, **kwargs) :
+    """Sets the square mag optics."""
+    scope.set_square_mag_optics()
+
 def highMag(scope:MicroscopeInterface, params,instance, content:Dict, *args, **kwargs) :
     """Acquires the highmag image. 
     
@@ -288,6 +300,38 @@ def alignToHoleNoTemplate(scope,params,instance, content:Dict, *args, **kwargs):
             break
         iteration += 1
         scope.align_to_coord(coords_from_center[closest_index])
+
+def findHoleGeometry(scope,params,instance, content:Dict, *args, **kwargs):
+    from Smartscope.core.grid.finders import find_targets
+    from Smartscope.core.grid.run_io import get_file_and_process
+    from Smartscope.lib.mesh_operations import get_mesh_rotation_spacing
+    from Smartscope.lib.Datatypes.grid_geometry import GridGeometry, GridGeometryLevel
+
+    grid = instance.grid_id
+    pitch = grid.holeType.pitch
+    num_tiles_x, num_tiles_y = scope.set_medium_mag_size_mini_montage(hole_pitch_um=pitch)
+    im_file = 'raw/medium_mag_geometry.mrc'
+    if max(num_tiles_x, num_tiles_y) == 1:
+        scope.acquire_medium_mag(file=im_file)
+    else:
+        scope.medium_mag_montage((num_tiles_x, num_tiles_y), file=im_file)
+
+    microscope_id = grid.session_id.microscope_id
+    montage = get_file_and_process(
+        raw=im_file,
+        name='medium_mag_geometry',
+        directory=microscope_id.scope_path,
+        force_reprocess=True
+    )
+
+    targets = find_targets(montage, ['Medium Mag AI hole finder'])[0]
+    stage_coords = np.array([t.stage_coords for t in targets])
+    rotation, spacing = get_mesh_rotation_spacing(stage_coords, pitch)
+    logger.info(f'Found hole geometry at medium mag: spacing={spacing:.3f} um, rotation={rotation:.2f} deg')
+
+    geometry = GridGeometry.load(directory=grid.directory)
+    geometry.set_geometry(level=GridGeometryLevel.MEDMAG, spacing=spacing, rotation=rotation)
+    geometry.save(directory=grid.directory)
 
 def refineOpticsForHighMag(scope,params,instance, content:Dict, *args, **kwargs):
     if scope.state.current_mag in ['atlas','square']:
@@ -426,6 +470,9 @@ protocolCommandsFactory = dict(
     alignToHoleRef=alignToHoleRef,
     alignToHoleNoTemplate=alignToHoleNoTemplate,
     loadHoleRef=loadHoleRef,
+    setHighMagOptics=setHighMagOptics,
+    setSquareMagOptics=setSquareMagOptics,
+    setMediumMagOptics=setMediumMagOptics,
     highMag=highMag,
     setFocusPosition=setFocusPosition,
     setAperturesForHighMag=set_apertures_for_highmag,

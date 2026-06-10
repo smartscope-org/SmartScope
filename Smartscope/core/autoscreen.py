@@ -6,7 +6,7 @@ import logging
 logger = logging.getLogger(__name__)
 
 
-from .interfaces.microscope import Microscope, Detector, AtlasSettings
+from .interfaces.microscope import Detector, AtlasSettings
 from .interfaces.microscope_methods import select_microscope_interface
 from .models import ScreeningSession, Process
 from .grid.grid_status import GridStatus
@@ -42,10 +42,11 @@ def autoscreen(session_id:str, screening_mode: bool=False, skip_loading: bool=Fa
         logger.info(f'Process: {process}')
         logger.info(f'Session: {session}')
         # logger.info(f"Grids: {', '.join([grid.__str__() for grid in grids])}")
-        scopeInterface, additional_settings = select_microscope_interface(microscope)
+        scopeInterface, microscope, additional_settings = select_microscope_interface(microscope)
+
 
         with scopeInterface(
-                microscope = Microscope.model_validate(session.microscope_id),
+                microscope = microscope.model_validate(session.microscope_id),
                 detector= Detector.model_validate(session.detector_id) ,
                 atlas_settings= AtlasSettings.model_validate(session.detector_id),
                 additional_settings=additional_settings

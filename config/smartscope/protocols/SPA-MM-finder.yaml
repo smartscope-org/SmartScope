@@ -14,6 +14,7 @@ atlas:
 square:
   steps:
     - setAperturesForLowMag
+    - setSquareMagOptics
     - moveStageWithAtlasToSearchOffset
     - realignToSquare
     - eucentricSearch
@@ -29,12 +30,14 @@ mediumMag:
   steps:
     - setAperturesForHighMag
     - setFocusPosition
+    - setHighMag 
     - rollDefocus
     - refineEucentricityByFocus
     - tiltToAngle
     - moveStage
     - zeroImageShift
     - mediumMagHole
+    - setHighMagOptics
     - autoFocusAfterDistance:
         distance: 15
     - waitDrift

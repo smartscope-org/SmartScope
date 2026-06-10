@@ -6,6 +6,7 @@ class TargetPlugins(BaseModel):
     reregister: bool = True
     finders: List[str] = Field(default_factory=list)
     selectors: List[str] = Field(default_factory=list)
+    fiducial_finders: List[str] = Field(default_factory=list)
 
 class ScopeActions(BaseModel):
     steps: List[Union[str,Dict]] = Field(default_factory=list)

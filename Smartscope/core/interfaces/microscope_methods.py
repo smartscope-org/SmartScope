@@ -3,7 +3,8 @@ import logging
 from Smartscope.core.settings.worker import SMARTSCOPE_CUSTOM_CONFIG
 from .fakescope_interface import FakeScopeInterface
 from .tfsserialem_interface import TFSSerialemInterface
-from .jeolserialem_interface import JEOLSerialemInterface, JEOLadditionalSettings
+from .jeolserialem_interface import JEOLSerialemInterface, JEOLadditionalSettings, JEOLmicroscope
+from .microscope import Microscope
 
 logger = logging.getLogger(__name__)
 
@@ -18,13 +19,13 @@ def select_microscope_interface(microscope):
 
     if microscope.serialem_IP == 'xxx.xxx.xxx.xxx':
         logger.info('Setting scope into test mode')
-        return FakeScopeInterface, additional_settings
+        return FakeScopeInterface, Microscope, additional_settings
 
     if microscope.vendor == 'JEOL':
         logger.info('Using the JEOL interface')
         
-        return JEOLSerialemInterface, JEOLadditionalSettings.model_validate(additional_settings)
+        return JEOLSerialemInterface, JEOLmicroscope, JEOLadditionalSettings.model_validate(additional_settings)
     
     logger.info('Using the TFS interface')
 
-    return TFSSerialemInterface, additional_settings
+    return TFSSerialemInterface, Microscope, additional_settings

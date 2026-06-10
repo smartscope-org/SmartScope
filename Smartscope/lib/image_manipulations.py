@@ -332,7 +332,8 @@ def encode_image(image:np.ndarray):
 
 
 def embed_image(path):
-    mimeType = 'image/png'
+    ext = os.path.splitext(path)[1].lower()
+    mimeType = 'image/webp' if ext == '.webp' else 'image/png'
     with open(path, 'rb') as f:
         data = f.read()
     encData = base64.b64encode(data).decode(encoding='ascii')

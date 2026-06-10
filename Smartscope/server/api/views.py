@@ -165,21 +165,27 @@ class SidePanel(APIView):
         logger.debug(request.query_params)
         group = request.query_params.get('group')
         session = request.query_params.get('session_id')
+        own_flag = request.query_params.get('own_sessions', default='false') == 'true'
         user = request.user
         field = None
+
         if group is not None and (user.is_staff or user.groups.filter(pk=group).exists()):
             # if group is not None:
-            group = Group.objects.get(pk=group)
-            items = list(ScreeningSession.objects.filter(group=group))
-            items.sort(key=lambda x: x.creation_time, reverse=True)
+            group_obj = Group.objects.get(pk=group)
+            if own_flag:
+                own_sessions = ScreeningSession.objects.filter(user=user.username, group=group_obj).order_by('-creation_time')
+                items = list(own_sessions)
+            else:
+                items = list(ScreeningSession.objects.filter(group=group_obj).order_by('-creation_time'))
+                items.sort(key=lambda x: x.creation_time, reverse=True)
             nextsection = 'sidebarGrids'
             field = 'session_id'
 
         if session is not None:
 
-            session = ScreeningSession.objects.get(pk=session)
-            if user.is_staff or user.groups.filter(name=session.group).exists():
-                items = list(AutoloaderGrid.objects.filter(session_id=session).order_by('position'))
+            session_obj = ScreeningSession.objects.get(pk=session)
+            if user.is_staff or user.groups.filter(name=session_obj.group).exists():
+                items = list(AutoloaderGrid.objects.filter(session_id=session_obj).order_by('position'))
                 nextsection = None
                 field = 'grid_id'
                 self.jsfunction = "loadReport"
@@ -193,9 +199,8 @@ class SidePanel(APIView):
             field = 'group'
 
         for item in items:
-            item.extraCSS = ''
-            if hasattr(item, 'quality'):
-                item.extraCSS = f'quality-{item.quality}'
+            if not hasattr(item, 'quality') or item.quality is None:
+                item.quality = ''
 
         return Response(dict(items=items, nextsection=nextsection, field=field, jsfunction=self.jsfunction))
 
@@ -219,8 +224,12 @@ class ReportPanel(APIView):
             context['grid'] = grid
             context['tagsFeatureFlag'] = settings.TAGS_FEATURE_FLAG
             context['gridform'] = AutoloaderGridReportForm(instance=context['grid'])
-            context['gridCollectionParamsForm'] = GridCollectionParamsForm(instance=context['grid'].params_id, grid_id=context['grid'].grid_id, 
-                                                                           initial={'detector': str(grid.session_id.detector_id.pk), 'mode': grid.collection_mode})
+            detector_id = grid.session_id.detector_id
+            context['gridCollectionParamsForm'] = GridCollectionParamsForm(instance=context['grid'].params_id, 
+                                                                           grid_id=context['grid'].grid_id, 
+                                                                           initial={'detector': str(detector_id.pk) if detector_id is not None else None, 
+                                                                                    'mode': grid.collection_mode}
+                                                                            )
             context['useMicroscope'] = settings.USE_MICROSCOPE
             try:
                 context['atlas_id'] = context['grid'].atlasmodel_set.all().first().atlas_id

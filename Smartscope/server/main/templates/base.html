@@ -27,7 +27,10 @@
     <link rel=" stylesheet" href="{% static 'reports.css' %}">
     <!-- <link rel=" stylesheet" href="{% static 'base/bootstrap-icons-1.7.2/bootstrap-icons.css' %}"> -->
     <script src="{% static 'base.js' %}"></script>
-
+    <!-- Ag-Grid functionality -->
+    <script src="https://cdn.jsdelivr.net/npm/ag-grid-community@31/dist/ag-grid-community.min.js"></script>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/ag-grid-community@31/styles/ag-grid.css">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/ag-grid-community@31/styles/ag-theme-balham.css">
     <!-- HTMX -->
     <script src="https://unpkg.com/htmx.org@1.9.11" integrity="sha384-0gxUXCCR8yv9FM2b+U3FDbsKthCI66oH5IA9fHppQq9DDMHuMauqq1ZHBpJxQ0J0" crossorigin="anonymous"></script>
 
@@ -43,9 +46,9 @@
         <div class="navbar-brand m-0 mr-auto p-0 pl-1" style="font-size: 0.9rem;">
             <p class="p-0 m-0">{{request.user}}</p>
         </div>
-        <button class="navbar-toggler collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav" aria-expanded="false" aria-controls="navbarNav" aria-label="Toggle navigation">
+        <!-- <button class="navbar-toggler collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav" aria-expanded="false" aria-controls="navbarNav" aria-label="Toggle navigation">
             <span class="navbar-toggler-icon"></span>
-        </button>
+        </button> -->
         <div class="navbar-collapse collapse d-flex flex-row justify-content-between" id="navbarNav">
             <ul class="navbar-nav mr-auto">
                 <li class="nav-item">
@@ -62,7 +65,7 @@
                     <button class="btn btn-outline-info">v{{VERSION}}</button>
                 </li>
                 <li class="nav-item d-flex align-items-center">
-                    <a class="nav-link py-0" href="https://github.com/NIEHS/SmartScope/issues" target="_blank">Report issue 
+                    <a class="nav-link py-0" href="https://github.com/smartscope-org/SmartScope/issues" target="_blank">Report issue 
                         <i class="bi bi-github"></i>
                     </a>
                 </li>               
