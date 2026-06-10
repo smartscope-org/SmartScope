@@ -163,17 +163,17 @@ def loadHoleRef(scope:MicroscopeInterface,params,instance, content:Dict, *args, 
 def setHighMagOptics(scope:MicroscopeInterface,params,instance, content:Dict, *args, **kwargs) :
     """Sets the high mag optics."""
     if content.get('set_apertures', True):
-        scope.set_apertures_for_high_mag(condenser_aperture_size=params.condenser_aperture_size, objective_aperture_size=params.objective_aperture_size)
+        scope.set_apertures_for_high_mag(condenser_aperture_size=params.highmag_aperture_size, objective_aperture_size=params.objective_aperture_size)
     scope.set_high_mag_optics()
 
 def setMediumMagOptics(scope:MicroscopeInterface,params,instance, content:Dict, *args, **kwargs) :
     """Sets the medium mag optics."""
-    scope.set_apertures_for_medium_mag(condenser_aperture_size=params.condenser_aperture_size, objective_aperture_size=params.objective_aperture_size)
+    scope.set_apertures_for_medium_mag(condenser_aperture_size=params.highmag_aperture_size, objective_aperture_size=params.objective_aperture_size)
     scope.set_medium_mag_optics()
 
 def setSquareMagOptics(scope:MicroscopeInterface,params,instance, content:Dict, *args, **kwargs) :
     """Sets the square mag optics."""
-    scope.set_apertures_for_square_mag(condenser_aperture_size=params.condenser_aperture_size, objective_aperture_size=params.objective_aperture_size)
+    scope.set_apertures_for_square_mag()
     scope.set_square_mag_optics()
 
 def highMag(scope:MicroscopeInterface, params,instance, content:Dict, *args, **kwargs) :

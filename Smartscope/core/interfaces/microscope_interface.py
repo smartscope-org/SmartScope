@@ -323,9 +323,7 @@ class MicroscopeInterface(ABC):
         pass
 
     @abstractmethod
-    def set_apertures_for_square_mag(
-        self, condenser_aperture_size: int, objective_aperture_size: int
-    ):
+    def set_apertures_for_square_mag(self):
         pass
 
     @abstractmethod

@@ -738,7 +738,7 @@ class SerialemInterface(MicroscopeInterface):
             return
         self.insert_aperture(self.apertures.CONDENSER, self.atlas_settings.atlas_c2_aperture)
     
-    def set_apertures_for_square_mag(self, condenser_aperture_size:int, objective_aperture_size:int):
+    def set_apertures_for_square_mag(self):
         if not self.microscope.apertureControl:
             return
         self.set_apertures_for_lowmag()
