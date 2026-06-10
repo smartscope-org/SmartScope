@@ -94,7 +94,7 @@ def write_sessionLock(session, lockFile):
         f.write(session.session_id)
 
 
-def run_prototol_command(grid_id:str, command:str):
+def run_protocol_command(grid_id:str, command:str):
     from Smartscope.core.models import AutoloaderGrid
     from Smartscope.core.settings.worker import PROTOCOL_COMMANDS_FACTORY
     grid = AutoloaderGrid.objects.get(pk=grid_id)
@@ -128,7 +128,7 @@ def run_prototol_command(grid_id:str, command:str):
                 close_valves_on_disconnect=False
             ) as scope:
             logger.info(f'Running protocol command {command} on grid {grid}')
-            PROTOCOL_COMMANDS_FACTORY[command](scope,params,content={})
+            PROTOCOL_COMMANDS_FACTORY[command](scope,params,instance=None,content={})
 
     except Exception as e:
         logger.exception(e)
