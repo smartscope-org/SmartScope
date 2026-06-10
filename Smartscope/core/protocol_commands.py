@@ -9,15 +9,18 @@ logger = logging.getLogger(__name__)
 
 def setAtlasOptics(scope:MicroscopeInterface,params,instance, content:Dict, *args, **kwargs)  -> None:
     """Set the microscope mag, spot size and C2 current for the atlas based on the chosen detector."""
+    scope.set_apertures_for_lowmag()
     scope.set_atlas_optics()
 
 def setAtlasOpticsDelay(scope:MicroscopeInterface,params,instance, content:Dict, *args, **kwargs)  -> None:
     """Same as setAtlasOptics with delays between each commands."""
     delay=content.get('delay',1)
+    scope.set_apertures_for_lowmag()
     scope.set_atlas_optics_delay(delay=delay)
 
 def setAtlasOpticsImagingState(scope:MicroscopeInterface,params,instance, content:Dict, *args, **kwargs) :
     """Sets the atlas optics from an Imaging State named "Atlas"."""
+    scope.set_apertures_for_lowmag()
     scope.set_atlas_optics_imaging_state(state_name='Atlas')
 
 def resetStage(scope:MicroscopeInterface,params,instance, content:Dict, *args, **kwargs)  -> None:
@@ -158,15 +161,19 @@ def loadHoleRef(scope:MicroscopeInterface,params,instance, content:Dict, *args, 
     scope.load_hole_ref()
 
 def setHighMagOptics(scope:MicroscopeInterface,params,instance, content:Dict, *args, **kwargs) :
-    """Sets the high mag optics. Mainly used to speed up the transition between medium and high mag when the same aperture can be used."""
+    """Sets the high mag optics."""
+    if content.get('set_apertures', True):
+        scope.set_apertures_for_high_mag(condenser_aperture_size=params.condenser_aperture_size, objective_aperture_size=params.objective_aperture_size)
     scope.set_high_mag_optics()
 
 def setMediumMagOptics(scope:MicroscopeInterface,params,instance, content:Dict, *args, **kwargs) :
     """Sets the medium mag optics."""
+    scope.set_apertures_for_medium_mag(condenser_aperture_size=params.condenser_aperture_size, objective_aperture_size=params.objective_aperture_size)
     scope.set_medium_mag_optics()
 
 def setSquareMagOptics(scope:MicroscopeInterface,params,instance, content:Dict, *args, **kwargs) :
     """Sets the square mag optics."""
+    scope.set_apertures_for_square_mag(condenser_aperture_size=params.condenser_aperture_size, objective_aperture_size=params.objective_aperture_size)
     scope.set_square_mag_optics()
 
 def highMag(scope:MicroscopeInterface, params,instance, content:Dict, *args, **kwargs) :
@@ -256,8 +263,8 @@ def autoFocusAfterDistance(scope:MicroscopeInterface,params,instance, content:Di
 
 def set_apertures_for_highmag(scope:MicroscopeInterface,params,instance, content:Dict, *args, **kwargs) :
     """Sets the apertures for the highmag image."""
-    scope.set_apertures_for_highmag(
-        highmag_aperture_size=params.highmag_aperture_size,
+    scope.set_apertures_for_high_mag(
+        condenser_aperture_size=params.condenser_aperture_size,
         objective_aperture_size=params.objective_aperture_size
     )
 

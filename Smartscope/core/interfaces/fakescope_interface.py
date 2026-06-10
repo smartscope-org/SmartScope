@@ -24,6 +24,15 @@ class FakeScopeInterface(MicroscopeInterface):
         self.logger.info(f'Setting atlas optics from the {state_name} imaging state')
         self.logger.info('Done setting atlas optics')
 
+    def set_square_mag_optics(self):
+        self.logger.info('Setting square mag optics')
+
+    def set_medium_mag_optics(self):
+        self.logger.info('Setting medium mag optics')
+
+    def set_high_mag_optics(self):
+        self.logger.info('Setting high mag optics')
+
     def reset_stage(self):
         pass
 
@@ -214,10 +223,16 @@ class FakeScopeInterface(MicroscopeInterface):
     def insert_aperture(self, aperture:int, aperture_size:int, wait:int=10):
         pass
 
-    def set_apertures_for_highmag(self, highmag_aperture_size:int, objective_aperture_size:int):
+    def set_apertures_for_high_mag(self, condenser_aperture_size:int, objective_aperture_size:int):
         pass
 
     def set_apertures_for_lowmag(self):
+        pass
+
+    def set_apertures_for_square_mag(self, condenser_aperture_size:int, objective_aperture_size:int):
+        pass
+
+    def set_apertures_for_medium_mag(self, condenser_aperture_size:int, objective_aperture_size:int):
         pass
 
     def set_focus_for_bis_tilt(self,isY,tiltAngle):

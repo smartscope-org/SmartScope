@@ -81,7 +81,6 @@ class SerialemInterface(MicroscopeInterface):
         binning = sem.ReportBinning('V')
         self.logger.info(f'Doing eucentric height by beam tilt, setting View binning to 4.')
         sem.SetBinning('V', 4)
-        self.set_medium_mag_optics()
 
         target_Z = sem.ReportLDDefocusOffset('V')
         sem.SetEucentricFocus(1)
@@ -154,6 +153,8 @@ class SerialemInterface(MicroscopeInterface):
         return sem.ReportStageXYZ()
     
     def set_atlas_optics(self):
+        if self.state.current_mag == 'atlas':
+            return
         self.logger.info('Setting atlas optics')
         self.logger.debug('Deactivating low dose mode')
         sem.SetLowDoseMode(0)
@@ -164,8 +165,11 @@ class SerialemInterface(MicroscopeInterface):
         self.logger.debug('Setting C2 percent')
         sem.SetPercentC2(self.atlas_settings.c2)
         self.logger.info('Done setting atlas optics')
+        self.state.current_mag = 'atlas'
     
     def set_atlas_optics_delay(self, delay:int=1):
+        if self.state.current_mag == 'atlas':
+            return
         self.logger.info(f'Setting atlas optics with a {delay} sec delay between each command.')
         self.logger.debug('Deactivating low dose mode')
         sem.SetLowDoseMode(0)
@@ -180,11 +184,15 @@ class SerialemInterface(MicroscopeInterface):
         sem.SetPercentC2(self.atlas_settings.c2)
         time.sleep(delay)
         self.logger.info('Done setting atlas optics')
+        self.state.current_mag = 'atlas'
 
     def set_atlas_optics_imaging_state(self, state_name:str='Atlas'):
+        if self.state.current_mag == 'atlas':
+            return
         self.logger.info(f'Setting atlas optics from the {state_name} imaging state')
         sem.GoToImagingState(state_name)
         self.logger.info('Done setting atlas optics')
+        self.state.current_mag = 'atlas'
 
     
     def reset_stage(self):
@@ -200,7 +208,6 @@ class SerialemInterface(MicroscopeInterface):
             sem.SetSlitIn(0)
         
     def atlas(self, size, file=''):
-        self.state.current_mag = 'atlas'
         sem.OpenNewMontage(size[0],size[1], file)
         sem.SetMontageParams(1)
         sem.ParamSetToUseForMontage(1)
@@ -213,7 +220,6 @@ class SerialemInterface(MicroscopeInterface):
         self.logger.info('Atlas acquisition finished')
 
     def atlas_in_low_dose_search(self, size, file=''):
-        self.state.current_mag = 'atlas'
         sem.GoToLowDoseArea('S')
         sem.SetEucentricFocus()
         sem.ParamSetToUseForMontage(3)
@@ -717,11 +723,11 @@ class SerialemInterface(MicroscopeInterface):
         time.sleep(wait)
         self.state.set_aperature_state(aperture, aperture_size)
 
-    def set_apertures_for_highmag(self, highmag_aperture_size:int, objective_aperture_size:int):
+    def set_apertures_for_high_mag(self, condenser_aperture_size:int, objective_aperture_size:int):
         if not self.microscope.apertureControl:
             return
         self.insert_aperture(self.apertures.OBJECTIVE, objective_aperture_size)
-        self.insert_aperture(self.apertures.CONDENSER, highmag_aperture_size)
+        self.insert_aperture(self.apertures.CONDENSER, condenser_aperture_size)
 
     def set_apertures_for_lowmag(self):
         if not self.microscope.apertureControl:
@@ -731,6 +737,16 @@ class SerialemInterface(MicroscopeInterface):
             self.remove_aperture(self.apertures.CONDENSER)
             return
         self.insert_aperture(self.apertures.CONDENSER, self.atlas_settings.atlas_c2_aperture)
+    
+    def set_apertures_for_square_mag(self, condenser_aperture_size:int, objective_aperture_size:int):
+        if not self.microscope.apertureControl:
+            return
+        self.set_apertures_for_lowmag()
+    
+    def set_apertures_for_medium_mag(self, condenser_aperture_size:int, objective_aperture_size:int):
+        if not self.microscope.apertureControl:
+            return
+        self.set_apertures_for_high_mag(condenser_aperture_size, objective_aperture_size)
 
     def autofocus_after_distance(self, def1, def2, step, distance):
         last_autofocus_distance = self.state.get_last_autofocus_distance()
