@@ -55,6 +55,7 @@ class JEOLSerialemInterface(SerialemInterface):
     def load_lens_data(self, file:str):
         with open(file, 'r') as f:
             data = json.load(f)
+        self.logger.debug(f"Loaded lens data from {file}: {data}")
         for lens, value in data.items():
             self.logger.debug(f"Loading lens data for {lens}: {value}")
             sem.PluginAllDoubles("JEOL", f"SetDec{lens}", *value)
@@ -63,7 +64,7 @@ class JEOLSerialemInterface(SerialemInterface):
         data = {}
         for lens in ['GunA1', 'GunA2', 'SpotA', 'CLA1', 'CLA2', 'FLA1', 'FLA2', 'CLs', 'OLs', 'IS1', 'IS2', 'PLA']:
             sem.PluginAllDoubles("JEOL", f"Get{lens}")
-            data[lens] = [sem.GetVariable("JEOLVal1"), sem.GetVariable("JEOLVal2")]
+            data[lens] = [int(sem.GetVariable("JEOLVal1")), int(sem.GetVariable("JEOLVal2"))]
         with open(file, 'w') as f:
             json.dump(data, f, indent=4)
         
