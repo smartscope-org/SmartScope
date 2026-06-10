@@ -60,7 +60,7 @@ class JEOLSerialemInterface(SerialemInterface):
 
     def save_lens_data(self, file:str):
         data = {}
-        for lens in ['GunA1', 'GunA2', 'SpotA', 'CLA1', 'CLA2', 'FLA1', 'FLA2', 'Cls', 'OLs', 'IS1', 'IS2', 'PLA']:
+        for lens in ['GunA1', 'GunA2', 'SpotA', 'CLA1', 'CLA2', 'FLA1', 'FLA2', 'CLs', 'OLs', 'IS1', 'IS2', 'PLA']:
             sem.PluginAllDoubles("JEOL", f"Get{lens}")
             data[lens] = [sem.GetVariable("JEOLVal1"), sem.GetVariable("JEOLVal2")]
         with open(file, 'w') as f:
