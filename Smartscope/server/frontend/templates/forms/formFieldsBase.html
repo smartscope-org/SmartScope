@@ -2,22 +2,14 @@
 <div id="{{id}}" class='{% if row %}row{% endif %} align-items-center m-0 gx-3'>
     {% for field in form %}
     {% if not field.field.widget.attrs.hidden %}
-    <div class="{% if row %}col-3{% else %}col-8{% endif %} my-1">
+    <div class="col-{{ col_width|default:3 }} my-1">
         <div class="input-group input-group-sm flex-wrap flex-md-nowrap">
             <span class="input-group-text flex-shrink-0" 
-            style="
-                    width: {% if row %}60%{% else %}35%{% endif %}; 
-                    background-color: #f7f7f7; 
-                    white-space: normal; 
-                    word-break: break-word;
-                "
+            style="width: {{ input_ratio|default:60 }}%"
             id="{{field.label}}" 
             data-bs-toggle="tooltip" data-bs-placement="top" 
             title="{{field.help_text}}">
                 {{field.label}}
-                {% if field.field.required %}
-                    <span class="text-primary ms-1">*</span>
-                {% endif %}
             </span>
  
             {{field}}
@@ -27,6 +19,7 @@
     {{ field }}
     {% endif %}
     {% endfor %}
+    {% block extra_block %}{% endblock extra_block %}
     {% if includeSubmitButton %}
     <div class="flex-grow-1 my-1">
         <div class="d-flex align-items-center gap-2">

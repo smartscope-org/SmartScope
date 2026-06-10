@@ -316,7 +316,8 @@ class MultiShotView(TemplateView):
             logger.debug(f'MultiShotViewGrid with {grid_id}')
         return context
     
-    def get(self,request, *args, grid_id=None, **kwargs):
+    def get(self,request, *args, **kwargs):
+        grid_id = request.GET.get('grid_id')
         context = self.get_context_data(grid_id=grid_id,**kwargs)
 
         return render(request,self.template_name, context)
@@ -408,7 +409,7 @@ class MicroscopeStatus(TemplateView):
 
 class CollectionParams(TemplateView):
     template_name= "smartscopeSetup/collection_parameters.html"
-    template_form= "forms/formFieldsBase.html"
+    template_form= "forms/expand_form.html"
 
     def get_context_data(self, grid_id, **kwargs):
         context = dict()
@@ -423,6 +424,8 @@ class CollectionParams(TemplateView):
                                                                     'mode': grid.collection_mode
                                                                 }
                                                             )
+        context['trigger'] = 'multishot_per_hole'
+        context['formCollectionId'] = 'formParamsEdit'
         return context
     
     def get(self, request, grid_id, **kwargs):
@@ -433,9 +436,11 @@ class CollectionParams(TemplateView):
         form_type = request.POST.get("form_type")
         if form_type == 'grid':
             form_params = AutoloaderGridReportForm(request.POST)
+            form_id = ''
             
         elif form_type == 'collection_params':
             form_params = GridCollectionParamsForm(request.POST)
+            form_id = 'formParamsEdit'
             
         context = {
             'form': form_params,
@@ -445,7 +450,11 @@ class CollectionParams(TemplateView):
         if form_params.is_valid():
             data = form_params.cleaned_data
             result = self.update_params(request, data, grid_id, form_type)
-            context.update({'success': result['success']})
+            context.update({
+                    'success': result['success'],
+                    'trigger': 'multishot_per_hole',
+                    'formCollectionId': form_id,
+                })
             return render(request, self.template_form, context)
         return render(request, self.template_form, context)
     
@@ -628,7 +637,11 @@ def getCollectionParamsForm(request):
     if detector_id == '':
         return HttpResponse('Detector not specified')
     form = GridCollectionParamsForm(initial={'detector': detector_id, 'mode': mode})
-    return TemplateResponse(request=request,template="forms/formFieldsBase.html",context=dict(form=form, row=True, id='formParams'))
+    return TemplateResponse(
+                            request=request, 
+                            template="forms/expand_form.html",
+                            context=dict(form=form, row=True, id='formParams', trigger='multishot_per_hole', url=reverse('multishot_url'))
+                            )
 
 
 def targetHistory(request, grid_id):

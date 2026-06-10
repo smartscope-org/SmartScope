@@ -2,7 +2,7 @@
 <div class="col justify-content-center">
     <form  method="post">
         {% csrf_token %}
-        {% include "forms/formFieldsBase.html" with form=form row=false %}
+        {% include "forms/formFieldsBase.html" with form=form row=false col_width=8 input_ratio=40 %}
         <div class="d-flex align-items-center gap-2 mt-2">
             <button type="submit" class="btn btn-primary" 
                     hx-post="{% url 'protocol' grid_id=grid.pk %}" hx-indicator="#spinner" 

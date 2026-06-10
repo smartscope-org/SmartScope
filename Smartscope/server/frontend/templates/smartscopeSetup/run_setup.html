@@ -7,10 +7,11 @@
         <form class="needs-validation " novalidate method="post" onsubmit="validateForm(event)">
             {% csrf_token %}
             <h3 class="px-2 mt-1 mb-0">GENERAL</h3>
-            {% include "forms/formFieldsBase.html" with form=form_general row=True%}
+            {% include "forms/formFieldsBase.html" with form=form_general row=True %}
             <h3 class="col-auto px-2 mb-0 mt-1">COLLECTION PARAMETERS</h3>
             <div id="collection-params-form">
-                {% include "forms/formFieldsBase.html" with form=form_params row=True id='formParams' %}
+                {% url 'setMultishot' as multishot_url %}
+                {% include "forms/expand_form.html" with form=form_params row=True id='formParams' trigger='multishot_per_hole' url=multishot_url %}
             </div>
             <h3 class="col-auto px-2 mb-0 mt-1">PREPROCESSING PIPELINE</h3>
             <div class="px-2">
@@ -32,7 +33,7 @@
                 {% for grid in grids %}
                 <div id="grid-{{ forloop.counter }}" class='col-12 col-md-6 col-lg-4 col-xl-3 topgrid my-1'>
                     <div class="card">
-                        <div class="card-header p-1">
+                        <div class="card-header p-1" style="background-color: #e9ecef;">
                             <div class=" d-flex flex-row mw-100 align-items-center p-0 m-0 justify-content-between">
                                 <div class="col-8">
                                 {{ grid.name }}

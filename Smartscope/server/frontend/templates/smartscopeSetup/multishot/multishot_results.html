@@ -1,6 +1,9 @@
-<div class="row overflow-scroll">
+<p class="text-secondary small my-2 text-end">
+    <i class="bi bi-hand-index"></i> Click one of the cards to set it up
+</p>
+<div class="d-flex flex-wrap gap-2 justify-content-end">
     {% for result in results %}
-        <div class="col-md-6 h-100">
+        <div style="flex: 0 0 30%;">
             {% include "./multishot_result_card.html" with result=result %}
         </div>
     {% endfor %}

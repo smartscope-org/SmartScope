@@ -4,7 +4,7 @@
     <form  method="post">
         {% csrf_token %}
         
-        {% include "forms/formFieldsBase.html" with form=form row=false %}
+        {% include "forms/formFieldsBase.html" with form=form row=false col_width=8 input_ratio=40 %}
         <div class="d-flex flex-row align-content-center">
             <div class="d-flex align-items-center gap-2 mt-2">
                 <button type="submit" class="btn btn-primary" 
