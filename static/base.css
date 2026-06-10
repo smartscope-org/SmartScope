@@ -216,3 +216,10 @@ body{
 .badge[class*="bg-"] {
   --bs-bg-opacity: 0.2 !important;
 }
+
+.form-label-span {
+    white-space: normal;
+    word-break: break-word;
+    flex-shrink: 0;
+    text-align: left;
+}
