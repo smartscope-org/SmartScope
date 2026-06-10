@@ -130,11 +130,9 @@ class JEOLSerialemInterface(SerialemInterface):
         super().set_high_mag_optics()
         self.load_lens_data(self.microscope.high_mag_lens_file)
 
-
-    def setup(self, *args, **kwargs):
-        super().setup(*args, **kwargs)
+    
+    def setup_apertures(self):
         self.apertures = self._apertures_setter()
-        sem.SetLowDoseMode(1)
 
 
     def _apertures_setter(self):

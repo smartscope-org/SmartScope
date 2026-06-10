@@ -128,6 +128,7 @@ def run_protocol_command(grid_id:str, command:str):
                 close_valves_on_disconnect=False
             ) as scope:
             logger.info(f'Running protocol command {command} on grid {grid}')
+            scope.setup_apertures()
             PROTOCOL_COMMANDS_FACTORY[command](scope,params,instance=None,content={})
 
     except Exception as e:

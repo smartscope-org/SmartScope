@@ -393,6 +393,10 @@ def setupFrames(scope,params,instance, content:Dict, *args, **kwargs):
         frames_dir.mkdir(parents=True, exist_ok=True)
     scope.setup(params.save_frames,frames_dir=get_serialem_frames_dir(instance),framesName=f'{session.date}_{instance.name}')
 
+
+def setupApertures(scope,params,instance, content:Dict, *args, **kwargs):
+    scope.setup_apertures()
+
 def resetState(scope,params,instance, content:Dict, *args, **kwargs):
     scope.reset_state()
 
@@ -507,6 +511,7 @@ protocolCommandsFactory = dict(
     openColumnValve=openColumnValve,   
     callOnModeChange=callOnModeChange, 
     setupSerialEM=setupSerialEM,
+    setupApertures=setupApertures,
     refineEucentricityByFocus=refineEucentricityByFocus,
     eucentricSearchAfterDistance=eucentricSearchAfterDistance
 )

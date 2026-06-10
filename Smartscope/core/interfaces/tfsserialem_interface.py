@@ -17,8 +17,7 @@ class TFSApertures(Apertures):
 class TFSSerialemInterface(SerialemInterface):
     apertures: Apertures = TFSApertures
 
-    def setup(self, *args, **kwargs):
-        super().setup(*args, **kwargs)
+    def setup_apertures(self):
         self.apertures = TFSApertures
 
     def checkDewars(self, wait=30):
