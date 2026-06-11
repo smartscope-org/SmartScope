@@ -4,22 +4,25 @@ import multiprocessing
 import os
 import shutil
 import time
-from pathlib import Path
+from pathlib import Path, PureWindowsPath
 from time import sleep
 from types import SimpleNamespace
 from typing import Dict, List
 import threading
 import subprocess
+from glob import glob
 
 import pandas as pd
 from django.db import transaction
+import starfile
 
-from Smartscope.core.db_manipulations import websocket_update
+from Smartscope.core.db_manipulations import websocket_update, update_target_label
 # from Smartscope.core.frames import get_frames_prefix, parse_frames_prefix
 from Smartscope.core.models.grid import AutoloaderGrid
 from Smartscope.core.models.models_actions import update_fields
 from Smartscope.core.models.high_mag import HighMagModel
 from Smartscope.core.models.hole import HoleModel
+from Smartscope.core.frames import get_smartscope_frames_dir
 
 from .preprocessing_pipeline import PreprocessingPipeline
 from .nextpyp_preprocessing_cmd_kwargs import NextPYPPreprocessingCmdKwargs
@@ -52,6 +55,9 @@ from nextpyp.client.gen import (
     RealTimeS2CSessionJobStarted,
     RealTimeS2CSessionJobFinished,
     SessionDaemon,
+    SessionExportResult,
+    SessionExportResultSucceeded,
+    SessionExportResultSucceededOutputFilter
 )
 
 logger = logging.getLogger(__name__)
@@ -96,6 +102,12 @@ class NextPYPPreprocessingPipeline(PreprocessingPipeline):
         self.metadata_by_name = {}
         self._stop_event = threading.Event()
         self._lock = threading.Lock()
+
+        # For keeping track of good vs bad micrographs
+        self.good_micrographs = []
+        self.bad_micrographs = []
+        self.path_to_filter = None
+        self.frame_file_extension = None
         
         
         
@@ -155,9 +167,10 @@ class NextPYPPreprocessingPipeline(PreprocessingPipeline):
                     row = metadata.iloc[0]
                     pixel_size = row.PixelSpacing
                     gain_ref_name = row.GainReference
+                    file_type = PureWindowsPath(row.SubFramePath).suffix
                     gain_reference_path = str(frames_dir / gain_ref_name)
                     logger.info(f"Got pixel_size={pixel_size}, gain_reference={gain_ref_name} from {mdoc_file.name}")
-                    return pixel_size, gain_ref_name
+                    return pixel_size, gain_ref_name, file_type
                 except Exception as e:
                     logger.warning(f"Failed to parse {mdoc_file}: {e}, retrying...")
             time.sleep(interval)
@@ -167,9 +180,8 @@ class NextPYPPreprocessingPipeline(PreprocessingPipeline):
     def start(self):
         self.incomplete_processes = self.list_incomplete_processes()
         logger.info(f'Starting NextPYP Preprocessing')
-        from Smartscope.core.frames import get_smartscope_frames_dir
         smartscope_frames_dir = get_smartscope_frames_dir(self.grid)
-        pixel_size, gain_ref_name = self._wait_for_mdoc_fields(smartscope_frames_dir)
+        pixel_size, gain_ref_name, self.frame_file_extension = self._wait_for_mdoc_fields(smartscope_frames_dir)
         gain_reference_path = os.path.join(self.frames_directory, gain_ref_name)
         # logger.info("Gain reference path: ", os.path.join(self.cmd_data.frames_directory, gain_ref_name))
         self.configure_session_args(pixel_size, gain_ref_name)
@@ -209,7 +221,7 @@ class NextPYPPreprocessingPipeline(PreprocessingPipeline):
                 x.status in ['acquired', 'skipped'] for x in self.incomplete_processes
             ):
                 logger.info("All micrographs processed — exiting start loop.")
-                break
+                # break
 
     def list_incomplete_processes(self):
         # print("[nextpyp] Len all processes: ", len(list(self.grid.highmagmodel_set.filter(status__in=['acquired', 'skipped', 'completed', 'error']))))
@@ -246,6 +258,29 @@ class NextPYPPreprocessingPipeline(PreprocessingPipeline):
                     self.metadata_by_name[movie.name] = msg.micrograph
                     await self.check_for_update()
                     await self.update_processes()
+                
+                elif isinstance(msg, RealTimeS2CSessionExport):
+                    logger.info(msg)
+                    if msg.export.result is None:
+                        logger.info(f"Export job submitted, waiting for result...")
+                    else:
+                        result = SessionExportResult.deserialize(msg.export.result)
+                        if isinstance(result, SessionExportResultSucceeded):
+                            if isinstance(result.output, SessionExportResultSucceededOutputFilter):
+                                filter_path = result.output.path  # relative to session folder
+                                logger.info(f"Filter exported to: {filter_path}")
+
+                                session_name = Path(self.session_path).name
+                                # copy .star file
+                                star_src_path = Path(self.session_path, filter_path, f"{session_name}.star")
+                                grid_dir = await asyncio.to_thread(lambda: self.grid.directory)
+                                star_dest_path = os.path.join(grid_dir, f"{session_name}.star")
+                                ok = await asyncio.to_thread(self.scp_file, star_src_path, star_dest_path, timeout=60)
+                                if not ok:
+                                    logger.warning(f".star file copy failed: {star_dest_path}")
+                                
+                                await asyncio.to_thread(self.classify_micrographs, star_dest_path)
+
 
     def make_dest_paths(self):
         # Path should be: /path/to/data/<group ID>/<session ID>/pngs for micrographs and
@@ -298,8 +333,8 @@ class NextPYPPreprocessingPipeline(PreprocessingPipeline):
             os.makedirs(os.path.dirname(png_path), exist_ok=True)
             os.makedirs(os.path.dirname(ctf_path), exist_ok=True)
 
-            img_ok  = await asyncio.to_thread(self.copy_webp_image, micrograph_source_path, png_path, timeout=60)
-            ctf_ok  = await asyncio.to_thread(self.copy_webp_image, ctf_source_path, ctf_path, timeout=60)
+            img_ok  = await asyncio.to_thread(self.scp_file, micrograph_source_path, png_path, timeout=60)
+            ctf_ok  = await asyncio.to_thread(self.scp_file, ctf_source_path, ctf_path, timeout=60)
             if not img_ok:
                 logger.warning(f"Micrograph image copy failed for {movie.name}")
             if not ctf_ok:
@@ -322,9 +357,9 @@ class NextPYPPreprocessingPipeline(PreprocessingPipeline):
         ]
         subprocess.run(cmd, check=True)
 
-    def copy_webp_image(self, remote_webp_path, local_webp_path, timeout=60):
+    def scp_file(self, remote_webp_path, local_webp_path, timeout=60):
         """
-        SCPs a .webp file from the remote nextPYP host to local_webp_path.
+        SCPs a file from the remote nextPYP host to local_webp_path.
         Returns True on success, False on failure.
         """
         try:
@@ -342,7 +377,7 @@ class NextPYPPreprocessingPipeline(PreprocessingPipeline):
                 logger.warning(f"Timeout waiting for {local_webp_path}")
                 return False
 
-        logger.info(f"Image ready at {local_webp_path}")
+        logger.info(f"File ready at {local_webp_path}")
         return True
     
     def save_all_updates(self):
@@ -370,10 +405,51 @@ class NextPYPPreprocessingPipeline(PreprocessingPipeline):
         
         self._stop_event.set()
         if not self.client or not self.session:
-            print("Client or session not initialized, cannot cancel.")
+            logger.info("Client or session not initialized, cannot cancel.")
             return
 
-        print(f"Cancelling session with ID: {self.session.session_id}")
+        logger.info(f"Cancelling session with ID: {self.session.session_id}")
         self.client.services.sessions.cancel(self.session.session_id)
         sleep(10)
-        print("Session cancelled.")
+        logger.info("Session cancelled.")
+
+    def get_file_name_only(self, arr):
+        cleaned = [Path(file).stem for file in arr]
+        return cleaned
+    
+    def classify_micrographs(self, mg_file):
+        exported_data = starfile.read(mg_file)
+        particles_df = exported_data["particles"]
+        good_mg_temp = particles_df["rlnMicrographName"].unique().tolist()
+        self.good_micrographs = [Path(file).stem for file in good_mg_temp]
+        good_set = set(self.good_micrographs)
+
+        logger.info(f"Found {len(self.good_micrographs)} micrographs that passed the filter")
+        logger.info(f"Good files: {self.good_micrographs}")
+
+        # all_hm = HighMagModel.parent_manager.filter(
+        #     grid_id=self.grid.pk, 
+        #     status__in=['completed']
+        # ).values_list('hm_id', 'frames')
+
+        # all_hm = HighMagModel.objects.filter(
+        #     hole_id__grid_id=self.grid
+        # ).values_list('hm_id', 'frames')
+        all_hm = HighMagModel.objects.filter(
+            grid_id=self.grid.pk, 
+            status__in=['completed']
+        ).values_list('hm_id', 'frames')
+
+        logger.info(f"All high-mags: {all_hm}")
+
+        good_pks = []
+        bad_pks = []
+        for hm_id, frames in all_hm:
+            if Path(frames).stem in good_set:
+                good_pks.append(hm_id)
+            else:
+                bad_pks.append(hm_id)
+
+        logger.info(f"Labelling {len(good_pks)} micrographs as Good, {len(bad_pks)} as Bad")
+        update_target_label(HighMagModel, good_pks, "Good", "nextPYP Curation")
+        update_target_label(HighMagModel, bad_pks, "Bad", "nextPYP Curation")

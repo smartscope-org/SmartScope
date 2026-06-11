@@ -806,7 +806,7 @@ class HoleModelViewSet(viewsets.ModelViewSet, GeneralActionsMixin, ExtraActionsM
             queryset = list(HighMagModel.objects.filter(grid_id=obj.grid_id,
                                                         hole_id__bis_group=obj.bis_group, status='completed').order_by('hole_id__number','number'))
         context = {}
-        context['classifier'] = PLUGINS_FACTORY.get_plugin('Micrographs curation')
+        context['classifier'] = PLUGINS_FACTORY.get_plugin('nextPYP Curation')
         response_context= dict(cards=[])
         for hole in queryset:
             context['hole']=hole
