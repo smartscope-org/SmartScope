@@ -81,13 +81,14 @@ def run_grid(
     atlas = queue_atlas(grid)
 
     # scope
-    runScopeProtocolSteps(
-        scope,
-        protocol.preImaging.steps,
-        params,
-        grid
-    )
-    update(grid, loading_time=timezone.now())
+    if not skip_loading:
+        runScopeProtocolSteps(
+            scope,
+            protocol.preImaging.steps,
+            params,
+            grid
+        )
+        update(grid, loading_time=timezone.now())
     check_stop_flag(session_id)
 
     needs_reregistations = grid.unloading_time is not None and grid.loading_time > grid.unloading_time

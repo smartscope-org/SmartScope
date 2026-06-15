@@ -555,7 +555,6 @@ class SerialemInterface(MicroscopeInterface):
             # sem.SetDoseFracParams('R', 1, 0, 0)
 
         sem.KeepCameraSetChanges('R')
-        sem.SetLowDoseMode(1)
         sem.SetBufferImageTimeout(5)
 
     def refineZLP(self, zerolossDelay:float):
