@@ -131,6 +131,8 @@ class JEOLSerialemInterface(SerialemInterface):
     def set_high_mag_optics(self):
         super().set_high_mag_optics()
         self.load_lens_data(self.microscope.high_mag_lens_file)
+        sem.SetEucentricFocus()
+        sem.ResetDefocus()
 
     
     def setup_apertures(self):

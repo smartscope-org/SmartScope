@@ -692,8 +692,6 @@ class SerialemInterface(MicroscopeInterface):
         sem.SetLowDoseMode(1)
         sem.GoToLowDoseArea('Record')
         self.state.current_mag = 'high_mag'
-        sem.SetEucentricFocus()
-        sem.ResetDefocus()
     
 
     def report_aperture_size(self, aperture:int):

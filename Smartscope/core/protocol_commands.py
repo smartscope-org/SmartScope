@@ -253,7 +253,8 @@ def setFocusPosition(scope:MicroscopeInterface,params,instance, content:Dict, *a
 
 def autoFocusAfterDistance(scope:MicroscopeInterface,params,instance, content:Dict, *args, **kwargs) :
     """Acquires the focus only after a specific distance in microns was traveled. Default: 5 um"""
-    distance = kwargs.pop('distance', 5)
+    logger.debug(f'Running autofocus after distance with params {params} and content {content}')
+    distance = content.get('distance', 5)
     scope.autofocus_after_distance(
         params.target_defocus_min,
         params.target_defocus_max,
@@ -454,7 +455,7 @@ def refineEucentricityByFocus(scope:MicroscopeInterface,params,instance, content
     return instance.refresh_from_db()
 
 def eucentricSearchAfterDistance(scope:MicroscopeInterface,params,instance, content:Dict, *args, **kwargs):
-    distance = kwargs.pop('distance', 300)
+    distance = content.get('distance', 300)
     scope.eucentric_height_after_distance(distance_threshold=distance)
 
 protocolCommandsFactory = dict(

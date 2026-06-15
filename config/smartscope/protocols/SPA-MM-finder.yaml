@@ -27,7 +27,7 @@ square:
 mediumMag:
   steps:
     - setFocusPosition
-    - setHighMag 
+    - setHighMagOptics
     - rollDefocus
     - refineEucentricityByFocus
     - tiltToAngle
