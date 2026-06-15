@@ -35,7 +35,3 @@ class TFSSerialemInterface(SerialemInterface):
                 return
             self.logger.info(f'Pump is Running, waiting {wait}s')
             time.sleep(wait)
-
-    def atlas(self, size, file=''):
-        super().atlas(size, file)
-        sem.SetLowDoseMode(1)

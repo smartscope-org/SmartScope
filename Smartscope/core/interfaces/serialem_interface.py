@@ -453,6 +453,7 @@ class SerialemInterface(MicroscopeInterface):
     def set_medium_mag_optics(self):
         if self.state.current_mag == 'medium_mag':
             return
+        sem.SetLowDoseMode(1)
         sem.GoToLowDoseArea('V')
         self.state.current_mag = 'medium_mag'
         time.sleep(1)
