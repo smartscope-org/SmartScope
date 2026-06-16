@@ -29,6 +29,7 @@
             htmx.ajax('GET', '{% url "setMultishot" %}', {
                 target: '#extraFormContainer_formParamsEdit',
                 swap: 'innerHTML',
+                values: {'grid_id': '{{ grid.grid_id }}'}
             });
         }
     })();
