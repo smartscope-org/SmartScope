@@ -1,19 +1,45 @@
+import yaml
 from typing import Optional, Dict, Any
 from django import forms
 from django.urls import reverse
+
 from Smartscope.core.models import *
-from Smartscope.core.settings.worker import SMARTSCOPE_CUSTOM_CONFIG, SMARTSCOPE_DEFAULT_CONFIG, PROTOCOLS_FACTORY 
+from Smartscope.core.settings.worker import (SMARTSCOPE_CUSTOM_CONFIG, 
+                                             SMARTSCOPE_DEFAULT_CONFIG, 
+                                             PROTOCOLS_FACTORY, 
+                                             COLLECTION_PARAMETERS)
 from Smartscope.core.preprocessing_pipelines import PREPROCESSING_PIPELINE_FACTORY
-import yaml
-from django.urls import reverse
 
 
+def read_config_legacy(filename = 'default_collection_params.yaml'):
+    collections_params = yaml.safe_load(Path(SMARTSCOPE_DEFAULT_CONFIG,filename).read_text())
+    custom_collections_params = SMARTSCOPE_CUSTOM_CONFIG / filename
+    if custom_collections_params.exists():
+        collections_params.update(yaml.safe_load(custom_collections_params.read_text()))
+    return collections_params
 
+def read_config(filename = 'default_collection_params.yaml', detector_id = 'default', mode='screening'):
+    try:
+        collections_params = yaml.safe_load(Path(SMARTSCOPE_DEFAULT_CONFIG,filename).read_text())
+        custom_collections_params = SMARTSCOPE_CUSTOM_CONFIG / filename
+        if custom_collections_params.exists():
+            yaml_data = yaml.safe_load(custom_collections_params.read_text())
+            detector_specific_data = yaml_data.get(detector_id, {})
+            mode_specific_data = detector_specific_data.get(mode, {})
+            collections_params.update(mode_specific_data)
+        return collections_params
+    except Exception as e:
+        logger.error(f'Error reading config file {filename}: {e}, trying legacy method.')
+        return read_config_legacy()
+    
 
 class ScreeningSessionForm(forms.ModelForm):
-    mode = forms.ChoiceField(choices=[('screening','screening'),('collection','collection')], initial='screening', label='Session Mode', 
+    mode = forms.ChoiceField(choices=[('screening','Screening'),('collection','Collection')], initial='screening', label='Session Mode', 
                              help_text='Select the session mode. Screening mode will use screening parameters and collection mode will use data collection parameters.',
                              widget=forms.Select(attrs={"id": "id_mode"}))
+    preset = forms.ChoiceField(choices=[('default', 'Default')], initial='default', label='Presets', 
+                             help_text='Select the preset. Presets allows you to choose between default and custom data collection parameters.',
+                             widget=forms.Select(attrs={"id": "id_preset"}))
 
     class Meta:
         from Smartscope.core.models.screening_session import ScreeningSession
@@ -40,56 +66,44 @@ class ScreeningSessionForm(forms.ModelForm):
         })
         self.fields['group'].widget.attrs.update({
             "hx-get": reverse('getUsersInGroup'),
-            "hx-target":"#id_user",
-            "hx-trigger":"change"
+            "hx-target": "#id_user",
+            "hx-trigger": "change",
+            "hx-on::after-request": "htmx.ajax('GET', '{}', {{target: '#id_preset', include: '#id_group, #id_detector_id, #id_mode'}})".format(
+                                        reverse('getSetsNames')
+                                    ),
         })
         self.fields['user'].required = False
         self.fields['microscope_id'].widget.attrs.update({
             "hx-get": reverse('getMicroscopeDetectors'),
-            "hx-target":"#id_detector_id",
-            "hx-trigger":"change",
+            "hx-target": "#id_detector_id",
+            "hx-trigger": "change",
         })
         self.fields['detector_id'].widget.attrs.update({
-            "hx-get": reverse('getCollectionParamsForm'),
-            "hx-target":"#collection-params-form",
-            "hx-trigger":"change",
-            "hx-include":"#id_mode",
+            "hx-get": reverse('getSetsNames'),
+            "hx-target": "#id_preset",
+            "hx-trigger": "change",
+            "hx-include": "#id_mode, #id_group",
             "hx-on": "htmx:afterSwap: const d = document.querySelector('#id_detector_id'); console.log(d); if (d) d.dispatchEvent(new Event('change', { bubbles: true }));"
 
         })
         self.fields['mode'].widget.attrs.update({
+            "hx-get": reverse('getSetsNames'),
+            "hx-target": "#id_preset",
+            "hx-trigger": "change",
+            "hx-include": "#id_detector_id, #id_group",
+        })
+        self.fields['preset'].widget.attrs.update({
             "hx-get": reverse('getCollectionParamsForm'),
             "hx-target":"#collection-params-form",
             "hx-trigger":"change",
-            "hx-include":"#id_detector_id",
+            "hx-include":"#id_group, #id_detector_id, #id_mode",
+            "hx-on": "htmx:afterSwap: const d = document.querySelector('#id_preset'); console.log(d); if (d) d.dispatchEvent(new Event('change', { bubbles: true }));"
         })
         for visible in self.visible_fields():
             if visible.field.label != "Session Name":
                 visible.field.widget.attrs['class'] = 'form-select'
             else:
                 visible.field.widget.attrs['class'] = 'form-control'
-
-
-def read_config_legacy(filename = 'default_collection_params.yaml'):
-    collections_params = yaml.safe_load(Path(SMARTSCOPE_DEFAULT_CONFIG,filename).read_text())
-    custom_collections_params = SMARTSCOPE_CUSTOM_CONFIG / filename
-    if custom_collections_params.exists():
-        collections_params.update(yaml.safe_load(custom_collections_params.read_text()))
-    return collections_params
-
-def read_config(filename = 'default_collection_params.yaml', detector_id = 'default', mode='screening'):
-    try:
-        collections_params = yaml.safe_load(Path(SMARTSCOPE_DEFAULT_CONFIG,filename).read_text())
-        custom_collections_params = SMARTSCOPE_CUSTOM_CONFIG / filename
-        if custom_collections_params.exists():
-            yaml_data = yaml.safe_load(custom_collections_params.read_text())
-            detector_specific_data = yaml_data.get(detector_id, {})
-            mode_specific_data = detector_specific_data.get(mode, {})
-            collections_params.update(mode_specific_data)
-        return collections_params
-    except Exception as e:
-        logger.error(f'Error reading config file {filename}: {e}, trying legacy method.')
-        return read_config_legacy()
 
 
 class AutoloaderGridForm(forms.ModelForm):
@@ -190,11 +204,12 @@ class GridCollectionParamsForm(forms.ModelForm):
 
         super().__init__(*args, **kwargs)
 
-        detector = self.initial.get('detector', None)
+        group = self.initial.get('group', '')
+        detector = self.initial.get('detector', 'default')
         mode = self.initial.get('mode', 'screening')
+        preset = self.initial.get('preset', 'default')
 
-
-        print(f"Detector in form init: {detector}, mode: {mode}")
+        print(f"Detector in form init: {detector}, mode: {mode}, group: {group}, preset name: {preset}")
 
         self.fields['target_defocus_min'].widget.attrs.update({
             "max": 0,
@@ -240,17 +255,19 @@ class GridCollectionParamsForm(forms.ModelForm):
                 visible.field.widget.attrs['class'] = 'form-control'
             visible.field.required = False
 
-        for field, data in read_config(detector_id=detector, mode=mode).items():
+        extra_params = COLLECTION_PARAMETERS.get_collection_params(group, detector_id=detector, mode=mode, name=preset)
+        logger.debug(f"Collection parameters {extra_params}")
+        for field, data in extra_params.items():
             if field not in self.fields.keys():
                 continue
-            self.fields[field].initial = data.pop('initial')
-            hidden = data.pop('hidden', False)
+            self.fields[field].initial = data.initial
+            hidden = data.hidden
             print(f"Field: {field}, hidden: {hidden}")
             if hidden:
                 self.fields[field].widget = forms.HiddenInput()
                 self.fields[field].widget.attrs['hidden'] = True
             
-            self.fields[field].widget.attrs.update(data)
+            self.fields[field].widget.attrs.update(data.css_attr)
 
         # self.fields['multishot_per_hole_id'].widget.attrs['hidden'] = True
 

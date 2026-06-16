@@ -30,6 +30,7 @@ from Smartscope.core.cache import save_json_from_cache
 from Smartscope.core.protocols import load_protocol, set_protocol
 from Smartscope.core.preprocessing_pipelines import PREPROCESSING_PIPELINE_FACTORY, load_preprocessing_pipeline
 from Smartscope.server.service.collection_params import update_collection_params, update_grid
+from Smartscope.core.settings.worker import COLLECTION_PARAMETERS
 
 from Smartscope.core.models.grid import AutoloaderGrid
 from Smartscope.core.models.grid_collection_params import GridCollectionParams
@@ -313,6 +314,7 @@ class MultiShotView(TemplateView):
             mutlishot_file = Path(grid.directory,'multishot.json')
             multishot = RunHole.load_multishot_from_file(mutlishot_file)
             context['current'] = multishot
+            context['form'] = SetMultiShotForm(initial=multishot.params.model_dump())
             logger.debug(f'MultiShotViewGrid with {grid_id}')
         return context
     
@@ -634,12 +636,24 @@ def getMicroscopeDetectors(request):
     options = [{"value":d.pk,"field":d} for d in detectors]
     return render(request, "general/options_fields.html", {"options": options})
 
+def getSetsNames(request):
+    group = request.GET.get('group', '')
+    detector_id = request.GET.get('detector_id', 'default')
+    mode = request.GET.get('mode', 'screening')
+    preset_names = COLLECTION_PARAMETERS.get_presets(group, detector_id=detector_id, mode=mode)
+    options = [{"value":d,"field":d.capitalize()} for d in ['default'] + preset_names]
+    return render(request, "general/options_fields.html", {"options": options})
+
 def getCollectionParamsForm(request):
-    detector_id = request.GET.get('detector_id','')
-    mode = request.GET.get('mode','screening')
+    group = request.GET.get('group', '')
+    detector_id = request.GET.get('detector_id', '')
+    mode = request.GET.get('mode', 'screening')
+    preset = request.GET.get('preset',' default')
     if detector_id == '':
         return HttpResponse('Detector not specified')
-    form = GridCollectionParamsForm(initial={'detector': detector_id, 'mode': mode})
+    if group == '':
+        return HttpResponse('Group not specified')
+    form = GridCollectionParamsForm(initial={'group': group, 'detector': detector_id, 'mode': mode, 'preset': preset})
     return TemplateResponse(
                             request=request, 
                             template="forms/expand_form.html",

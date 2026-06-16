@@ -40,6 +40,7 @@ if settings.USE_MICROSCOPE:
         path('run/setup/', views.AutoScreenSetup.as_view(), name='setup_autoscreen'),
         path('run/setup/getusers/', views.getUsersInGroup, name='getUsersInGroup'),
         path('run/setup/getdetectors/', views.getMicroscopeDetectors, name='getMicroscopeDetectors'),
+        path('run/setup/getpresetnames/', views.getSetsNames, name='getSetsNames'),
         path('run/setup/getcollectionparamsform/', views.getCollectionParamsForm, name='getCollectionParamsForm'),
         path('run/session/', views.AutoScreenRun.as_view(), name='run_autoscreen'),
         path('run/session/<session_id>/', views.AutoScreenRun.as_view(), name='run_session'),
