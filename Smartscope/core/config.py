@@ -229,7 +229,7 @@ class ProtocolsFactory:
 class CollectionParameters(BaseModel):
     basic_parameters: Dict[str, Property]
     granular_parameters: Dict[str, DetectorParams]
-    custom_parameters: Dict[str, CustomDetectorParams]
+    custom_parameters: Dict[str, Dict[str, CustomDetectorParams]]
 
     @classmethod
     def create_library(cls, default_path, custom_path, filename = 'default_collection_params.yaml'):
@@ -241,31 +241,36 @@ class CollectionParameters(BaseModel):
             specific_params = {k: DetectorParams(**v) for k, v in yaml_data.items()}
 
         custome_collections_params = custom_path / 'collection_parameters'
-        custome_params = dict()
+        custom_params = dict()
         for file in custome_collections_params.glob('*.yaml'):
-            logger.debug(f'Registering protocol {file}')
+            logger.debug(f'Registering parameters {file}')
             with open(file) as f:
                 data = yaml.safe_load(f)
-            custome_params[file.stem] = {k: CustomDetectorParams(**v) for k, v in data.items()}
+            logger.debug(f'Parameters {data}')
+            custom_params[file.stem] = {k: CustomDetectorParams(**v) for k, v in data.items()}
         return CollectionParameters(
                     basic_parameters=default_params,
                     granular_parameters=specific_params,
-                    custom_parameters=custome_params
+                    custom_parameters=custom_params
                 )
 
     def get_collection_params(self, group:str, detector_id='default', mode='screening', name='default'):
         params = deepcopy(self.basic_parameters)
         specific_params = self.granular_parameters.get(detector_id, DetectorParams())
-        detector_params = specific_params.dict().get(mode, {})
+        detector_params = getattr(specific_params, mode, {})
+        logger.debug(f"Collection parameters from custome source {detector_params}")
         params.update(detector_params)
         if name != 'default':
-            custome_params = self.custom_parameters.get(group, {}).get(detector_id, CustomDetectorParams())
-            custome_params_by_name = custome_params.dict().get(mode, {}).get(name, {})
-            params.update(custome_params_by_name)
+            custom_params = self.custom_parameters.get(group, {}).get(detector_id, CustomDetectorParams())
+            custom_params_by_mode = getattr(custom_params, mode, {})
+            custom_params_by_name = custom_params_by_mode.get(name, {})
+            params.update(custom_params_by_name)
         return params
 
     def get_presets(self, group: str, detector_id = 'default', mode='screening'):
+        logger.debug(f"Request {detector_id}, {group}")
+        logger.debug(f"Custom parameters {self.custom_parameters.get(group, {})}")
         specific_params = self.custom_parameters.get(group, {}).get(detector_id, CustomDetectorParams())
-        specific_params_names = specific_params.dict().get(mode, {}).keys()
+        specific_params_names = specific_params.model_dump().get(mode, {}).keys()
         return list(specific_params_names)
     

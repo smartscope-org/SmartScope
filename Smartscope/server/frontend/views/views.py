@@ -102,6 +102,7 @@ class AutoScreenSetup(LoginRequiredMixin, TemplateView):
 
             if form_general.is_valid() and form_params.is_valid() and form_preprocess.is_valid():
                 mode = form_general.cleaned_data.pop('mode','screening')
+                preset = form_general.cleaned_data.pop('preset', '')
                 session, created = ScreeningSession.objects.get_or_create(
                     **form_general.cleaned_data,
                     date=datetime.today().strftime('%Y%m%d')
@@ -637,9 +638,11 @@ def getMicroscopeDetectors(request):
     return render(request, "general/options_fields.html", {"options": options})
 
 def getSetsNames(request):
+    logger.debug(f"Request: {request.GET}")
     group = request.GET.get('group', '')
     detector_id = request.GET.get('detector_id', 'default')
     mode = request.GET.get('mode', 'screening')
+    logger.debug(f"Parameters received: {group} {detector_id} {mode}")
     preset_names = COLLECTION_PARAMETERS.get_presets(group, detector_id=detector_id, mode=mode)
     options = [{"value":d,"field":d.capitalize()} for d in ['default'] + preset_names]
     return render(request, "general/options_fields.html", {"options": options})
@@ -649,15 +652,15 @@ def getCollectionParamsForm(request):
     detector_id = request.GET.get('detector_id', '')
     mode = request.GET.get('mode', 'screening')
     preset = request.GET.get('preset',' default')
-    if detector_id == '':
-        return HttpResponse('Detector not specified')
-    if group == '':
-        return HttpResponse('Group not specified')
+    # if detector_id == '':
+    #     return HttpResponse('Detector not specified')
+    # if group == '':
+    #     return HttpResponse('Group not specified')
     form = GridCollectionParamsForm(initial={'group': group, 'detector': detector_id, 'mode': mode, 'preset': preset})
     return TemplateResponse(
                             request=request, 
                             template="forms/expand_form.html",
-                            context=dict(form=form, row=True, id='formParams', trigger='multishot_per_hole', url=reverse('multishot_url'))
+                            context=dict(form=form, row=True, id='formParams', trigger='multishot_per_hole', url=reverse('setMultishot'))
                             )
 
 

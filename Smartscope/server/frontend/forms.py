@@ -68,36 +68,39 @@ class ScreeningSessionForm(forms.ModelForm):
             "hx-get": reverse('getUsersInGroup'),
             "hx-target": "#id_user",
             "hx-trigger": "change",
-            "hx-on::after-request": "htmx.ajax('GET', '{}', {{target: '#id_preset', include: '#id_group, #id_detector_id, #id_mode'}})".format(
-                                        reverse('getSetsNames')
-                                    ),
+            "hx-on:htmx:after-request": (
+                            "htmx.ajax('GET', '{url}', {{target: '#id_preset', values: htmx.values(htmx.find('#id_group, #id_detector_id, #id_mode'))}}).then(() => "
+                            "{{ const d = document.querySelector('#id_preset'); if (d) d.dispatchEvent(new Event('change', {{bubbles: true}})); }})"
+                            ).format(url=reverse('getSetsNames'))
         })
         self.fields['user'].required = False
         self.fields['microscope_id'].widget.attrs.update({
             "hx-get": reverse('getMicroscopeDetectors'),
             "hx-target": "#id_detector_id",
             "hx-trigger": "change",
+            "hx-on:htmx:after-request": "const d = document.querySelector('#id_detector_id'); console.log(d); if (d) d.dispatchEvent(new Event('change', { bubbles: true }));"
         })
         self.fields['detector_id'].widget.attrs.update({
             "hx-get": reverse('getSetsNames'),
             "hx-target": "#id_preset",
             "hx-trigger": "change",
             "hx-include": "#id_mode, #id_group",
-            "hx-on": "htmx:afterSwap: const d = document.querySelector('#id_detector_id'); console.log(d); if (d) d.dispatchEvent(new Event('change', { bubbles: true }));"
-
+            "hx-on:htmx:after-request": "const d = document.querySelector('#id_preset'); console.log(d); if (d) d.dispatchEvent(new Event('change', { bubbles: true }));"
         })
         self.fields['mode'].widget.attrs.update({
             "hx-get": reverse('getSetsNames'),
             "hx-target": "#id_preset",
             "hx-trigger": "change",
             "hx-include": "#id_detector_id, #id_group",
+            "hx-on:htmx:after-request": "const d = document.querySelector('#id_preset'); console.log(d); if (d) d.dispatchEvent(new Event('change', { bubbles: true }));"
         })
         self.fields['preset'].widget.attrs.update({
             "hx-get": reverse('getCollectionParamsForm'),
-            "hx-target":"#collection-params-form",
+            "hx-target":"#formParams",
+            "hx-swap": "outerHTML",
             "hx-trigger":"change",
             "hx-include":"#id_group, #id_detector_id, #id_mode",
-            "hx-on": "htmx:afterSwap: const d = document.querySelector('#id_preset'); console.log(d); if (d) d.dispatchEvent(new Event('change', { bubbles: true }));"
+            # "hx-on::after-swap": "const d = document.querySelector('#id_preset'); console.log(d); if (d) d.dispatchEvent(new Event('change', { bubbles: true }));",
         })
         for visible in self.visible_fields():
             if visible.field.label != "Session Name":
