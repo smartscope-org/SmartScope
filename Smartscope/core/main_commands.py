@@ -8,7 +8,7 @@ from django.core.cache import cache
 from Smartscope.core.test_commands import *
 from Smartscope.core.utils.training_data import add_to_training_set
 from Smartscope.core.export_optics import export_optics
-from .autoscreen import autoscreen
+from .autoscreen import autoscreen, run_protocol_command
 
 import numpy as np
 
@@ -514,14 +514,14 @@ def save_jeol_optics(detector_id:str, mag_level:Literal['atlas', 'square', 'medi
         scope.logger.info(f'Lens data saved to {len_file}')
 
 
-def set_jeol_optics(detector_id:str, mag_level:Literal['atlas', 'square', 'medium_mag', 'high_mag']):
-    from .models import Detector
+def save_jeol_optics(detector_id:str, mag_level:Literal['atlas', 'square', 'medium_mag', 'high_mag']):
+    from .models import Detector as DetectorModel
     from .interfaces.microscope import Detector, AtlasSettings
     from .interfaces.microscope_methods import select_microscope_interface
     if mag_level not in ['atlas', 'square', 'medium_mag', 'high_mag']:
         print(f'Mag level {mag_level} not recognized. Please choose from atlas, square, medium_mag, high_mag.')
         return
-    detector = Detector.objects.get(pk=detector_id)
+    detector = DetectorModel.objects.get(pk=detector_id)
     if detector is None:
         print(f'Could not find detector with name {detector_id}')
         return
@@ -535,8 +535,9 @@ def set_jeol_optics(detector_id:str, mag_level:Literal['atlas', 'square', 'mediu
             microscope = microscope.model_validate(microscope_id),
             detector= Detector.model_validate(detector) ,
             atlas_settings= AtlasSettings.model_validate(detector),
-            additional_settings=additional_settings
+            additional_settings=additional_settings,
+            close_valves_on_disconnect=False
         ) as scope:
         scope.logger.info(f'Setting lens data for mag level {mag_level}')
         len_file = getattr(scope.microscope, f'{mag_level}_lens_file')
-        scope.set_lens_data(len_file)
+        scope.save_lens_data(len_file)

@@ -1,0 +1,14 @@
+name: nextPYP Curation
+targetClass:
+  - Classifier
+description: |
+  Micrograph curation based on nextPYP filtering
+classes:
+  Good:
+    value: 1
+    name: Good
+    color: "#0072B2"
+  Bad:
+    value: -1
+    name: Bad
+    color: "#CC79A7"

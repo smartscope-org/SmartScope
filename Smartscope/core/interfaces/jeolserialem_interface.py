@@ -31,19 +31,19 @@ class JEOLmicroscope(Microscope):
 
     @property
     def atlas_lens_file(self):
-        return str(Path(self.directory, 'reference', 'atlas_lenses.json'))
+        return str(Path(self.scopePath, 'reference', 'atlas_lenses.json'))
     
     @property
     def square_lens_file(self):
-        return str(Path(self.directory, 'reference', 'square_lenses.json'))
+        return str(Path(self.scopePath, 'reference', 'square_lenses.json'))
     
     @property
     def medium_mag_lens_file(self): 
-        return str(Path(self.directory, 'reference', 'medium_mag_lenses.json'))
+        return str(Path(self.scopePath, 'reference', 'medium_mag_lenses.json'))
     
     @property
     def high_mag_lens_file(self):
-        return str(Path(self.directory, 'reference', 'high_mag_lenses.json'))
+        return str(Path(self.scopePath, 'reference', 'high_mag_lenses.json'))
 
 
 class JEOLSerialemInterface(SerialemInterface):
@@ -55,14 +55,16 @@ class JEOLSerialemInterface(SerialemInterface):
     def load_lens_data(self, file:str):
         with open(file, 'r') as f:
             data = json.load(f)
+        self.logger.debug(f"Loaded lens data from {file}: {data}")
         for lens, value in data.items():
+            self.logger.debug(f"Loading lens data for {lens}: {value}")
             sem.PluginAllDoubles("JEOL", f"SetDec{lens}", *value)
 
     def save_lens_data(self, file:str):
         data = {}
-        for lens in ['GunA1', 'GunA2', 'SpotA', 'CLA1', 'CLA2', 'FLA1', 'FLA2', 'Cls', 'OLs', 'IS1', 'IS2', 'PLA']:
+        for lens in ['GunA1', 'GunA2', 'SpotA', 'CLA1', 'CLA2', 'FLA1', 'FLA2', 'CLs', 'OLs', 'IS1', 'IS2', 'PLA']:
             sem.PluginAllDoubles("JEOL", f"Get{lens}")
-            data[lens] = [sem.GetVariable("JEOLVal1"), sem.GetVariable("JEOLVal2")]
+            data[lens] = [int(sem.GetVariable("JEOLVal1")), int(sem.GetVariable("JEOLVal2"))]
         with open(file, 'w') as f:
             json.dump(data, f, indent=4)
         
@@ -129,12 +131,12 @@ class JEOLSerialemInterface(SerialemInterface):
     def set_high_mag_optics(self):
         super().set_high_mag_optics()
         self.load_lens_data(self.microscope.high_mag_lens_file)
+        sem.SetEucentricFocus()
+        sem.ResetDefocus()
 
-
-    def setup(self, *args, **kwargs):
-        super().setup(*args, **kwargs)
+    
+    def setup_apertures(self):
         self.apertures = self._apertures_setter()
-        sem.SetLowDoseMode(1)
 
 
     def _apertures_setter(self):

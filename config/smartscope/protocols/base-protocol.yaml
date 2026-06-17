@@ -1,6 +1,7 @@
 preImaging:
   steps:
     - setupSerialEM
+    - setupApertures
     - setHighmagCountingMode
     - loadGrid
     - setupFrames

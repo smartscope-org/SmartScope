@@ -159,6 +159,18 @@ class MicroscopeInterface(ABC):
         pass
 
     @abstractmethod
+    def set_square_mag_optics(self):
+        pass
+
+    @abstractmethod
+    def set_medium_mag_optics(self):
+        pass
+
+    @abstractmethod
+    def set_high_mag_optics(self):
+        pass
+
+    @abstractmethod
     def atlas(self, size, file=""):
         pass
 
@@ -301,13 +313,23 @@ class MicroscopeInterface(ABC):
         pass
 
     @abstractmethod
-    def set_apertures_for_highmag(
-        self, highmag_aperture_size: int, objective_aperture_size: int
+    def set_apertures_for_high_mag(
+        self, condenser_aperture_size: int, objective_aperture_size: int
     ):
         pass
 
     @abstractmethod
     def set_apertures_for_lowmag(self):
+        pass
+
+    @abstractmethod
+    def set_apertures_for_square_mag(self):
+        pass
+
+    @abstractmethod
+    def set_apertures_for_medium_mag(
+        self, condenser_aperture_size: int, objective_aperture_size: int
+    ):
         pass
 
     def set_highmag_counting_mode(self):

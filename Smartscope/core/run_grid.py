@@ -81,13 +81,14 @@ def run_grid(
     atlas = queue_atlas(grid)
 
     # scope
-    runScopeProtocolSteps(
-        scope,
-        protocol.preImaging.steps,
-        params,
-        grid
-    )
-    update(grid, loading_time=timezone.now())
+    if not skip_loading:
+        runScopeProtocolSteps(
+            scope,
+            protocol.preImaging.steps,
+            params,
+            grid
+        )
+        update(grid, loading_time=timezone.now())
     check_stop_flag(session_id)
 
     needs_reregistations = grid.unloading_time is not None and grid.loading_time > grid.unloading_time
@@ -148,7 +149,7 @@ def run_grid(
             montage = Montage(name=atlas.name)
             montage.load_or_process()
         selector_wrapper(protocol.atlas.targets.selectors, atlas, montage=montage)
-        SimSiamEmbedding().run(mag_level='square', grid_id=grid.grid_id)
+        # SimSiamEmbedding().run(mag_level='square', grid_id=grid.grid_id)
         selection_strategy = SELECTION_STRATEGY(n_targets=params.squares_num)
         selected = selection_strategy.select(atlas)
         print(f'Selected {len(selected)} targets from atlas')

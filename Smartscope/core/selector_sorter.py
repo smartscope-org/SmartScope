@@ -83,24 +83,24 @@ def save_selector_data(grid_id, selector_name:str, data:dict,save_to:Callable=sa
 
 class SelectorValueParser:
 
-    def __init__(self, selector_name:str, from_server=False):
+    def __init__(self, selector_name: str, model: models.Target, from_server=False):
         self._selector_name = selector_name
         self._from_server = from_server
-
-    def get_selector_value(self,target):
-        if self._from_server:
-            return self.get_selector_value_from_server(target)
-        return self.get_selector_value_from_worker(target)
-
-    def get_selector_value_from_worker(self,target):
-        return next(filter(lambda x: x.method_name == self._selector_name ,target.selectors)).value
+        self._model = model
     
-    def get_selector_value_from_server(self,target):
-        return next(filter(lambda x: x.method_name == self._selector_name ,target.selectors.all())).value
-    
-    def extract_values(self, targets:List[models.Target]) -> List[float]:
-        values = list(map(self.get_selector_value,targets))
-        if all([value == None for value in values]):
+    def extract_values(self, targets: List[models.Target]) -> List[float]:
+        from django.contrib.contenttypes.models import ContentType
+
+        ct = ContentType.objects.get_for_model(self._model)
+        selectors = models.Selector.objects.filter(
+            content_type=ct,
+            object_id__in=[t.pk for t in targets],
+            method_name=self._selector_name
+        ).values_list('object_id', 'value')
+
+        selector_map = dict(selectors)
+        values = [selector_map.get(t.pk, None) for t in targets]
+        if all(value is None for value in values):
             raise LagacySorterError('No values found in targets. Reverting to lagacy sorting.')
         return values
 
@@ -228,14 +228,14 @@ def check_directories_for_selector_data(grid:models.AutoloaderGrid, selector_nam
             return directory
     
 
-def initialize_selector(grid: models.AutoloaderGrid, selector:str, queryset:Optional=None) -> SelectorSorter:
+def initialize_selector(grid: models.AutoloaderGrid, selector:str, queryset=None) -> SelectorSorter:
     selector_sorter = SelectorSorter(selector_name=selector,fractional_limits=PLUGINS_FACTORY.get_plugin(selector).limits)
     directory = check_directories_for_selector_data(grid,selector)
     if directory is not None:
         selector_data = SelectorSorterData.load(directory, selector)
         selector_sorter = selector_data.create_sorter()
-    selector_data = SelectorValueParser(selector, from_server=True)
     if queryset is not None:
+        selector_data = SelectorValueParser(selector, model=type(queryset[0]), from_server=True)
         selector_sorter.values = selector_data.extract_values(queryset)
     return selector_sorter
 

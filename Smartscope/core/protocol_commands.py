@@ -9,15 +9,18 @@ logger = logging.getLogger(__name__)
 
 def setAtlasOptics(scope:MicroscopeInterface,params,instance, content:Dict, *args, **kwargs)  -> None:
     """Set the microscope mag, spot size and C2 current for the atlas based on the chosen detector."""
+    scope.set_apertures_for_lowmag()
     scope.set_atlas_optics()
 
 def setAtlasOpticsDelay(scope:MicroscopeInterface,params,instance, content:Dict, *args, **kwargs)  -> None:
     """Same as setAtlasOptics with delays between each commands."""
     delay=content.get('delay',1)
+    scope.set_apertures_for_lowmag()
     scope.set_atlas_optics_delay(delay=delay)
 
 def setAtlasOpticsImagingState(scope:MicroscopeInterface,params,instance, content:Dict, *args, **kwargs) :
     """Sets the atlas optics from an Imaging State named "Atlas"."""
+    scope.set_apertures_for_lowmag()
     scope.set_atlas_optics_imaging_state(state_name='Atlas')
 
 def resetStage(scope:MicroscopeInterface,params,instance, content:Dict, *args, **kwargs)  -> None:
@@ -158,15 +161,19 @@ def loadHoleRef(scope:MicroscopeInterface,params,instance, content:Dict, *args, 
     scope.load_hole_ref()
 
 def setHighMagOptics(scope:MicroscopeInterface,params,instance, content:Dict, *args, **kwargs) :
-    """Sets the high mag optics. Mainly used to speed up the transition between medium and high mag when the same aperture can be used."""
+    """Sets the high mag optics."""
+    if content.get('set_apertures', True):
+        scope.set_apertures_for_high_mag(condenser_aperture_size=params.highmag_aperture_size, objective_aperture_size=params.objective_aperture_size)
     scope.set_high_mag_optics()
 
 def setMediumMagOptics(scope:MicroscopeInterface,params,instance, content:Dict, *args, **kwargs) :
     """Sets the medium mag optics."""
+    scope.set_apertures_for_medium_mag(condenser_aperture_size=params.highmag_aperture_size, objective_aperture_size=params.objective_aperture_size)
     scope.set_medium_mag_optics()
 
 def setSquareMagOptics(scope:MicroscopeInterface,params,instance, content:Dict, *args, **kwargs) :
     """Sets the square mag optics."""
+    scope.set_apertures_for_square_mag()
     scope.set_square_mag_optics()
 
 def highMag(scope:MicroscopeInterface, params,instance, content:Dict, *args, **kwargs) :
@@ -246,7 +253,8 @@ def setFocusPosition(scope:MicroscopeInterface,params,instance, content:Dict, *a
 
 def autoFocusAfterDistance(scope:MicroscopeInterface,params,instance, content:Dict, *args, **kwargs) :
     """Acquires the focus only after a specific distance in microns was traveled. Default: 5 um"""
-    distance = kwargs.pop('distance', 5)
+    logger.debug(f'Running autofocus after distance with params {params} and content {content}')
+    distance = content.get('distance', 5)
     scope.autofocus_after_distance(
         params.target_defocus_min,
         params.target_defocus_max,
@@ -256,8 +264,8 @@ def autoFocusAfterDistance(scope:MicroscopeInterface,params,instance, content:Di
 
 def set_apertures_for_highmag(scope:MicroscopeInterface,params,instance, content:Dict, *args, **kwargs) :
     """Sets the apertures for the highmag image."""
-    scope.set_apertures_for_highmag(
-        highmag_aperture_size=params.highmag_aperture_size,
+    scope.set_apertures_for_high_mag(
+        condenser_aperture_size=params.condenser_aperture_size,
         objective_aperture_size=params.objective_aperture_size
     )
 
@@ -386,6 +394,10 @@ def setupFrames(scope,params,instance, content:Dict, *args, **kwargs):
         frames_dir.mkdir(parents=True, exist_ok=True)
     scope.setup(params.save_frames,frames_dir=get_serialem_frames_dir(instance),framesName=f'{session.date}_{instance.name}')
 
+
+def setupApertures(scope,params,instance, content:Dict, *args, **kwargs):
+    scope.setup_apertures()
+
 def resetState(scope,params,instance, content:Dict, *args, **kwargs):
     scope.reset_state()
 
@@ -443,7 +455,7 @@ def refineEucentricityByFocus(scope:MicroscopeInterface,params,instance, content
     return instance.refresh_from_db()
 
 def eucentricSearchAfterDistance(scope:MicroscopeInterface,params,instance, content:Dict, *args, **kwargs):
-    distance = kwargs.pop('distance', 300)
+    distance = content.get('distance', 300)
     scope.eucentric_height_after_distance(distance_threshold=distance)
 
 protocolCommandsFactory = dict(
@@ -500,6 +512,7 @@ protocolCommandsFactory = dict(
     openColumnValve=openColumnValve,   
     callOnModeChange=callOnModeChange, 
     setupSerialEM=setupSerialEM,
+    setupApertures=setupApertures,
     refineEucentricityByFocus=refineEucentricityByFocus,
     eucentricSearchAfterDistance=eucentricSearchAfterDistance
 )

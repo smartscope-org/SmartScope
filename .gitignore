@@ -63,3 +63,4 @@ static/admin/
 static/rest_framework/
 testfiles.old/
 redis.conf
+uv.lock
