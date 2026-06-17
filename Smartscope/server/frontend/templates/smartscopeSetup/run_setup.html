@@ -6,115 +6,146 @@
     <div id='setup' class="container-fluid m-0 px-0 py-2 overflow-x-hidden" style="background-color: #f5f5f5;">
         <form class="needs-validation " novalidate method="post" onsubmit="validateForm(event)">
             {% csrf_token %}
-            <div class="accordion accordion-flush" id="accordionSetup">
-                <div class="accordion-item">
-                    <h2 class="accordion-header" id="headingGeneral"></h2>
-                        <button class="accordion-button" type="button" 
-                                data-bs-toggle="collapse" data-bs-target="#collapseGeneral" 
-                                aria-expanded="true" aria-controls="collapseGeneral">
-                            1. GENERAL
-                        </button>
-                    </h2>
-                    <div id="collapseGeneral" class="accordion-collapse collapse show" aria-labelledby="headingGeneral">
-                        <div class="accordion-body">
-                            {% include "forms/formFieldsBase.html" with form=form_general row=True %}
-                        </div>
-                    </div>
-                </div>
-                <div class="accordion-item">
-                    <h2 class="accordion-header" id="headingColParams"></h2>
-                        <button class="accordion-button" type="button" 
-                                data-bs-toggle="collapse" data-bs-target="#collapseColParams" 
-                                aria-expanded="true" aria-controls="collapseColParams">
-                            2. COLLECTION PARAMETERS
-                        </button>
-                    </h2>
-                    <div id="collapseColParams" class="accordion-collapse collapse show" aria-labelledby="headingColParams">
-                        <div class="accordion-body">
-                            {% url 'setMultishot' as multishot_url %}
-                            {% include "forms/expand_form.html" with form=form_params row=True id='formParams' trigger='multishot_per_hole' url=multishot_url %}
-                        </div>
-                    </div>
-                </div>
-                <div class="accordion-item">
-                    <h2 class="accordion-header" id="headingPreprocess"></h2>
-                        <button class="accordion-button" type="button" 
-                                data-bs-toggle="collapse" data-bs-target="#collapsePreprocess" 
-                                aria-expanded="true" aria-controls="collapsePreprocess">
-                            3. PREPROCESSING PIPELINE
-                        </button>
-                    </h2>
-                    <div id="collapsePreprocess" class="accordion-collapse collapse show" aria-labelledby="headingPreprocess">
-                        <div class="accordion-body">
-                            {% url 'preprocessingPipeline' as pipeline_url %}
-                            {% include "forms/expand_form.html" with form=form_preprocess row=True id='formPreprocess' trigger='preprocessing_pipeline' url=pipeline_url %}
-                        </div>
-                    </div>
-                </div>
-                <div class="accordion-item">
-                    <h2 class="accordion-header" id="headingAutoloader"></h2>
-                        <button class="accordion-button" type="button" 
-                                data-bs-toggle="collapse" data-bs-target="#collapseAutoloader" 
-                                aria-expanded="true" aria-controls="collapseAutoloader">
-                            4. AUTOLOADER
-                        </button>
-                    </h2>
-                    <div id="collapseAutoloader" class="accordion-collapse collapse show" aria-labelledby="headingAutoloader">
-                        <div class="accordion-body">
-                            <div class="form-group">
-                                <input id="autoloaderForm" class="form-control" type="hidden"></input>
-                                <div id="autoloaderFormError" class="alert alert-danger collapse">At least one grid is required</div>
+            <div class="p-2">
+                <h3 class="font-variant: small-caps;">Session Setup</h3>
+                <div class="accordion accordion-flush" id="accordionSetup">
+                    <div class="accordion-item">
+                        <h2 class="accordion-header" id="headingGeneral"></h2>
+                            <button class="accordion-button" type="button" 
+                                    data-bs-toggle="collapse" data-bs-target="#collapseGeneral" 
+                                    aria-expanded="true" aria-controls="collapseGeneral">
+                                1. GENERAL
+                                <i class="bi bi-info-circle ms-1 text-muted"
+                                    data-bs-toggle="popover"
+                                    data-bs-placement="right"
+                                    data-bs-html="true"
+                                    data-bs-trigger="hover"
+                                    data-bs-content="Some description here. <a href='https://docs.smartscope.org/usage/detailed_procedures/data_collection/' target='_blank'>Read the docs</a>">
+                                </i>
+                            </button>
+                        </h2>
+                        <div id="collapseGeneral" class="accordion-collapse collapse show" aria-labelledby="headingGeneral">
+                            <div class="accordion-body">
+                                {% include "forms/formFieldsBase.html" with form=form_general row=True %}
                             </div>
-                            <div id='autoloader' class="row px-0 m-0 g-3">
-                                {% for grid in grids %}
-                                <div id="grid-{{ forloop.counter }}" class='col-12 col-md-6 col-lg-4 col-xl-3 topgrid my-1'>
-                                    <div class="card">
-                                        <div class="card-header p-1" style="background-color: #e9ecef;">
-                                            <div class=" d-flex flex-row mw-100 align-items-center p-0 m-0 justify-content-between">
-                                                <div class="col-8">
-                                                {{ grid.name }}
+                        </div>
+                    </div>
+                    <div class="accordion-item">
+                        <h2 class="accordion-header" id="headingColParams"></h2>
+                            <button class="accordion-button" type="button" 
+                                    data-bs-toggle="collapse" data-bs-target="#collapseColParams" 
+                                    aria-expanded="true" aria-controls="collapseColParams">
+                                2. COLLECTION PARAMETERS
+                                <i class="bi bi-info-circle ms-1 text-muted"
+                                    data-bs-toggle="popover"
+                                    data-bs-placement="right"
+                                    data-bs-html="true"
+                                    data-bs-trigger="hover"
+                                    data-bs-content="Some description here. <a href='https://docs.smartscope.org/usage/detailed_procedures/data_collection/' target='_blank'>Read the docs</a>">
+                                </i>
+                            </button>
+                        </h2>
+                        <div id="collapseColParams" class="accordion-collapse collapse show" aria-labelledby="headingColParams">
+                            <div class="accordion-body">
+                                {% url 'setMultishot' as multishot_url %}
+                                {% include "forms/expand_form.html" with form=form_params row=True id='formParams' trigger='multishot_per_hole' url=multishot_url %}
+                            </div>
+                        </div>
+                    </div>
+                    <div class="accordion-item">
+                        <h2 class="accordion-header" id="headingPreprocess"></h2>
+                            <button class="accordion-button" type="button" 
+                                    data-bs-toggle="collapse" data-bs-target="#collapsePreprocess" 
+                                    aria-expanded="true" aria-controls="collapsePreprocess">
+                                3. PREPROCESSING PIPELINE
+                                <i class="bi bi-info-circle ms-1 text-muted"
+                                    data-bs-toggle="popover"
+                                    data-bs-placement="right"
+                                    data-bs-html="true"
+                                    data-bs-trigger="hover"
+                                    data-bs-content="Some description here. <a href='https://docs.smartscope.org/usage/detailed_procedures/data_collection/' target='_blank'>Read the docs</a>">
+                                </i>
+                            </button>
+                        </h2>
+                        <div id="collapsePreprocess" class="accordion-collapse collapse show" aria-labelledby="headingPreprocess">
+                            <div class="accordion-body">
+                                {% url 'preprocessingPipeline' as pipeline_url %}
+                                {% include "forms/expand_form.html" with form=form_preprocess row=True id='formPreprocess' trigger='preprocessing_pipeline' url=pipeline_url %}
+                            </div>
+                        </div>
+                    </div>
+                    <div class="accordion-item">
+                        <h2 class="accordion-header" id="headingAutoloader"></h2>
+                            <button class="accordion-button" type="button" 
+                                    data-bs-toggle="collapse" data-bs-target="#collapseAutoloader" 
+                                    aria-expanded="true" aria-controls="collapseAutoloader">
+                                4. AUTOLOADER
+                                <i class="bi bi-info-circle ms-1 text-muted"
+                                    data-bs-toggle="popover"
+                                    data-bs-placement="right"
+                                    data-bs-html="true"
+                                    data-bs-trigger="hover"
+                                    data-bs-content="Some description here. <a href='https://docs.smartscope.org/usage/detailed_procedures/data_collection/' target='_blank'>Read the docs</a>">
+                                </i>
+                            </button>
+                        </h2>
+                        <div id="collapseAutoloader" class="accordion-collapse collapse show" aria-labelledby="headingAutoloader">
+                            <div class="accordion-body">
+                                <div class="form-group">
+                                    <input id="autoloaderForm" class="form-control" type="hidden"></input>
+                                    <div id="autoloaderFormError" class="alert alert-danger collapse">At least one grid is required</div>
+                                </div>
+                                <div id='autoloader' class="row px-0 m-0 g-3">
+                                    {% for grid in grids %}
+                                    <div id="grid-{{ forloop.counter }}" class='col-12 col-md-6 col-lg-4 col-xl-3 topgrid my-1'>
+                                        <div class="card">
+                                            <div class="card-header p-1" style="background-color: #e9ecef;">
+                                                <div class=" d-flex flex-row mw-100 align-items-center p-0 m-0 justify-content-between">
+                                                    <div class="col-8">
+                                                    {{ grid.name }}
+                                                    </div>
+                                                    {% if grid.name.help_text %}
+                                                    <div class="invalid-tooltip">{{ grid.name.help_text }}</div>
+                                                    {% endif %}
+                                                    <div class="d-flex justify-content-end gap-2 pe-2">
+                                                        <!-- <div class="div col-1 p-0 justify-content-end"> -->
+                                                            <img id="copy_help" src="{% static 'images/clipboard.svg' %}" data-bs-toggle="tooltip"
+                                                                title="Fill from preceding grid card"
+                                                                onmousedown="fillFromPreviousWrapper(this)">
+                                                            <img id="copy_help" src="{% static 'images/x-lg.svg' %}" data-bs-toggle="tooltip"
+                                                                title="Remove Grid" onmousedown="removeGrid(this)">
+                                                        <!-- </div> -->
+                                                    </div>
                                                 </div>
-                                                {% if grid.name.help_text %}
-                                                <div class="invalid-tooltip">{{ grid.name.help_text }}</div>
+                                            </div>
+                                            <div class="card-body px-2 py-1">
+                                                {% for field in grid %}
+                                                {% if field != grid.name %}
+                                                <div class="d-flex flex-row w-100 my-1 p-0">
+                                                    <label class="col-form-label col-5 mb-0" for="{{field.id}}">{{ field.label }}</label>
+                                                    
+                                                    <div class="col-7">{{ field }}</div>
+                                                    <div class="invalid-tooltip">{{ field.help_text }}</div>
+                                                </div>
                                                 {% endif %}
-                                                <div class="d-flex justify-content-end gap-2 pe-2">
-                                                    <!-- <div class="div col-1 p-0 justify-content-end"> -->
-                                                        <img id="copy_help" src="{% static 'images/clipboard.svg' %}" data-bs-toggle="tooltip"
-                                                            title="Fill from preceding grid card"
-                                                            onmousedown="fillFromPreviousWrapper(this)">
-                                                        <img id="copy_help" src="{% static 'images/x-lg.svg' %}" data-bs-toggle="tooltip"
-                                                            title="Remove Grid" onmousedown="removeGrid(this)">
-                                                    <!-- </div> -->
-                                                </div>
+                                                {% endfor %}
                                             </div>
-                                        </div>
-                                        <div class="card-body px-2 py-1">
-                                            {% for field in grid %}
-                                            {% if field != grid.name %}
-                                            <div class="d-flex flex-row w-100 my-1 p-0">
-                                                <label class="col-form-label col-5 mb-0" for="{{field.id}}">{{ field.label }}</label>
-                                                
-                                                <div class="col-7">{{ field }}</div>
-                                                <div class="invalid-tooltip">{{ field.help_text }}</div>
-                                            </div>
-                                            {% endif %}
-                                            {% endfor %}
                                         </div>
                                     </div>
-                                </div>
-                                <div id="addGridDiv" class='col-12 col-md-6 col-lg-4 col-xl-3 px-2 my-1'>
-                                    <div class="card h-100">
-                                        <div class="card-body justify-content-center align-items-center d-flex">
-                                            <button id='addGridbtn' class='col-auto btn btn-outline-secondary h-50 w-50' type="button" data-bs-toggle="tooltip" title="Add additional grid"
-                                                value='1'><svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" fill="currentColor" class="bi bi-plus-lg" viewBox="0 0 16 16">
-                                                    <path fill-rule="evenodd" d="M8 2a.5.5 0 0 1 .5.5v5h5a.5.5 0 0 1 0 1h-5v5a.5.5 0 0 1-1 0v-5h-5a.5.5 0 0 1 0-1h5v-5A.5.5 0 0 1 8 2Z"/>
-                                                </svg></button>
-                                            <div>
+                                    <div id="addGridDiv" class='col-12 col-md-6 col-lg-4 col-xl-3 px-2 my-1'>
+                                        <div class="card h-100">
+                                            <div class="card-body justify-content-center align-items-center d-flex">
+                                                <button id='addGridbtn' class='col-auto btn btn-outline-secondary h-50 w-50' type="button" data-bs-toggle="tooltip" title="Add additional grid"
+                                                    value='1'><svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" fill="currentColor" class="bi bi-plus-lg" viewBox="0 0 16 16">
+                                                        <path fill-rule="evenodd" d="M8 2a.5.5 0 0 1 .5.5v5h5a.5.5 0 0 1 0 1h-5v5a.5.5 0 0 1-1 0v-5h-5a.5.5 0 0 1 0-1h5v-5A.5.5 0 0 1 8 2Z"/>
+                                                    </svg></button>
+                                                <div>
 
+                                                </div>
                                             </div>
-                                        </div>
 
-                                        {% endfor %}
+                                            {% endfor %}
+                                        </div>
                                     </div>
                                 </div>
                             </div>
@@ -122,7 +153,6 @@
                     </div>
                 </div>
             </div>
-            
             <!-- <h3 class="col-auto px-2 mb-0 mt-1">AUTOLOADER</h3> -->
             
             <!-- <a class="text-muted small" data-bs-toggle="collapse" href="#moreInfo" role="button">

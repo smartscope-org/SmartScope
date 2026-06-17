@@ -137,3 +137,25 @@ $(document).ready(function () {
 document.querySelectorAll('[data-bs-toggle="tooltip"]').forEach(el => {
         new bootstrap.Tooltip(el);
     });
+
+document.querySelectorAll('[data-bs-toggle="popover"]').forEach(el => {
+    const popover = new bootstrap.Popover(el, {
+        html: true,
+        trigger: 'manual',
+        sanitize: false,
+    });
+
+    el.addEventListener('mouseenter', () => popover.show());
+
+    el.addEventListener('mouseleave', () => {
+        setTimeout(() => {
+            const tip = document.getElementById(el.getAttribute('aria-describedby'));
+            if (!tip?.matches(':hover')) popover.hide();
+        }, 300);
+    });
+
+    el.addEventListener('shown.bs.popover', () => {
+        const tip = document.getElementById(el.getAttribute('aria-describedby'));
+        tip?.addEventListener('mouseleave', () => popover.hide());
+    });
+});

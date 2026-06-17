@@ -223,3 +223,17 @@ body{
     flex-shrink: 0;
     text-align: left;
 }
+
+.accordion-body {
+    padding: 0.8rem 0.6rem;
+}
+
+.accordion-button {
+    padding: 0.4rem 0.95rem;
+    font-size: 1.0rem;
+}
+
+.accordion-button,
+.accordion-button:not(.collapsed) {
+    color: #374c86;  /* or any color you want */
+}
