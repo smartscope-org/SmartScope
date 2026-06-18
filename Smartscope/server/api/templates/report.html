@@ -31,23 +31,23 @@
         <div class="card-header p-0">
             <div class="d-flex flex-row">
                 <div class="col-6 d-flex flex-column p-2">
-                    <h3 class="col-auto title m-0 p-0">
-                        <span class='d-none d-md-inline'>Grid: </span>
-                        </span><span>{{grid.position}} {{grid.name}}</span>
-                    </h3>
-                    <div class="d-flex flex-row"  style="font-size: 0.85rem;">
+                    <h2 class="col-auto title m-0 p-0">
+                        <span class='d-none d-md-inline'>Grid | </span>
+                        <span>{{grid.position}}_{{grid.name}}</span>
+                    </h2>
+                    <div class="d-flex flex-row pt-1"  style="font-size: 0.9rem;">
                         <span class="pe-2 border-end border-secondary">Session Type:
                             {% if grid.collection_mode == "screening" %}
-                            <span class="badge rounded-3 category-screening" style="font-size: 0.7rem;">SCREENING</span>
+                            <span class="badge rounded-3 category-screening" style="font-size: 0.75rem;">SCREENING</span>
                             {% else %}
-                            <span class="badge rounded-3 category-collection"  style="font-size: 0.7rem;">DATA COLLECTION</span>
+                            <span class="badge rounded-3 category-collection"  style="font-size: 0.75rem;">DATA COLLECTION</span>
                             {% endif %}
                         </span>
                         <span class="px-2 border-end border-secondary">Last update: 
-                            <span id="gridLastUpdate" class="badge rounded-3 bg-dark text-dark border border-dark" style="font-size: 0.7rem;">loading...</span>
+                            <span id="gridLastUpdate" class="badge rounded-3 bg-dark text-dark border border-dark" style="font-size: 0.75rem;">loading...</span>
                         </span>
                         <span class="px-2">Status: 
-                            <span id="gridStatus" class="badge rounded-3 bg-secondary" style="font-size: 0.7rem;">loading...</span>
+                            <span id="gridStatus" class="badge rounded-3 bg-secondary" style="font-size: 0.75rem;">loading...</span>
                         </span>
                     </div>
                     
