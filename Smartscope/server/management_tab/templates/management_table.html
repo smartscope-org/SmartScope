@@ -1,8 +1,14 @@
+{% extends "base.html" %}
+{% load static %}
+{% block title %}Smartscope Sessions{% endblock %}
+{% block content %}
+    <div id="container" class="d-flex flex-column p-2" style="width: 100%; height: 100%; display: flex; flex-direction: column;">
+        <h4 class="pt-2 pb-1">Sessions history</h4>
+        <div id="data-grid" style="flex: 1; width: 100%; min-height: 0;" class="ag-theme-balham"></div>
+    </div>
+{% endblock content %}
 
-<div id="container" class="d-flex flex-column p-2" style="width: 100%; height: 100%; display: flex; flex-direction: column;">
-<h4 class="pt-2 pb-1">Sessions history</h4>
-<div id="data-grid" style="flex: 1; width: 100%; min-height: 0;" class="ag-theme-balham"></div>
-</div>
+{% block script %}
 <script type="text/javascript" charset="utf-8">
 (function() {
     // formats "2024-01-15T10:30:00Z" to "2024-01-15 10:30"
@@ -99,3 +105,4 @@ setTimeout(() => gridApi.sizeColumnsToFit(), 100);
     line-height: 1.5;
 }
 </style>
+{% endblock script %}

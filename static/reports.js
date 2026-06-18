@@ -301,24 +301,41 @@ function rateGrid(el, gridId, value) {
     }
 }
 
+// --- Tab visibility ---
+function updateSwitchers(activeTabId) {
+    document.querySelectorAll('.tab-switchers').forEach(switcher => {
+        switcher.classList.toggle('d-none', switcher.dataset.tab !== activeTabId);
+    });
+}
+
+document.querySelectorAll('[data-bs-toggle="tab"]').forEach(tab => {
+    tab.addEventListener('shown.bs.tab', e => {
+        const activeTab = e.target.getAttribute('data-bs-target').replace('#', '');
+        updateSwitchers(activeTab);
+    });
+});
+
+// Show correct switchers on page load
+const activeTab = document.querySelector('[data-bs-toggle="tab"].active');
+if (activeTab) updateSwitchers(activeTab.getAttribute('data-bs-target').replace('#', ''));
+
+
 function hideSVG(el) {
-    let final = 'visible'
-    if (el.classList.contains('active')) {
-        final = 'hidden'
-        el.classList.remove('active')
-    } else {
-        el.classList.add('active')
+    const visibility = el.checked ? 'visible' : 'hidden'
+
+    if (el.dataset.action == 'Numbers') {
+        $('#atlasText,#squareText,#holeText').attr('visibility', visibility);
     }
-    if (el.value == 'Numbers') {
-        $('#atlasText,#squareText,#holeText').attr('visibility', final);
-    }
-    if (el.value == 'Labels') {
-        $('#atlasText,#squareText,#holeText,#atlasShapes,#squareShapes,#holeShapes').attr('visibility', final);
-    }
-    if (el.value == 'Legends') {
-        $('.legend').attr('visibility', final);
+    if (el.dataset.action == 'Labels') {
+        $('#atlasText,#squareText,#holeText,#atlasShapes,#squareShapes,#holeShapes').attr('visibility', visibility);
     }
 }
+
+document.querySelectorAll('.form-check-input[data-action]').forEach(input => {
+    input.addEventListener('change', function() {
+        hideSVG(this);
+    });
+});
 
 function hideSVGlabel(el, parentid) {
     elements = document.getElementById(parentid).getElementsByClassName(el.value);
@@ -423,16 +440,33 @@ $('#main').on('keyup', '#editNotesForm', delay(function (e) {
 }, 500));
 
 
-$('#main').on('submit', '#editNotesForm, #editGridForm', function (e) {
+$('#main').on('submit', '#editNotesForm', function (e) {
     let data = grabFormData(e)
     var url = `/api/grids/${currentState.grid_id}/`
     apifetchAsync(url, data, "PATCH", message=`Edit grid notes`)
 });
 
-$('#main').on('submit', '#editCollectionParamsForm', function (e) {
-    let data = grabFormData(e)
-    var url = `/api/grids/${currentState.grid_id}/editcollectionparams/`
-    apifetchAsync(url, data, "PATCH", message=`Changing grid collection parameters`)
+// $('#main').on('submit', '#editCollectionParamsForm', function (e) {
+//     let data = grabFormData(e)
+//     var url = `/api/grids/${currentState.grid_id}/editcollectionparams/`
+//     apifetchAsync(url, data, "PATCH", message=`Changing grid collection parameters`)
+// });
+
+document.querySelectorAll('[data-bs-target="#modalShell"]').forEach(btn => {
+    btn.addEventListener('click', function() {
+        document.getElementById('modalShellTitle').textContent = this.dataset.modalTitle;
+        document.querySelector('#modalShell .modal-dialog').className = `modal-dialog ${this.dataset.modalSize || 'modal-lg'}`;
+    });
+});
+
+document.addEventListener("pipelineSelected", (e) => {
+    const label = e.detail?.label;
+    if (label) document.getElementById("gridPreprocessingLabel").textContent = label;
+});
+
+document.addEventListener("protocolSelected", (e) => {
+    const label = e.detail?.label;
+    if (label) document.getElementById("gridProtocolLabel").textContent = label;
 });
 
 // $('#main').on('click', '#gridParamBtn', function (e) {
@@ -647,6 +681,23 @@ function populateReportHead() {
     var date = new Date(fullmeta.last_update)
     $('#gridLastUpdate').html(date.toLocaleString('en-CA', { 'localeMatcher': 'lookup', 'hour12': false }))
     $('#gridStatus').html(`${fullmeta.status}`)
+
+    const colorMap = {
+        'complete': 'success',
+        'started': 'info',
+        'skipped': 'secondary',
+        'error': 'danger',
+        'aborting': 'warning',
+        'paused': 'secondary',
+    };
+    const color = colorMap[fullmeta.status] || 'secondary';
+
+    // apply colors
+    $('#gridStatus')
+        .removeClass()
+        .addClass(`badge rounded-3 bg-${color} text-${color} border border-${color}`)
+        .css('text-transform', 'capitalize');
+
     if (fullmeta.status == 'complete') {
         $('#stop-button').prop("disabled", true)
         $('#restart-button').prop("disabled", false)

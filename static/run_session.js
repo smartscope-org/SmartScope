@@ -12,15 +12,19 @@ async function loadlogs() {
     // queue = document.getElementById('queue')
     // queue.innerHTML = data.queue
     out = document.getElementById('out')
-    out.innerHTML = data.out
     proc = document.getElementById('proc')
-    proc.innerHTML = data.proc
-    elements = [out, proc]
-    for (const i in elements) {
-        console.log(i, elements[i])
-        elements[i].scrollTop = elements[i].scrollHeight;
+    // proc.innerHTML = data.proc
+    // out.innerHTML = data.out
+    // elements = [out, proc]
+    for (const el of [out, proc]) {
+        console.log(el.id)
+        const atBottom = el.scrollHeight - el.clientHeight <= el.scrollTop + 8
+        const prevTop = el.scrollTop
+
+        el.innerHTML = data[el.id]
+        el.scrollTop = atBottom ? el.scrollHeight : prevTop
     }
-    disk.innerHTML = `Hard drive: ${data.disk[0]} GB total, ${data.disk[1]} GB free, ${data.disk[2]}% full`
+    disk.innerHTML = `Disk usage: ${data.disk[0]} GB total <wbr>| ${data.disk[1]} GB free <wbr>| ${data.disk[2]}% full`
     isPaused(data.paused)
     isStopFile(data.is_stop_file)
     setPause(data)

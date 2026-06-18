@@ -1,7 +1,13 @@
 import os
 import sys
 from pathlib import Path
-from Smartscope.core.config import get_active_plugins_list, get_protocol_commands, PluginFactory, ProtocolsFactory
+from Smartscope.core.config import (
+                                    get_active_plugins_list, 
+                                    get_protocol_commands, 
+                                    PluginFactory, 
+                                    ProtocolsFactory,
+                                    CollectionParameters
+                                    )
 # from Smartscope.core.ctf.ctf_fit_viewer import CTFFitViewer
 
 PROTOCOLS_MINIMAL_VERSION = '0.1'
@@ -40,3 +46,6 @@ NEXTPYP_PREPROCESSING_PIPELINE = [ SMARTSCOPE_CUSTOM_CONFIG / 'nextpyp_preproces
 
 FORCE_MDOC_TARGETING = eval(os.getenv('FORCE_MDOC_TARGETING','False'))
 SKIP_WEBSOCKET_DURING_DATACOLLECTION = eval(os.getenv('SKIP_WEBSOCKET_DURING_DATACOLLECTION','False'))
+
+## Register custom collection parameters
+COLLECTION_PARAMETERS = CollectionParameters.create_library(SMARTSCOPE_DEFAULT_CONFIG, SMARTSCOPE_CUSTOM_CONFIG)

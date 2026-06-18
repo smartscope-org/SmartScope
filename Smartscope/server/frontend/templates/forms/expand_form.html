@@ -1,0 +1,31 @@
+{% extends "forms/formFieldsBase.html" %}
+
+{% block extra_block %}
+<div class="collapse w-100 mt-2" id="extraFormCollapse_{{id}}">
+    <hr class="mx-3 my-2">
+    <div id="extraFormContainer_{{id}}">
+        <div class="htmx-indicator d-flex align-items-center gap-2 text-secondary">
+            <span class="spinner-border spinner-border-sm" role="status"></span>
+            Loading...
+        </div>
+    </div>
+</div>
+<script>
+    document.getElementById('id_{{ trigger }}').addEventListener('change', function () {
+        const collapse = bootstrap.Collapse.getOrCreateInstance(
+            document.getElementById('extraFormCollapse_{{id}}')
+        );
+        if (this.checked) {
+            collapse.show();
+            htmx.ajax('GET', '{{ url }}', {
+                target: '#extraFormContainer_{{id}}',
+                swap: 'innerHTML',
+            });
+        } else {
+            collapse.hide();
+            document.getElementById('extraFormContainer_{{id}}').innerHTML = '';
+            document.getElementById('id_{{ trigger }}_id').value = '';
+        }
+    });
+</script>
+{% endblock extra_block %}

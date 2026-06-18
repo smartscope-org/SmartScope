@@ -1,10 +1,16 @@
 
-<div id="{{id}}" class='{% if row %}row{% endif %} align-items-center'>
+<div id="{{id}}" class='{% if row %}row{% endif %} align-items-center m-0 gx-3'>
     {% for field in form %}
     {% if not field.field.widget.attrs.hidden %}
-    <div class="{% if row %}col-3{% endif %} my-1">
-        <div class="input-group">
-            <span class="input-group-text" id="{{field.label}}" data-bs-toggle="tooltip" data-bs-placement="top" title="{{field.help_text}}">{{field.label}}</span>
+    <div class="col-{{ col_width|default:3 }} my-1">
+        <div class="input-group input-group-sm flex-wrap flex-md-nowrap">
+            <span class="input-group-text form-label-span" 
+            style="width: {{ input_ratio|default:60 }}%"
+            id="{{field.label}}" 
+            data-bs-toggle="tooltip" data-bs-placement="top" 
+            title="{{field.help_text}}">
+                {{field.label}}
+            </span>
  
             {{field}}
         </div>
@@ -13,12 +19,17 @@
     {{ field }}
     {% endif %}
     {% endfor %}
+    {% block extra_block %}{% endblock extra_block %}
     {% if includeSubmitButton %}
-    <div class="{% if row %}col-3{% endif %} my-1">
-        <input class="btn btn-sm btn-outline-primary" type="submit" value="Save">
+    <div class="flex-grow-1 my-1">
+        <div class="d-flex align-items-center gap-2">
+            <input class="btn btn-sm btn-outline-primary" style="background-color: #dfeefc" type="submit" value="Save">
+            {% if success %}
+            <div class="alert alert-success py-1 px-2 mb-0 w-auto small">
+                Saved successfully!
+            </div>
+            {% endif %}
+        </div>
     </div>
     {% endif %}
 </div>
-<script>
-    $('[data-bs-toggle="tooltip"]').tooltip();   
-</script>

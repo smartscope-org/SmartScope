@@ -156,6 +156,10 @@ body{
   overflow-y: hidden;
 }
 
+.mainContent {
+  max-height: 100vh;
+  overflow-y: auto; /* fallback, the block class handles per-page */
+}
 
 #loadingMessagesContainer {
   position: fixed;
@@ -177,8 +181,8 @@ body{
 .custom-scroll {
   flex: none;
   min-height: 0;
-  max-height: 150px;
-  /* max-height: 25vh; */
+  max-height: calc((100vh - 230px) / 3);
+  /* max-height: 50vh; */
   overflow: auto;
   scrollbar-width: thin;
   scrollbar-color: #eee transparent;
@@ -188,3 +192,48 @@ body{
 .custom-scroll::-webkit-scrollbar-track { background: transparent; border-radius: 4px; }
 .custom-scroll::-webkit-scrollbar-thumb { background: #eee; border-radius: 4px; }
 .custom-scroll::-webkit-scrollbar-thumb:hover { background: var(--bs-secondary); }
+
+#sideNav .dropdown-menu a.dropdown-item {
+    color: rgba(255, 255, 255, 0.85) !important;
+    cursor: pointer !important;
+    pointer-events: auto !important;
+    text-decoration: none;
+}
+
+#sideNav .dropdown-menu a.dropdown-item:hover {
+    color: white !important;
+    background-color: rgba(255, 255, 255, 0.15) !important;
+}
+
+#addGridDiv .card {
+    min-height: 271px; /* adjust to match your grid cards */
+}
+
+.badge {
+  --bs-border-width: 0.5px;
+}
+
+.badge[class*="bg-"] {
+  --bs-bg-opacity: 0.2 !important;
+}
+
+.form-label-span {
+    white-space: normal;
+    word-break: break-word;
+    flex-shrink: 0;
+    text-align: left;
+}
+
+.accordion-body {
+    padding: 0.8rem 0.6rem;
+}
+
+.accordion-button {
+    padding: 0.4rem 0.95rem;
+    font-size: 1.0rem;
+}
+
+.accordion-button,
+.accordion-button:not(.collapsed) {
+    color: #374c86;  /* or any color you want */
+}

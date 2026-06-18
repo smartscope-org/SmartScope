@@ -1,0 +1,36 @@
+
+<form id='editGridForm' 
+    hx-post="{% url 'collectionParams' grid_id=grid.grid_id %}"
+    hx-target="#editGridForm"
+    hx-swap="outerHTML">
+    {% csrf_token %}
+    <input type="hidden" name="form_type" value="grid">
+    {% include 'forms/formFieldsBase.html' with form=gridform row=True includeSubmitButton=True %}
+</form>
+<hr>
+<form id='editCollectionParamsForm' 
+    hx-post="{% url 'collectionParams' grid_id=grid.grid_id %}"
+    hx-target="#editCollectionParamsForm"
+    hx-swap="outerHTML">
+    {% csrf_token %}
+    <input type="hidden" name="form_type" value="collection_params">
+    {% url 'setMultishot' as multishot_url %}
+    {% include "forms/expand_form.html" with form=gridCollectionParamsForm row=True id=formCollectionId trigger=trigger url=multishot_url includeSubmitButton=True %}
+</form>
+
+<script>
+    $("img[id$='_help']").tooltip();
+    (function () {
+        const trigger = document.getElementById('id_multishot_per_hole');
+        if (trigger && trigger.checked) {
+            bootstrap.Collapse.getOrCreateInstance(
+                document.getElementById('extraFormCollapse_formParamsEdit')
+            ).show();
+            htmx.ajax('GET', '{% url "setMultishot" %}', {
+                target: '#extraFormContainer_formParamsEdit',
+                swap: 'innerHTML',
+                values: {'grid_id': '{{ grid.grid_id }}'}
+            });
+        }
+    })();
+</script>
