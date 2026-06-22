@@ -14,20 +14,26 @@ logger = logging.getLogger(__name__)
 
 class SerialEMLogger(MicroscopeLogger):
 
+    def _echo(self, msg: str):
+        try:
+            sem.Echo(msg)
+        except Exception:
+            pass
+
     def info(self, message:str):
         msg = self._create_message(message, self.prefix, self.info_prefix)
         logger.info(msg)
-        sem.Echo(msg)
-    
+        self._echo(msg)
+
     def debug(self, message: str):
         msg = self._create_message(message, self.prefix, self.debug_prefix)
         logger.debug(msg)
-        sem.Echo(msg)
-    
+        self._echo(msg)
+
     def error(self, message: str):
         msg = self._create_message(message, self.prefix, self.error_prefix)
         logger.debug(msg)
-        sem.Echo(msg)
+        self._echo(msg)
 
 class SerialemInterface(MicroscopeInterface):
     logger = SerialEMLogger()
@@ -585,7 +591,10 @@ class SerialemInterface(MicroscopeInterface):
                 sem.SetColumnOrGunValve(0)
             except:
                 logger.warning("Could not close the column valves, still disconnecting from SerialEM")
-        sem.Exit(1)
+        try:
+            sem.Exit(1)
+        except Exception:
+            pass
 
     def load_grid(self, position):
         if self.microscope.loaderSize > 1:
