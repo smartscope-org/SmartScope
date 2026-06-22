@@ -102,6 +102,8 @@ class ScreeningSessionForm(forms.ModelForm):
             "hx-include":"#id_group, #id_detector_id, #id_mode",
             # "hx-on::after-swap": "const d = document.querySelector('#id_preset'); console.log(d); if (d) d.dispatchEvent(new Event('change', { bubbles: true }));",
         })
+        self.fields['preset'].validate = lambda value: None
+
         for visible in self.visible_fields():
             if visible.field.label != "Session Name":
                 visible.field.widget.attrs['class'] = 'form-select'
@@ -207,13 +209,6 @@ class GridCollectionParamsForm(forms.ModelForm):
 
         super().__init__(*args, **kwargs)
 
-        group = self.initial.get('group', '')
-        detector = self.initial.get('detector', 'default')
-        mode = self.initial.get('mode', 'screening')
-        preset = self.initial.get('preset', 'default')
-
-        print(f"Detector in form init: {detector}, mode: {mode}, group: {group}, preset name: {preset}")
-
         self.fields['target_defocus_min'].widget.attrs.update({
             "max": 0,
             "step": 0.05
@@ -257,22 +252,6 @@ class GridCollectionParamsForm(forms.ModelForm):
             else:    
                 visible.field.widget.attrs['class'] = 'form-control'
             visible.field.required = False
-
-        extra_params = COLLECTION_PARAMETERS.get_collection_params(group, detector_id=detector, mode=mode, name=preset)
-        logger.debug(f"Collection parameters {extra_params}")
-        for field, data in extra_params.items():
-            if field not in self.fields.keys():
-                continue
-            self.fields[field].initial = data.initial
-            hidden = data.hidden
-            print(f"Field: {field}, hidden: {hidden}")
-            if hidden:
-                self.fields[field].widget = forms.HiddenInput()
-                self.fields[field].widget.attrs['hidden'] = True
-            
-            self.fields[field].widget.attrs.update(data.css_attr)
-
-        # self.fields['multishot_per_hole_id'].widget.attrs['hidden'] = True
 
 
 class PreprocessingPipelineIDForm(forms.Form):
