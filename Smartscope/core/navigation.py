@@ -10,8 +10,9 @@ from Smartscope.sim_siam.plugin import SimSiamEmbedding
 import numpy as np
 from scipy.spatial.distance import cdist
 from django.contrib.contenttypes.models import ContentType
-from Smartscope.core.models.target_label import Finder
+from Smartscope.core.models.target_label import Finder, Selector
 from Smartscope.core.models.hole import HoleModel as HoleModelClass
+from Smartscope.core.selector_sorter import initialize_selector
 
 logger = logging.getLogger(__name__)
 
@@ -200,3 +201,61 @@ class NextPYPNavigationStrategy(NavigationStrategy):
             list(candidates),
             key=lambda h: scores_by_id.get(h.hole_id, float('inf'))
         )
+
+
+@dataclass
+class SelectorSorterNavigationStrategy(NavigationStrategy):
+
+    def get_square_queue(self):
+        return OriginalNavigationStrategy(self.grid).get_square_queue()
+
+    def get_hole_queue(self):
+        candidates = self.grid.holemodel_set.filter(
+            selected=True,
+            square_id__status=status.COMPLETED
+        ).exclude(
+            status__in=[status.SKIPPED, status.COMPLETED]
+        )
+
+        fallback = candidates.order_by('square_id__completion_time', 'number')
+        candidate_list = list(candidates)
+
+        if not candidate_list:
+            return fallback
+
+        hole_ct = ContentType.objects.get_for_model(HoleModelClass)
+        candidate_ids = [h.hole_id for h in candidate_list]
+
+        selector_names = list(
+            Selector.objects.filter(
+                content_type=hole_ct,
+                object_id__in=candidate_ids
+            ).values_list('method_name', flat=True).distinct()
+        )
+
+        if not selector_names:
+            return fallback
+
+        # Start all holes as good; any selector giving class 0 marks the hole bad
+        is_good = {h.hole_id: True for h in candidate_list}
+
+        for selector_name in selector_names:
+            holes_with_selector = [
+                h for h in candidate_list
+                if any(s.method_name == selector_name for s in h.selectors.all())
+            ]
+            if not holes_with_selector:
+                continue
+            try:
+                sorter = initialize_selector(self.grid, selector_name, holes_with_selector)
+                for hole, good in zip(holes_with_selector, sorter.binarize()):
+                    if not good:
+                        is_good[hole.hole_id] = False
+            except Exception as e:
+                logger.warning(f'Selector {selector_name} failed during navigation: {e}')
+
+        return sorted(candidate_list, key=lambda h: 0 if is_good[h.hole_id] else 1)
+
+
+# NAVIGATION_STRATEGIES['nextpyp'] = NextPYPNavigationStrategy
+# NAVIGATION_STRATEGIES['selector_sorter'] = SelectorSorterNavigationStrategy
