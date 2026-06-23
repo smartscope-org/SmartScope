@@ -181,10 +181,16 @@ class NextPYPNavigationStrategy(NavigationStrategy):
 
             # Determine a neighborhood of BIS scores
             neighbor_mask = (dist_matrix < bis_radius) & (dist_matrix > 0) # Exclude self
-            bis_yield = neighbor_mask @ norm_visual # Lower visual distance is better
+            neighbor_count = neighbor_mask.sum(axis=1).astype(float)
+            avg_neighbor_visual = np.where(
+                neighbor_count > 0,
+                (neighbor_mask @ norm_visual) / neighbor_count,
+                1.0
+            )
 
-            combined += self._normalize(bis_yield)
-
+            combined += self._normalize(avg_neighbor_visual) # Goodness of neighboring holes
+            combined -= self._normalize(neighbor_count) # More BIS holes is better
+            
         scores_by_id = dict(
             zip(cand_df.index, combined)
         )
