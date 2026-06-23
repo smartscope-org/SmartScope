@@ -683,20 +683,18 @@ function populateReportHead() {
     $('#gridStatus').html(`${fullmeta.status}`)
 
     const colorMap = {
-        'complete': 'success',
-        'started': 'info',
-        'skipped': 'secondary',
-        'error': 'danger',
-        'aborting': 'warning',
-        'paused': 'secondary',
+        'complete':  '#28a745',
+        'started':   'var(--bs-primary)',
+        'skipped':   'var(--bs-secondary)',
+        'error':     '#dc3545',
+        'aborting':  'var(--bs-red)',
+        'paused':    'var(--bs-orange)',
     };
-    const color = colorMap[fullmeta.status] || 'secondary';
+    const color = colorMap[fullmeta.status] || 'var(--bs-secondary)';
 
-    // apply colors
-    $('#gridStatus')
-        .removeClass()
-        .addClass(`badge rounded-3 bg-${color} text-${color} border border-${color}`)
-        .css('text-transform', 'capitalize');
+    $('#gridStatus').css('color', color).css('text-transform', 'uppercase');
+    $('#gridStatusIcon').css('color', color);
+    $('#gridStatusIcon').closest('.badge-pill').css('border-color', color).css('--pill-color', color);
 
     if (fullmeta.status == 'complete') {
         $('#stop-button').prop("disabled", true)
