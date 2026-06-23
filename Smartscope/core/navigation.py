@@ -181,9 +181,9 @@ class NextPYPNavigationStrategy(NavigationStrategy):
 
             # Determine a neighborhood of BIS scores
             neighbor_mask = (dist_matrix < bis_radius) & (dist_matrix > 0) # Exclude self
-            bis_yield = neighbor_mask @ (1 - norm_visual)
+            bis_yield = neighbor_mask @ norm_visual # Lower visual distance is better
 
-            combined -= self._normalize(bis_yield) # Higher yield = lower_score = higher priority
+            combined += self._normalize(bis_yield)
 
         scores_by_id = dict(
             zip(cand_df.index, combined)
