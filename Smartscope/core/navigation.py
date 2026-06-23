@@ -93,9 +93,9 @@ class NextPYPNavigationStrategy(NavigationStrategy):
         # Get list of all completed holes
         candidates = self.grid.holemodel_set.filter(
             selected=True,
-            square_id__status=status.COMPLETED.exclude(
-                status__in[status.SKIPPED, status.COMPLETED]
-            )
+            square_id__status=status.COMPLETED
+        ).exclude(
+            status__in=[status.SKIPPED, status.COMPLETED]
         )
 
         fallback = candidates.order_by('square_id__completion_time', 'number')
@@ -163,10 +163,28 @@ class NextPYPNavigationStrategy(NavigationStrategy):
         else:
             prox_scores = None
 
-        combined = self._normalize(visual_score)
+        norm_visual = self._normalize(visual_score)
+        combined = norm_visual
+
         if prox_scores is not None:
             combined += self._normalize(prox_scores)
-        
+
+        # Build BIS scores
+        bis_radius = self.grid.params_id.bis_max_distance
+        if bis_radius > 0:
+            stage_coords = np.array([
+                stage_by_id[hid]
+                if hid in stage_by_id else np.array([np.inf, np.inf])
+                for hid in cand_df.index
+            ])
+            dist_matrix = cdist(stage_coords, stage_coords) # Distance from hole to every other hole
+
+            # Determine a neighborhood of BIS scores
+            neighbor_mask = (dist_matrix < bis_radius) & (dist_matrix > 0) # Exclude self
+            bis_yield = neighbor_mask @ (1 - norm_visual)
+
+            combined -= self._normalize(bis_yield) # Higher yield = lower_score = higher priority
+
         scores_by_id = dict(
             zip(cand_df.index, combined)
         )
