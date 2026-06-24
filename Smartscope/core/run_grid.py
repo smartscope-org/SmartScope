@@ -21,7 +21,7 @@ from .grid.run_io import get_file_and_process
 from .grid.run_hole import RunHole
 from .interfaces.microscope_interface import MicroscopeInterface
 from .selectors import selector_wrapper
-from .models import SquareModel, AutoloaderGrid
+from .models import SquareModel, AutoloaderGrid, Finder
 from .settings.worker import PROTOCOL_COMMANDS_FACTORY
 from .status import status
 from .protocols import get_or_set_protocol
@@ -391,11 +391,51 @@ def reregister_grid(scope, grid, protocol):
     old_positions = []
     new_positions = []
     for square in pair:
-        new_positions.append(PROTOCOL_COMMANDS_FACTORY['reregister_square'](scope, grid.params_id, square))    
-        old_positions.append(square.stage_coords)
-    
-    # Compute rotation and translation
+        new_pos = PROTOCOL_COMMANDS_FACTORY['reregister_square'](scope, grid.params_id, square)
+        if new_pos is not None:
+            new_positions.append(new_pos)
+            old_positions.append(square.stage_coords)
+
+    if len(old_positions) == 0:
+        logger.warning('Cannot re-register grid: no valid positions returned from re-imaging squares')
+        return
+
     old_positions = np.array(old_positions)
     new_positions = np.array(new_positions)
-    
-    
+
+    if len(old_positions) < 2:
+        logger.warning('Cannot solve for rotation with fewer than 2 valid position pairs; falling back to translation only')
+        R = np.eye(2)
+    else:
+        # Kabsch algorithm: find optimal R and t such that new ≈ R @ old + t
+        old_centroid = old_positions.mean(axis=0)
+        new_centroid = new_positions.mean(axis=0)
+
+        H = (old_positions - old_centroid).T @ (new_positions - new_centroid)
+        U, _, Vt = np.linalg.svd(H)
+
+        # Correct for reflection so det(R) = +1
+        d = np.sign(np.linalg.det(Vt.T @ U.T))
+        R = Vt.T @ np.diag([1.0, d]) @ U.T
+
+    t = new_positions.mean(axis=0) - R @ old_positions.mean(axis=0)
+
+    logger.info(f'Re-registration rotation:\n{R}')
+    logger.info(f'Re-registration translation: {t}')
+
+    # Add a reregistration finder for every square with the transformed stage coords
+    for square in grid.squaremodel_set.all():
+        old_pos = np.array(square.stage_coords)
+        new_pos = R @ old_pos + t
+        existing = square.finders.first()
+        Finder.objects.create(
+            content_object=square,
+            method_name='reregistration',
+            x=existing.x if existing else 0,
+            y=existing.y if existing else 0,
+            stage_x=float(new_pos[0]),
+            stage_y=float(new_pos[1]),
+            stage_z=existing.stage_z if existing else None,
+        )
+
+    return R, t
