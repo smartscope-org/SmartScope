@@ -35,7 +35,9 @@ def sim_siam_prepare_data(mag_level:Literal['square','hole'],grid_id_list:List[s
         from Smartscope.core.models import SquareModel
         queryset = list(SquareModel.display.filter(grid_id__in=grid_id_list, status__in=[status.PROCESSED,status.COMPLETED]))
         if len(queryset) == 0:
-            raise ValueError(f"No data found for grid IDs: {grid_id_list} at magnification level {mag_level}.")
+            if raise_on_empty:
+                raise ValueError(f"No data found for grid IDs: {grid_id_list} at magnification level {mag_level}.")
+            return []
         item_sizes_microns = []
         for grid in grid_id_list:
             hole_size = grid.holeType.hole_size
