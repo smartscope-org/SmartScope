@@ -429,7 +429,7 @@ class SerialemInterface(MicroscopeInterface):
         return sem.ReportAlignShift()
     
     def align_to_coord(self, coord):
-        sem.ImageShiftByPixels(coord[0], coord[1])
+        sem.ImageShiftByPixels(coord[0], -coord[1])
         sem.ResetImageShift()
         return sem.ReportStageXYZ()
     

@@ -285,7 +285,7 @@ def createHoleRef(scope,params,instance, content:Dict, *args, **kwargs):
 
 def alignToHoleNoTemplate(scope,params,instance, content:Dict, *args, **kwargs):
     """
-    Aligns the hole using Ptolemy instead of a hole reference image. Slower but very precise
+    Aligns the hole using MM-finderinstead of a hole reference image. Slower but very precise
     """
 
     from Smartscope.lib.image.base_image import BaseImage
@@ -296,6 +296,7 @@ def alignToHoleNoTemplate(scope,params,instance, content:Dict, *args, **kwargs):
         scope.acquire_medium_mag()
         pixel_size = scope.get_image_settings()
         image, _, _, _, _, pixel_size = scope.buffer_to_numpy()
+        print(f'Pixel size is {pixel_size:.3f}')
         montage = BaseImage('recentering')
         montage.image = image
         targets = find_targets(montage, ['Medium Mag AI hole finder'], convert_to_stage=False)[0]
@@ -303,10 +304,13 @@ def alignToHoleNoTemplate(scope,params,instance, content:Dict, *args, **kwargs):
         coords_from_center = np.array([[target.x,target.y] for target in targets]) - np.array([montage.shape_x,montage.shape_y])//2
         dist_to_center = np.sqrt(np.sum(np.power(coords_from_center,2),axis=1))
         closest_index = np.argmin(dist_to_center)
+        print(f'Distance to center is {dist_to_center[closest_index] * pixel_size:.3f} nm')
         if dist_to_center[closest_index] * pixel_size < 500: # 500 nm
+            print(f'Hole is within the 500 nm threshold, no need to recenter')
             set_or_update_refined_finder(instance.pk,*scope.report_stage())
             break
         iteration += 1
+        print(f'Aligning to hole and retrying.')
         scope.align_to_coord(coords_from_center[closest_index])
 
 def findHoleGeometry(scope,params,instance, content:Dict, *args, **kwargs):
