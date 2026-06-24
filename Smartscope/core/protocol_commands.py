@@ -424,6 +424,27 @@ def reregisterMediumMag(scope:MicroscopeInterface,params,instance, content:Dict,
     new_stage_y = t.stage_y
     return(new_stage_x, new_stage_y)
 
+def reregisterMediumMagFiducial(scope:MicroscopeInterface,params,instance, content:Dict, *args, **kwargs):
+    from Smartscope.core.grid.run_io import get_file_and_process
+    grid = instance.grid_id
+    pitch = grid.holeType.pitch
+    num_tiles_x, num_tiles_y = scope.set_medium_mag_size_mini_montage(hole_pitch_um=pitch)
+    im_file = f'raw/register_fiducial_{instance.pk}.mrc'
+    if max(num_tiles_x, num_tiles_y) == 1:
+        scope.acquire_medium_mag(file=im_file)
+    else:
+        scope.medium_mag_montage((num_tiles_x, num_tiles_y), file=im_file)
+
+    microscope_id = grid.session_id.microscope_id
+    montage = get_file_and_process(
+        raw=im_file,
+        name=f'medium_mag_fiducial_{instance.pk}',
+        directory=microscope_id.scope_path,
+        force_reprocess=True
+    )
+    ###NEED TO CONTINUE HERE.
+
+
 def reregisterSearchMag(scope:MicroscopeInterface,params,instance, content:Dict, *args, **kwargs):
     finder = instance.finders.first()
     stage_x = finder.stage_x
