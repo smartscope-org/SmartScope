@@ -367,7 +367,8 @@ def runScopeProtocolSteps(
             instance = output
     return output
 
-def reregister_grid(scope, grid, protocol):
+def reregister_grid(scope, grid, protocol, rotation:bool=True):
+    from Smartscope.lib.mesh_operations import calculate_transformation_matrix
     logger.info('Re-registering grid')
     completed_squares = list(grid.squaremodel_set.filter(status=status.COMPLETED))
     if len(completed_squares) < 2:
@@ -400,28 +401,10 @@ def reregister_grid(scope, grid, protocol):
         logger.warning('Cannot re-register grid: no valid positions returned from re-imaging squares')
         return
 
-    old_positions = np.array(old_positions)
-    new_positions = np.array(new_positions)
+    calculated = calculate_transformation_matrix(old_positions, new_positions, rotation=rotation)
+    R, t = calculated
 
-    if len(old_positions) < 2:
-        logger.warning('Cannot solve for rotation with fewer than 2 valid position pairs; falling back to translation only')
-        R = np.eye(2)
-    else:
-        # Kabsch algorithm: find optimal R and t such that new ≈ R @ old + t
-        old_centroid = old_positions.mean(axis=0)
-        new_centroid = new_positions.mean(axis=0)
-
-        H = (old_positions - old_centroid).T @ (new_positions - new_centroid)
-        U, _, Vt = np.linalg.svd(H)
-
-        # Correct for reflection so det(R) = +1
-        d = np.sign(np.linalg.det(Vt.T @ U.T))
-        R = Vt.T @ np.diag([1.0, d]) @ U.T
-
-    t = new_positions.mean(axis=0) - R @ old_positions.mean(axis=0)
-
-    logger.info(f'Re-registration rotation:\n{R}')
-    logger.info(f'Re-registration translation: {t}')
+    logger.info(f'Re-registration rotation:\n{R}, in degrees={np.degrees(np.arccos(R[0,0]))}, translation={t}')
 
     # Add a reregistration finder for every square with the transformed stage coords
     for square in grid.squaremodel_set.all():

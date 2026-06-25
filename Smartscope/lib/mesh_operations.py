@@ -229,3 +229,44 @@ def apply_transform(T, pts):
 
     transformed = (pts_h @ T.T)[:, :2]
     return transformed[0] if squeeze else transformed
+
+def calculate_transformation_matrix(old_positions, new_positions, rotation:bool=True):
+    """
+    Calculate the transformation matrix that maps old_positions to new_positions.
+    If rotation is True, it will calculate a full affine transformation (including rotation).
+    If rotation is False, it will only calculate translation.
+    """
+    old_positions = np.array(old_positions)
+    new_positions = np.array(new_positions)
+
+    if len(old_positions) < 2 or not rotation:
+        logger.warning('Cannot solve for rotation with fewer than 2 valid position pairs; falling back to translation only')
+        R = np.eye(2)
+    else:
+        # Center the points
+        old_center = np.mean(old_positions, axis=0)
+        new_center = np.mean(new_positions, axis=0)
+        old_centered = old_positions - old_center
+        new_centered = new_positions - new_center
+
+        # Compute the covariance matrix
+        H = old_centered.T @ new_centered
+
+        # Singular Value Decomposition
+        U, S, Vt = np.linalg.svd(H)
+        R = Vt.T @ U.T
+
+        # Ensure a proper rotation (det(R) should be 1)
+        if np.linalg.det(R) < 0:
+            Vt[1, :] *= -1
+            R = Vt.T @ U.T
+
+    # Compute translation
+    translation = new_center - R @ old_center
+
+    # Construct the transformation matrix
+    transformation_matrix = np.eye(3)
+    transformation_matrix[:2, :2] = R
+    transformation_matrix[:2, 2] = translation
+
+    return transformation_matrix
