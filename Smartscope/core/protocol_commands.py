@@ -1,5 +1,6 @@
 from typing import Dict
 from random import random
+import os
 import numpy as np
 import logging
 from Smartscope.core.interfaces.microscope_interface import MicroscopeInterface
@@ -89,7 +90,7 @@ def moveStageWithAtlasToSearchOffset(scope:MicroscopeInterface,params,instance, 
     """Moves the stage to the instance position with an offset"""
     offset_x = scope.atlas_settings.atlas_to_search_offset_x + scope.state.lastSquareCenteringShiftX
     offset_y = scope.atlas_settings.atlas_to_search_offset_y + scope.state.lastSquareCenteringShiftY
-    finder = instance.finders.first()
+    finder = instance.finders.order_by('-created_at').first()
     stage_args = [finder.stage_x + offset_x, finder.stage_y + offset_y]
     if instance.prefix.lower() != 'square':
         stage_args.append(finder.stage_z)
@@ -320,6 +321,7 @@ def findHoleGeometry(scope,params,instance, content:Dict, *args, **kwargs):
     from Smartscope.lib.Datatypes.grid_geometry import GridGeometry, GridGeometryLevel
 
     grid = instance.grid_id
+    os.chdir(grid.directory)
     pitch = grid.holeType.pitch
     num_tiles_x, num_tiles_y = scope.set_medium_mag_size_mini_montage(hole_pitch_um=pitch)
     im_file = 'raw/medium_mag_geometry.mrc'
@@ -330,9 +332,8 @@ def findHoleGeometry(scope,params,instance, content:Dict, *args, **kwargs):
 
     microscope_id = grid.session_id.microscope_id
     montage = get_file_and_process(
-        raw=im_file,
+        raw=os.path.join(microscope_id.scope_path, im_file),
         name='medium_mag_geometry',
-        directory=microscope_id.scope_path,
         force_reprocess=True
     )
 
@@ -450,12 +451,17 @@ def reregisterMediumMagFiducial(scope:MicroscopeInterface,params,instance, conte
 
 
 def reregisterSearchMag(scope:MicroscopeInterface,params,instance, content:Dict, *args, **kwargs):
-    finder = instance.finders.first()
+    finder = instance.finders.order_by('-created_at').first()
     stage_x = finder.stage_x
     stage_y = finder.stage_y
+    print(f'Moving stage to {stage_x:.2f}, {stage_y:.2f}')
 
     moveStage(scope,params,instance, content, *args, **kwargs)
     shift = scope.find_square_center_microns()
+    print(f'Found shift of {shift[0]:.2f}, {shift[1]:.2f} microns')
+    shift = (stage_x + shift[0], stage_y + shift[1])
+    print(f'Reregistered search mag to {shift[0]:.2f}, {shift[1]:.2f}')
+    scope.zero_image_shift()
     return (stage_x + shift[0], stage_y + shift[1])
 
 def openColumnValve(scope:MicroscopeInterface,params,instance, content:Dict, *args, **kwargs):
@@ -539,5 +545,6 @@ protocolCommandsFactory = dict(
     setupSerialEM=setupSerialEM,
     setupApertures=setupApertures,
     refineEucentricityByFocus=refineEucentricityByFocus,
-    eucentricSearchAfterDistance=eucentricSearchAfterDistance
+    eucentricSearchAfterDistance=eucentricSearchAfterDistance,
+    findHoleGeometry=findHoleGeometry,
 )
