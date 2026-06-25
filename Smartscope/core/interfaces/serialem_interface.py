@@ -292,10 +292,10 @@ class SerialemInterface(MicroscopeInterface):
         return area_x_um, area_y_um
 
     def medium_mag_montage(self, size, file=''):
-        self.state.current_mag = 'medium_mag'
+        self.set_medium_mag_optics()
         sem.ParamSetToUseForMontage(2)
         sem.OpenNewMontage(size[0],size[1], file)
-        sem.SetMontageParams(2)
+        sem.SetMontageParams(2,)
         
         self.checkDewars()
         self.checkPump()
