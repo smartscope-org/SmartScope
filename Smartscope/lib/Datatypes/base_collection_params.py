@@ -9,6 +9,7 @@ class Property(BaseModel):
     disabled: bool = False
     advanced: bool = False
     hidden: bool = False
+    bound_form_params: Optional[Dict[str, Union[int, float]]] = Field(default_factory=dict)
 
     @property
     def css_attr(self):

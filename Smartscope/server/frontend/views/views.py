@@ -99,7 +99,6 @@ class AutoScreenSetup(LoginRequiredMixin, TemplateView):
         form_preprocess = PreprocessingPipelineIDForm(request.POST)
         if not is_viewer_only:
             num_grids = set([k.split('-')[0] for k in request.POST.keys() if k.split('-')[0].isnumeric()])
-
             if form_general.is_valid() and form_params.is_valid() and form_preprocess.is_valid():
                 mode = form_general.cleaned_data.pop('mode','screening')
                 preset = form_general.cleaned_data.pop('preset', '')
@@ -139,7 +138,7 @@ class AutoScreenSetup(LoginRequiredMixin, TemplateView):
 
                 return redirect(f'../session/{session.session_id}')
 
-        context = self.get_context_data(form_general=form_general, form_params=form_params)
+        context = self.get_context_data(form_general=form_general, form_params=form_params, form_preprocess=form_preprocess)
         return render(request, self.template_name, context)
 
 
@@ -306,9 +305,9 @@ class MultiShotView(TemplateView):
     login_url = '/login'
     redirect_field_name = 'redirect_to'
 
-    def get_context_data(self,grid_id,**kwargs):
+    def get_context_data(self, grid_id, initials={}, **kwargs):
         context = super().get_context_data(**kwargs)
-        context['form'] = SetMultiShotForm()
+        context['form'] = SetMultiShotForm(initial=initials)
         context['current'] = None
         if grid_id is not None:
             grid = AutoloaderGrid.objects.get(grid_id=grid_id)
@@ -321,8 +320,11 @@ class MultiShotView(TemplateView):
     
     def get(self,request, *args, **kwargs):
         grid_id = request.GET.get('grid_id')
-        context = self.get_context_data(grid_id=grid_id,**kwargs)
-
+        initials = {}
+        if request.GET and grid_id is None:
+            initials = request.GET
+        context = self.get_context_data(grid_id=grid_id, initials=initials, **kwargs)
+        logger.debug(f"Multishot initials {initials}, request query params {request.GET}")
         return render(request,self.template_name, context)
     
     def post(self, request, *args, **kwargs):
@@ -349,8 +351,7 @@ class MultiShotView(TemplateView):
                     cache.set(shot.cache_id,shot.json(exclude={'cache_id'}),timeout=30*60)
                     results.append(shot) 
                 logger.debug(results)
-                context={'results':results}
-                      
+                context={'results':results} 
                 return render(request,template_name=self.results_template,context=context)  
             
             return HttpResponse("<div>INVALID!</div>")
@@ -412,7 +413,8 @@ class MicroscopeStatus(TemplateView):
 
 class CollectionParams(TemplateView):
     template_name= "smartscopeSetup/collection_parameters.html"
-    template_form= "forms/expand_form.html"
+    template_form= "forms/formFieldsBase.html"
+    template_form_extended= "forms/expand_form.html"
 
     def get_context_data(self, grid_id, **kwargs):
         context = dict()
@@ -427,8 +429,7 @@ class CollectionParams(TemplateView):
                                                                     'mode': grid.collection_mode
                                                                 }
                                                             )
-        context['trigger'] = 'multishot_per_hole'
-        context['formCollectionId'] = 'formParamsEdit'
+        context['values'] = json.dumps({'grid_id': grid_id})
         return context
     
     def get(self, request, grid_id, **kwargs):
@@ -439,11 +440,18 @@ class CollectionParams(TemplateView):
         form_type = request.POST.get("form_type")
         if form_type == 'grid':
             form_params = AutoloaderGridReportForm(request.POST)
-            form_id = ''
+            template = self.template_form
+            extra_context= {}
             
         elif form_type == 'collection_params':
             form_params = GridCollectionParamsForm(request.POST)
-            form_id = 'formParamsEdit'
+            template = self.template_form_extended
+            extra_context = {
+                        'trigger': 'multishot_per_hole',
+                        'id': 'formParamsEdit',
+                        'url': reverse('setMultishot'),
+                        'values': json.dumps({'grid_id': grid_id})
+                    }
             
         context = {
             'form': form_params,
@@ -453,13 +461,8 @@ class CollectionParams(TemplateView):
         if form_params.is_valid():
             data = form_params.cleaned_data
             result = self.update_params(request, data, grid_id, form_type)
-            context.update({
-                    'success': result['success'],
-                    'trigger': 'multishot_per_hole',
-                    'formCollectionId': form_id,
-                })
-            return render(request, self.template_form, context)
-        return render(request, self.template_form, context)
+            context.update({'success': result['success'], **extra_context})
+        return render(request, template, context)
     
     def update_params(self, request, data, grid_id, form_type):
         # here the custom logic can be applied. If we want to call external app, call it here, otherwise 
@@ -649,18 +652,22 @@ def getSetsNames(request):
 
 def getCollectionParamsForm(request):
     group = request.GET.get('group', '')
-    detector_id = request.GET.get('detector_id', '')
+    detector = request.GET.get('detector_id', '')
     mode = request.GET.get('mode', 'screening')
     preset = request.GET.get('preset',' default')
-    # if detector_id == '':
-    #     return HttpResponse('Detector not specified')
-    # if group == '':
-    #     return HttpResponse('Group not specified')
-    form = GridCollectionParamsForm(initial={'group': group, 'detector': detector_id, 'mode': mode, 'preset': preset})
+    extra_params, initials_values = COLLECTION_PARAMETERS.get_collection_params(group, detector_id=detector, mode=mode, name=preset)
+    logger.debug(f"Collection parameters {extra_params}")
+    form = GridCollectionParamsForm(initial=initials_values)
+    form_update = form_auxiliary_update(form, extra_params)
+    context = dict(form=form_update, row=True, id='formParams', trigger='multishot_per_hole', url=reverse('setMultishot'))
+    if initials_values.get("multishot_per_hole", False):
+        multishot_properties = extra_params.get("multishot_per_hole").bound_form_params
+        # multishot_properties['multishot_initials'] = True
+        context['values'] = json.dumps(multishot_properties)
     return TemplateResponse(
                             request=request, 
                             template="forms/expand_form.html",
-                            context=dict(form=form, row=True, id='formParams', trigger='multishot_per_hole', url=reverse('setMultishot'))
+                            context=context
                             )
 
 
@@ -684,3 +691,16 @@ def deleteSquares(request, grid_id):
         logger.debug('Some squares could not be deleted')
     logger.debug(f'Deleting squares: {squares}')
     squares.delete()
+
+
+def form_auxiliary_update(form, extra_params):
+    for field, data in extra_params.items():
+        if field not in form.fields:
+            continue
+        print(f"Field: {field}, hidden: {data.hidden}")
+        if data.hidden:
+            form.fields[field].widget = forms.HiddenInput()
+            form.fields[field].widget.attrs['hidden'] = True
+        
+        form.fields[field].widget.attrs.update(data.css_attr)
+    return form

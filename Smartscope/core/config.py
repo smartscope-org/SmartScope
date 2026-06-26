@@ -265,7 +265,8 @@ class CollectionParameters(BaseModel):
             custom_params_by_mode = getattr(custom_params, mode, {})
             custom_params_by_name = custom_params_by_mode.get(name, {})
             params.update(custom_params_by_name)
-        return params
+        initials = {k: v.initial for k, v in params.items()}
+        return params, initials
 
     def get_presets(self, group: str, detector_id = 'default', mode='screening'):
         logger.debug(f"Request {detector_id}, {group}")

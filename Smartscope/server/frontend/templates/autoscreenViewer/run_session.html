@@ -4,8 +4,8 @@
 {% block main %}
 {% csrf_token %}
 
-<div class="d-flex flex-row align-items-center px-2 gap-3 mb-2 min-width-0">
-    <h1 class="mb-0 flex-shrink-0">Session | {{session}}</h1>
+<div class="d-flex flex-row align-items-center px-2 gap-3 mb-2 mt-3 min-width-0">
+    <h2 class="mb-0 flex-shrink-0">Session | {{session}}</h2>
     {% if session.currentGrid is not None %}
     <a class='btn btn-outline-primary ms-auto' href="{% url 'browser' %}?group={{session.group.pk}}&session_id={{session.pk}}&grid_id={{session.currentGrid.pk}}">Go to session
         browser</a>
@@ -14,20 +14,20 @@
 </div>
 
 {% if process is not None%}
-<div class="d-flex flex-row"  style="font-size: 0.85rem;">
+<div class="d-flex flex-row"  style="font-size: 0.9rem;">
     <span class="px-2 border-end border-secondary">Session process PID: 
-        <span class="badge rounded-3 bg-dark text-dark border border-dark" style="font-size: 0.8rem;">{{process.PID}}</span>
+        <span class="badge rounded-3 bg-dark text-dark border border-dark" style="font-size: 0.75rem;">{{process.PID}}</span>
     </span>
     {% with color=process.status|status_color %}
     <span class="px-2 border-end border-secondary">Session Status: 
-        <span class="badge rounded-3 bg-{{ color }} text-{{ color }} border border-{{ color }}" style="font-size: 0.8rem;">{{process.status}}</span>
+        <span class="badge rounded-3 bg-{{ color }} text-{{ color }} border border-{{ color }}" style="font-size: 0.75rem;">{{process.status}}</span>
     </span>
     {% endwith %}
     <span class="px-2 border-end border-secondary">Session Start Time: 
-        <span class="badge rounded-3 bg-dark text-dark border border-dark" style="font-size: 0.8rem;">{{process.start_time}}</span>
+        <span class="badge rounded-3 bg-dark text-dark border border-dark" style="font-size: 0.75rem;">{{process.start_time}}</span>
     </span>
     <span class="px-2">Session End Time: 
-        <span class="badge rounded-3 bg-dark text-dark border border-dark"  style="font-size: 0.8rem;">{{process.end_time}}</span>
+        <span class="badge rounded-3 bg-dark text-dark border border-dark"  style="font-size: 0.75rem;">{{process.end_time}}</span>
     </span>
 </div>
 {% endif %}

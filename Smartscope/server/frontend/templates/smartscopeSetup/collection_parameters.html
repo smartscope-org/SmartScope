@@ -15,22 +15,11 @@
     {% csrf_token %}
     <input type="hidden" name="form_type" value="collection_params">
     {% url 'setMultishot' as multishot_url %}
-    {% include "forms/expand_form.html" with form=gridCollectionParamsForm row=True id=formCollectionId trigger=trigger url=multishot_url includeSubmitButton=True %}
+    {% with id='formParamsEdit' trigger='multishot_per_hole' url=multishot_url values=values %}
+        {% include "forms/expand_form.html" with form=gridCollectionParamsForm row=True includeSubmitButton=True %}
+    {% endwith %}
 </form>
 
 <script>
     $("img[id$='_help']").tooltip();
-    (function () {
-        const trigger = document.getElementById('id_multishot_per_hole');
-        if (trigger && trigger.checked) {
-            bootstrap.Collapse.getOrCreateInstance(
-                document.getElementById('extraFormCollapse_formParamsEdit')
-            ).show();
-            htmx.ajax('GET', '{% url "setMultishot" %}', {
-                target: '#extraFormContainer_formParamsEdit',
-                swap: 'innerHTML',
-                values: {'grid_id': '{{ grid.grid_id }}'}
-            });
-        }
-    })();
 </script>
