@@ -797,6 +797,9 @@ class HoleModelViewSet(viewsets.ModelViewSet, GeneralActionsMixin, ExtraActionsM
 
     @ action(detail=True, methods=['get'])
     def highmag(self, request, *args, **kwargs):
+        logger.info('Loading HighMag cards.')
+        logger.debug(f'Request url: {request.build_absolute_uri()}')
+        logger.debug(f'Query params: {request.query_params}')
         obj = self.get_object()
         self.renderer_classes = [TemplateHTMLRenderer]
 
@@ -806,7 +809,9 @@ class HoleModelViewSet(viewsets.ModelViewSet, GeneralActionsMixin, ExtraActionsM
             queryset = list(HighMagModel.objects.filter(grid_id=obj.grid_id,
                                                         hole_id__bis_group=obj.bis_group, status='completed').order_by('hole_id__number','number'))
         context = {}
-        context['classifier'] = PLUGINS_FACTORY.get_plugin('nextPYP Curation')
+        classifier = get_request_param(request, 'squareMethod', 'Micrographs curation')
+        logger.info(f'Loading HighMag cards with \'{classifier}\' classifier')
+        context['classifier'] = PLUGINS_FACTORY.get_plugin(classifier)
         response_context= dict(cards=[])
         for hole in queryset:
             context['hole']=hole
