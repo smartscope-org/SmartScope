@@ -234,7 +234,7 @@ async function loadSquare(full_id, metaonly = false, display_type = null, method
 async function loadHole(id, metaonly = false) {
     let data = await fetchAsync(`/api/holes/${id}/load`, message=`Loading Hole ${id}`)
     $("#mmHole").html(data.card)
-    hm_data = await fetchAsync(`/api/holes/${id}/highmag/`, message=`Loading high mag data.`)
+    hm_data = await fetchAsync(`/api/holes/${id}/highmag/?squareMethod=${currentState['squareMethod']}`, message=`Loading high mag data.`)
     $('#Hole').html(hm_data)
     grabCuration()
 };
