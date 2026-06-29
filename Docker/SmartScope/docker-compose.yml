@@ -15,6 +15,7 @@ services:
       - ./logs/:/opt/logs/
       - ./backups/:/mnt/backups/
       - ./scratch/:/mnt/scratch/
+      - ./shared/fake_scope/:/mnt/fake_scope/
     env_file:
       - smartscope.conf
       - database.conf
