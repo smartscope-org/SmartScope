@@ -512,3 +512,8 @@ def save_jeol_optics(detector_id:str, mag_level:Literal['atlas', 'square', 'medi
         scope.logger.info(f'Setting lens data for mag level {mag_level}')
         len_file = getattr(scope.microscope, f'{mag_level}_lens_file')
         scope.save_lens_data(len_file)
+
+def clear_cache():
+    from django.core.cache import cache
+    cache.clear()
+    print('Cache cleared.')
