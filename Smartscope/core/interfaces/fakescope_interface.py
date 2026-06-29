@@ -193,6 +193,18 @@ class FakeScopeInterface(MicroscopeInterface):
         )
         return frames.split('\\')[-1]
 
+    def setup_apertures(self):
+        pass
+    
+    def set_apertures_for_square_mag(self):
+        pass
+    
+    def set_apertures_for_medium_mag(self):
+        pass
+    
+    def set_apertures_for_high_mag(self, condenser_aperture_size:int, objective_aperture_size:int):
+        pass
+
     def connect(self):
         self.logger.info('Connecting to fake scope.')
 
@@ -227,12 +239,6 @@ class FakeScopeInterface(MicroscopeInterface):
         pass
 
     def set_apertures_for_lowmag(self):
-        pass
-
-    def set_apertures_for_square_mag(self, condenser_aperture_size:int, objective_aperture_size:int):
-        pass
-
-    def set_apertures_for_medium_mag(self, condenser_aperture_size:int, objective_aperture_size:int):
         pass
 
     def set_focus_for_bis_tilt(self,isY,tiltAngle):
