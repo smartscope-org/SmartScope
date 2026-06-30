@@ -226,6 +226,7 @@ async function loadSidePanel(requestfield = null, id = null, push = true) {
     let models = await fetchAsync(url, message=`Loading ${requestfield}.`)
     $(`#${loadinto}`).html(models)
     toggleSearchBar(loadinto)
+    adjustThirdSection()
 
     if (push) {
         pushState()
@@ -241,6 +242,29 @@ function toggleSearchBar(sectionId) {
         $search.show()
     } else {
         $search.hide()
+    }
+}
+
+function adjustThirdSection() {
+    const $sections = $('.sidebar-section');
+    const $third = $sections.eq(2);
+    const $container = $('#sidebar-container');
+    
+    const containerHeight = $container.innerHeight();
+    const firstHeight = $sections.eq(0).outerHeight(true);
+    const secondHeight = $sections.eq(1).outerHeight(true);
+    const resizersHeight = $('.section-resizer').toArray()
+                            .reduce((sum, el) => sum + $(el).outerHeight(true), 0);
+    
+    const remaining = containerHeight - firstHeight - secondHeight - resizersHeight;
+    
+    if (remaining > 0) {
+        const headerHeight = $third.find('li').outerHeight(true) || 0;
+        const scrollMaxHeight = remaining - headerHeight;
+        if (scrollMaxHeight > 0) {
+            $third.find('#sidebarGrids')
+                  .css('max-height', scrollMaxHeight + 'px');
+        }
     }
 }
 
