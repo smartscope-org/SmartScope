@@ -85,7 +85,11 @@ def distance_from_center_selector(parent, montage=None):
         print(f'Nearest zero for ({x}, {y}) is {nearest_zero}')
         distances.append(np.sqrt((x - nearest_zero[1])**2 + (y - nearest_zero[0])**2))
         # distances.append(np.sqrt((x - montage_center[0])**2 + (y - montage_center[1])**2))
-    relative_distances = 1 - (np.array(distances) / np.max(distances))
+    max_distance = np.max(distances)
+    if max_distance == 0:
+        relative_distances = np.ones(len(distances))
+    else:
+        relative_distances = 1 - (np.array(distances) / max_distance)
     for target, distance in zip(targets, relative_distances):
         target.distance = distance
     return generate_selectors(targets, 'distance')
