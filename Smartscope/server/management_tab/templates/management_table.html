@@ -15,7 +15,7 @@
 function formatDate(params) {
     if (!params.value) return "";
     var d = new Date(params.value);
-    return d.toISOString().slice(0, 16).replace("T", " ");
+    return d.toLocaleString("en-CA", { localeMatcher: "lookup", hour12: false });
 }
 
 // renders session name as a clickable link

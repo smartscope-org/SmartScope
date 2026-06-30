@@ -1,19 +1,18 @@
 import json
 import logging
+from zoneinfo import ZoneInfo
+from datetime import datetime
 
 from django.shortcuts import render
-from django.views.generic.list import ListView
-from django.http import JsonResponse
 from django.db.models import Q, Prefetch, Avg, Max, Min, Count, Case, When, Value, CharField
 
 from rest_framework.views import APIView
 from rest_framework.response import Response
-from rest_framework import permissions
-from rest_framework.renderers import TemplateHTMLRenderer
 
 from .serializers import SessionSerializer
 from Smartscope.core.models.screening_session import ScreeningSession
 from Smartscope.core.models.grid import AutoloaderGrid
+from Smartscope.core.settings import server_docker
 # from core.models import Product
 
 
@@ -29,6 +28,18 @@ FILTER_FIELD_MAP = {
 def table_view(request):
     return render(request, "management_table.html")
 
+def utc_time_conversion(date: str,):
+    try:
+        naive_dt = datetime.strptime(date, "%Y-%m-%d %H:%M:%S")
+    except ValueError:
+        try:
+            # Fall back to date only, treat as local midnight
+            naive_dt = datetime.strptime(date, "%Y-%m-%d")
+        except ValueError:
+            return None
+    local_dt = naive_dt.replace(tzinfo=ZoneInfo(server_docker.TIME_ZONE))
+    return local_dt.astimezone(ZoneInfo("UTC"))
+        
 
 class SessionsListView(APIView):
     # permission_classes = [permissions.IsAuthenticated]
@@ -72,6 +83,8 @@ class SessionsListView(APIView):
                     continue
                 if key in ["grid_count", "grid_bad", "grid_good"]:
                     filter_value = int(filter_value)
+                if key in ["creation_time", "last_update"] and filter_value:
+                    filter_value = utc_time_conversion(filter_value)
 
                 db_field = FILTER_FIELD_MAP.get(key, key)
                 if filter_type == "contains":
