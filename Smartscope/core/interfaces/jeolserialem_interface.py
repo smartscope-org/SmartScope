@@ -94,7 +94,7 @@ class JEOLSerialemInterface(SerialemInterface):
         sem.SetMag(self.atlas_settings.mag)
         # sem.Delay(3, 's')
         sem.SetSlitIn(0)
-        sem.SetSpotSize(self.atlas_settings.spot_size)
+        sem.SetSpotSize(self.atlas_settings.spotSize)
         sem.SetPercentC2(self.atlas_settings.c2)
         sem.SetEucentricFocus()
         self.load_lens_data(self.microscope.atlas_lens_file) ##Need to set this up
