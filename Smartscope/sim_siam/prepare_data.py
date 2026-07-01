@@ -123,7 +123,7 @@ def sim_siam_transfer_trained_model(process_id:str,scratch_dir=None):
     weights = training_process.sim_siam_weights
     if weights is None:
         raise ValueError(f"No trained weights found for training process ID {process_id}.")
-    for file in [training_process.training_results_weights, training_process.training_config_file]:
+    for file in [training_process.training_results_weights]: #, training_process.training_config_file]:
         sim_siam_copy_output_file_from_scratch(file, weights.weights_directory, scratch_dir=scratch_dir)
 
 
@@ -138,7 +138,7 @@ def sim_siam_find_checkpoint(mag_level:Literal['square','hole'], grid:Autoloader
     """
     weights = SimSiamWeights.objects.filter(mag_level=mag_level, grid_id=grid).first()
     if weights is not None:
-        return
+        return weights
     sample_tags = grid.sample_tags.all()
     if len(sample_tags) > 0:
         weights = SimSiamWeights.objects.filter(mag_level=mag_level, sample_tag__in=sample_tags).all()
