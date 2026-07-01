@@ -15,7 +15,7 @@ square:
     - setSquareMagOptics
     - moveStageWithAtlasToSearchOffset
     - realignToSquare
-    - eucentricSearch
+    - eucentricMediumMag
     - square
   targets:
     finders:

@@ -197,7 +197,7 @@ def sim_siam_inference(mag_level:Literal['square','hole'], grid_id:str, **kwargs
     if weights is not None:
         training_process = SimSiamTrainingProcess.objects.filter(sim_siam_weights=weights).first()
         checkpoint_path = (weights.checkpoint_file,Path(*training_process.training_results_weights.parts[1:]))
-        config_path = (weights.config_file, Path(*training_process.training_config_file.parts[1:]))
+        # config_path = (weights.config_file, Path(*training_process.training_config_file.parts[1:]))
 
     grid_ids = [grid_id]  # Replace with actual grid IDs
     dataset_name = '_'.join(grid_ids) + "_" + mag_level
