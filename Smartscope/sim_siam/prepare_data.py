@@ -49,7 +49,7 @@ def sim_siam_prepare_data(mag_level:Literal['square','hole'],grid_id_list:List[s
         filepath_attr = 'raw_mrc'
         extract_size_pixel = 50
 
-    item_size_microns = item_sizes_microns[0] * extract_size_factor
+    item_size_microns = item_sizes_microns[0]
 
     skipped = 0
     extracted = 0
@@ -60,13 +60,14 @@ def sim_siam_prepare_data(mag_level:Literal['square','hole'],grid_id_list:List[s
         image = getattr(item, filepath_attr)
         item_size_pixel = item_size_microns / (item.pixel_size /10_000)
         binning_factor = item_size_pixel / extract_size_pixel
+        print(f'Processing {mag_level} {item.pk} with image {image}. Item size: {item_size_microns} microns, pixel size: {item.pixel_size} Angstroms, item size in pixels: {item_size_pixel}, binning factor: {binning_factor}')
 
         resized_image_path = Path(directory , f'sim_siam_{extract_size_pixel}.png')
         if not resized_image_path.is_file():
             print(f'Binned image not found, creating {resized_image_path}')
             with mrcfile.open(image) as mrc:
                 img = mrc.data
-            new_height = int(round(img.shape[0] / binning_factor))
+            new_height = max(1, int(round(img.shape[0] / binning_factor)))
             img = convert_to_png(img, height=new_height, normalization=auto_contrast)
             cv2.imwrite(resized_image_path, img)
         else:
