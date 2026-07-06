@@ -35,6 +35,8 @@ services:
       - smartscope.conf
     volumes:
       - ./scratch/:/mnt/scratch/:rw
+      - ./logs/ai/:/opt/logs/
+      # added volume for SMARTSCOPE_AI
     networks:
       - smartscopenet
     command: ["celery", "-A", "SmartscopeAI.interfaces.celery.app", "worker", "--loglevel=DEBUG", "--pool=solo", "-Q", "smartscope_ai_cpu"]
