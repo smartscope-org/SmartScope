@@ -774,7 +774,7 @@ class SerialemInterface(MicroscopeInterface):
             return
         
     def set_highmag_counting_mode(self):
-        if self.detector.detectorModel in ['K2','Ceta']:
+        if self.detector.detectorModel in ['K2','Ceta','Falcon3']:
             return
         sem.SetK2ReadMode('R', 1)
         sem.SetK2ReadMode('P', 1)
