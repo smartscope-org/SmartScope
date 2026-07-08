@@ -85,12 +85,12 @@ class Target(BaseModel):
 
     @property
     def stage_coords(self) -> np.ndarray:
-        finder = self.finders.first()
+        finder = self.finders.order_by('-created_at').first()
         return np.array([finder.stage_x, finder.stage_y])
     
     @property
     def coords(self) -> np.ndarray:
-        finder = self.finders.first()
+        finder = self.finders.order_by('-created_at').first()
         return np.array([finder.x, finder.y])
 
     def is_excluded(self):
@@ -117,6 +117,6 @@ class Target(BaseModel):
         return True
 
     def is_position_within_stage_limits(self, stage_radius_limit:int = 975, offset_x:float=0, offset_y:float=0) -> bool:
-        return self.finders.first().is_position_within_stage_limits(stage_radius_limit, offset_x, offset_y)
+        return self.finders.order_by('-created_at').first().is_position_within_stage_limits(stage_radius_limit, offset_x, offset_y)
 
 
