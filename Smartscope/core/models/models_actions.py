@@ -27,6 +27,7 @@ def targets_methods(instance):
     classifiers = list(Classifier.objects.filter(content_type=contenttype,
                                                  object_id__in=targets).values_list('method_name', flat=True).distinct())
     if instance.targets_prefix == 'hole' and len(classifiers) == 0:
+        classifiers.append('Micrographs curation')
         classifiers.append("nextPYP Curation")
     selectors = list(Selector.objects.filter(content_type=contenttype, object_id__in=targets).values_list('method_name', flat=True).distinct())
     logger.debug(f'Finders: {finders}, Classifiers: {classifiers}, Selectors: {selectors}')

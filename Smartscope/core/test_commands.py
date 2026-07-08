@@ -160,19 +160,22 @@ def test_finder(plugin_name: str, raw_image_path: str, output_dir: str, repeats=
     logger.info(f"Time for each iterations {', '.join(iterations)}")
 
 def test_protocol_command(microscope_id,detector_id,command, instance=None, instance_type=None, params=None):
-    from Smartscope.core.models import Microscope, Detector, SquareModel
+    import Smartscope.core.models as models
     from Smartscope.core.interfaces.microscope_methods import select_microscope_interface
-    import Smartscope.core.interfaces.microscope as micModels
+    from Smartscope.core.interfaces.microscope import Detector, AtlasSettings
     from Smartscope.core.settings.worker import PROTOCOL_COMMANDS_FACTORY
     if instance_type=='square':
         logger.info(f'Selected square {instance}')
-        instance = SquareModel.objects.get(pk=instance)
-    microscope = Microscope.objects.get(pk=microscope_id)
-    detector = Detector.objects.get(pk=detector_id)
-    scopeInterface, additional_settings  = select_microscope_interface(microscope)
-    with scopeInterface(microscope = micModels.Microscope.model_validate(microscope),
-                              detector= micModels.Detector.model_validate(detector),
-                              atlas_settings= micModels.AtlasSettings.model_validate(detector),
+        instance = models.SquareModel.objects.get(pk=instance)
+    if instance_type=='hole':
+        logger.info(f'Selected hole {instance}')
+        instance = models.HoleModel.objects.get(pk=instance)
+    microscope_model = models.Microscope.objects.get(pk=microscope_id)
+    detector = models.Detector.objects.get(pk=detector_id)
+    scopeInterface, microscope, additional_settings  = select_microscope_interface(microscope_model)
+    with scopeInterface(microscope = microscope.model_validate(microscope_model),
+                              detector= Detector.model_validate(detector),
+                              atlas_settings= AtlasSettings.model_validate(detector),
                               additional_settings=additional_settings,
                               close_valves_on_disconnect=False) as scope:
         PROTOCOL_COMMANDS_FACTORY[command](scope,params,instance,content={})

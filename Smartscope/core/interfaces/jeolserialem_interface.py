@@ -94,9 +94,9 @@ class JEOLSerialemInterface(SerialemInterface):
         sem.SetMag(self.atlas_settings.mag)
         # sem.Delay(3, 's')
         sem.SetSlitIn(0)
-        sem.SetSpotSize(self.atlas_settings.spot_size)
+        sem.SetSpotSize(self.atlas_settings.spotSize)
         sem.SetPercentC2(self.atlas_settings.c2)
-        sem.SetEucentricFocus()
+        # sem.SetEucentricFocus()
         self.load_lens_data(self.microscope.atlas_lens_file) ##Need to set this up
         sem.ResetDefocus()
         self.state.current_mag = 'atlas'
@@ -112,8 +112,8 @@ class JEOLSerialemInterface(SerialemInterface):
         sem.Delay(3, 's')
         sem.GoToLowDoseArea('S')
         sem.PluginString("JEOL", "SetHexOM", "0000") #FOR ON-free Low Mag
-        sem.ResetDefocus()
-        sem.SetEucentricFocus()
+        # sem.ResetDefocus()
+        # sem.SetEucentricFocus()
         sem.Delay(3, 's')
         self.load_lens_data(self.microscope.square_lens_file)
         super().set_square_mag_optics()

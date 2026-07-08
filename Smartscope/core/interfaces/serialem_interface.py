@@ -292,10 +292,10 @@ class SerialemInterface(MicroscopeInterface):
         return area_x_um, area_y_um
 
     def medium_mag_montage(self, size, file=''):
-        self.state.current_mag = 'medium_mag'
+        self.set_medium_mag_optics()
         sem.ParamSetToUseForMontage(2)
         sem.OpenNewMontage(size[0],size[1], file)
-        sem.SetMontageParams(2)
+        sem.SetMontageParams(2,)
         
         self.checkDewars()
         self.checkPump()
@@ -429,7 +429,7 @@ class SerialemInterface(MicroscopeInterface):
         return sem.ReportAlignShift()
     
     def align_to_coord(self, coord):
-        sem.ImageShiftByPixels(coord[0], coord[1])
+        sem.ImageShiftByPixels(coord[0], -coord[1])
         sem.ResetImageShift()
         return sem.ReportStageXYZ()
     
@@ -774,7 +774,7 @@ class SerialemInterface(MicroscopeInterface):
             return
         
     def set_highmag_counting_mode(self):
-        if self.detector.detectorModel in ['K2','Ceta']:
+        if self.detector.detectorModel in ['K2','Ceta','Falcon3']:
             return
         sem.SetK2ReadMode('R', 1)
         sem.SetK2ReadMode('P', 1)
