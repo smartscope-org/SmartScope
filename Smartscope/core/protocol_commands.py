@@ -454,15 +454,13 @@ def reregisterSearchMag(scope:MicroscopeInterface,params,instance, content:Dict,
     finder = instance.finders.order_by('-created_at').first()
     stage_x = finder.stage_x
     stage_y = finder.stage_y
-    print(f'Moving stage to {stage_x:.2f}, {stage_y:.2f}')
 
     moveStage(scope,params,instance, content, *args, **kwargs)
     shift = scope.find_square_center_microns()
-    print(f'Found shift of {shift[0]:.2f}, {shift[1]:.2f} microns')
     shift = (stage_x + shift[0], stage_y + shift[1])
-    print(f'Reregistered search mag to {shift[0]:.2f}, {shift[1]:.2f}')
+    logger.info(f'Reregistered search mag to {shift[0]:.2f}, {shift[1]:.2f}')
     scope.zero_image_shift()
-    return (stage_x + shift[0], stage_y + shift[1])
+    return shift
 
 def openColumnValve(scope:MicroscopeInterface,params,instance, content:Dict, *args, **kwargs):
     scope.open_valves()

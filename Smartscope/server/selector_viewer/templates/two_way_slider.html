@@ -163,9 +163,15 @@
             Plotly.relayout('selectorPlot', update);
         }
         function updateSvgColor(values) {
-                const svgItems = $('.selectorTarget');
-                $('.selectorTarget').each(function() {
-                $(this).attr('stroke',  (values[0] < $(this).attr('value') &&  $(this).attr('value') < values[1]) ? 'lightgreen' : 'red');
+            const minVal = parseFloat(values[0]);
+            const maxVal = parseFloat(values[1]);
+
+            $('.selectorTarget').each(function() {
+                const itemValue = parseFloat($(this).attr('value'));
+                if (isNaN(itemValue)) {
+                    console.warn('selectorTarget missing/invalid value attribute:', this);
+                }
+                $(this).attr('stroke',  (minVal < itemValue &&  itemValue < maxVal) ? 'lightgreen' : 'red');
             });
         }
 
