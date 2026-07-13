@@ -93,8 +93,8 @@ def run_grid(
 
     needs_reregistations = grid.unloading_time is not None and grid.loading_time > grid.unloading_time
     if needs_reregistations:
-        logger.info('NOT IMPLEMENTED YET. Re-registering grid after re-loading')
-        # reregister_grid(scope, grid, protocol)
+        logger.info('Re-registering grid after re-loading')
+        reregister_grid(scope, grid, protocol)
 
     SELECTION_STRATEGY = TARGET_SELECTION_STRATEGIES['original']
     NAVIGATION_STRATEGY = NAVIGATION_STRATEGIES['original']
@@ -370,6 +370,7 @@ def runScopeProtocolSteps(
 def reregister_grid(scope, grid, protocol, rotation:bool=True):
     from itertools import combinations
     from Smartscope.lib.mesh_operations import calculate_transformation_matrix, apply_transform
+    import matplotlib.pyplot as plt
     logger.info('Re-registering grid')
     completed_squares = list(grid.squaremodel_set.filter(status=status.COMPLETED))
     if len(completed_squares) < 2:
@@ -397,7 +398,7 @@ def reregister_grid(scope, grid, protocol, rotation:bool=True):
     old_positions = []
     new_positions = []
     for square in selected:
-        new_pos = PROTOCOL_COMMANDS_FACTORY['reregisterSearchMag'](scope, grid.params_id, square)
+        new_pos = PROTOCOL_COMMANDS_FACTORY['reregisterSearchMag'](scope, grid.params_id, square,{})
         if new_pos is not None:
             new_positions.append(new_pos)
             old_positions.append(square.stage_coords)
@@ -407,26 +408,33 @@ def reregister_grid(scope, grid, protocol, rotation:bool=True):
         return
 
     calculated_matrix = calculate_transformation_matrix(old_positions, new_positions, rotation=rotation)
+    fig = plt.figure(figsize=(8, 8))
+    ax = fig.add_subplot(111)
+    ax.scatter(*zip(*old_positions), color='blue', label='Old Points')
+    ax.scatter(*zip(*new_positions), color='red', label='New Points')
+    transformed_points=  apply_transform(calculated_matrix, old_positions)
+    ax.scatter(*zip(*transformed_points), color='green', label='Transformed Points', marker='x')
+    ax.legend()
+    fig.savefig(Path(grid.directory, 'reregistration_plot.png'))
     logger.info(f'Re-registration transformation matrix:\n{calculated_matrix}')
-
     squares = list(SquareModel.display.filter(grid_id=grid))
     holes = list(HoleModel.display.filter(grid_id=grid))
     targets_to_update = squares + holes
 
     finders_to_create = []
     for target in targets_to_update:
-        old_pos = np.array(target.stage_coords)
+        existing_finder = target.finders.order_by('-created_at').first()
+        old_pos = np.array([existing_finder.stage_x, existing_finder.stage_y])
         new_pos = apply_transform(calculated_matrix, old_pos)
-        existing = target.finders.first()
         finders_to_create.append(
             Finder(
                 content_object=target,
-                method_name='reregistration',
-                x=existing.x,
-                y=existing.y,
+                method_name='Registration',
+                x=existing_finder.x,
+                y=existing_finder.y,
                 stage_x=float(new_pos[0]),
                 stage_y=float(new_pos[1]),
-                stage_z=existing.stage_z,
+                stage_z=existing_finder.stage_z,
             )
         )
 
