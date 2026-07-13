@@ -17,10 +17,14 @@ def get_past_history(grid: AutoloaderGrid, num_targets: int = 10):
     num_queried = len(recent_targets)
     if num_queried < num_targets:
         recent_targets += list(AtlasModel.objects.filter(grid_id=grid,status=status.COMPLETED).order_by('-completion_time')[:num_targets])
-    return sorted(recent_targets, key=lambda x: x.completion_time, reverse=True)
+    return sorted(recent_targets, key=lambda x: x.completion_time)
 
 def get_current_target(grid: AutoloaderGrid):
-    current_target = HoleModel.objects.filter(grid_id=grid,status__in=[status.STARTED,status.ACQUIRED,status.PROCESSED]).first()
+    current_target = HoleModel.objects.filter(
+                                                grid_id=grid, 
+                                                status__in=[status.STARTED,status.ACQUIRED,status.PROCESSED],
+                                                selected=True
+                                                ).first()
     if current_target is not None:
         return current_target
     current_target = SquareModel.objects.filter(grid_id=grid,status=status.STARTED).first()
