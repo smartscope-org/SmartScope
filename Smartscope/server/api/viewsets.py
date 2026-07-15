@@ -357,10 +357,22 @@ class ScreeningSessionsViewSet(viewsets.ModelViewSet, GeneralActionsMixin,):
 
         if process is not None:
             if process.status == 'running':
-                return Response({'isRunning': True, 'pid': process.PID, 'status': process.status})
+                return Response({
+                            'isRunning': True, 
+                            'pid': process.PID, 
+                            'status': process.status, 
+                            'start': process.start_time, 
+                            'end': process.end_time
+                        })
             else:
-                return Response({'isRunning': False, 'pid': process.PID, 'status': process.status})
-        return Response({'isRunning': False, 'pid': None, 'status': None})
+                return Response({
+                            'isRunning': False, 
+                            'pid': process.PID, 
+                            'status': process.status,
+                            'start': process.start_time, 
+                            'end': process.end_time
+                        })
+        return Response({'isRunning': False, 'pid': None, 'status': None, 'start': None, 'end': None})
 
     @ action(detail=True, methods=['put'])
     def pause_between_grids(self, request, **kwargs):

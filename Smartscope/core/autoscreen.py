@@ -4,6 +4,7 @@ import sys
 import logging
 
 from django.db import close_old_connections
+from django.utils import timezone
 
 logger = logging.getLogger(__name__)
 
@@ -78,7 +79,7 @@ def autoscreen(session_id:str, screening_mode: bool=False, skip_loading: bool=Fa
     finally:
         os.remove(microscope_model.lockFile)
         close_old_connections()
-        update(process, status=status)
+        update(process, status=status, end_time=timezone.now())
         logger.info('Done.')
 
 

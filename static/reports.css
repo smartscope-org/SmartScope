@@ -696,3 +696,16 @@
     opacity: 1;
     transform: translateX(0);
 }
+.badge-pill.pill-secondary.pill-multiline:hover {
+    height: auto;
+    min-height: 26px;
+    align-items: flex-start;
+}
+.pill-secondary.pill-multiline .pill-label {
+    line-height: 1.2;
+    font-size: 0.75rem;
+    justify-content: center;
+}
+.pill-secondary.pill-multiline .pill-label span {
+    display: block;
+}
