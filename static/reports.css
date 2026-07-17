@@ -611,7 +611,7 @@
     height: 0.85em;  /* smaller height */
     background-color: #f7f7f7;  /* grey when unchecked */
     border-color: #adb5bd;
-
+    margin-top: 0.35em;
 }
 .tab-switchers .form-check-input:checked {
     background-color: rgba(33, 37, 41, 0.494);  /* darker grey when checked */

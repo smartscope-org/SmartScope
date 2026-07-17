@@ -13,8 +13,8 @@ class Property(BaseModel):
 
     @property
     def css_attr(self):
-        remove_properties = ['initial', 'hidden', 'advanced']
-        return {k:v for k, v in self.model_dump().items() if k not in remove_properties}
+        css_properties = ['readonly', 'disabled']
+        return {k:v for k, v in self.model_dump().items() if k in css_properties}
     
 
 class DetectorParams(BaseModel):

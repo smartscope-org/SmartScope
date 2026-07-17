@@ -4,8 +4,8 @@
 {% block main %}
 {% csrf_token %}
 
-<div class="d-flex align-items-start gap-3 m-0 mb-2 mt-3 min-width-0">
-    <div class="d-flex align-items-start gap-3 min-width-0 flex-wrap" style="flex: 1 1 auto; row-gap: 4px;">
+<div class="d-flex align-items-start gap-5 m-0 mb-2 mt-3 min-width-0">
+    <div class="d-flex align-items-start gap-2 min-width-0 flex-wrap" style="flex: 1 1 auto; row-gap: 4px;">
         <h2 class="mb-0 px-2" style="flex: 0 1 auto; overflow-wrap: anywhere;">Session | {{session}}</h2>
         <div class="position-relative flex-shrink-0" style="height: 26px; width: 55px;">
             <div class="d-flex gap-2 position-absolute top-0 start-0" style="z-index: 26;">
@@ -62,7 +62,7 @@
         </div>
     </div>
     {% if session.currentGrid is not None %}
-    <a class="btn btn-outline-primary flex-shrink-1" style=="min-width: 60%;"
+    <a class="btn btn-sm btn-outline-primary flex-shrink-1" style=="min-width: 60%;"
         href="{% url 'browser' %}?group={{session.group.pk}}&session_id={{session.pk}}&grid_id={{session.currentGrid.pk}}">
         Go to session browser
     </a>
@@ -95,7 +95,7 @@
 <div class="d-flex align-items-end justify-content-between gap-2 flex-wrap m-0 mb-2 px-2">
     <div class="d-flex align-items-end justify-content-start gap-2 flex-wrap">
         <div class="dropdown d-inline pb-1">
-            <button class="btn btn-outline-primary dropdown-toggle session-toggle" type="button" id="start-button" data-bs-toggle="dropdown">
+            <button class="btn btn-sm btn-outline-primary dropdown-toggle session-toggle" type="button" id="start-button" data-bs-toggle="dropdown">
                 Start
             </button>
             <!-- Screening options full screening and atlas-only options are available as dropdown -->
@@ -116,12 +116,12 @@
         
         <!-- Pause session -->
         <div class="d-inline pb-1">
-            <button id="pause" class="btn active" type="button" value="pause">Pause between grids</button>
+            <button id="pause" class="btn btn-sm active" type="button" value="pause">Pause between grids</button>
         </div>
 
         <!-- Dropdown for downloading logs of run.out and proc.out files -->
         <div class="dropdown d-inline pb-1">
-            <button class="btn btn-outline-primary dropdown-toggle" type="button" id="downloadLogs" data-bs-toggle="dropdown">
+            <button class="btn btn-sm btn-outline-primary dropdown-toggle" type="button" id="downloadLogs" data-bs-toggle="dropdown">
                 Download Logs
             </button>
             <div class="dropdown-menu" aria-labelledby="downloadLogs">
@@ -131,15 +131,15 @@
         </div>
     </div>
     {% if request.user.is_staff %}
-    <fieldset class="border border-danger rounded p-1 px-3 position-relative" id="staff-section">
+    <fieldset class="border border-danger rounded p-1 px-2 position-relative" id="staff-section">
         <legend class="float-none w-auto px-1 text-danger m-0" style="font-size: 0.75rem;">
             <i class="bi bi-shield-exclamation me-1"></i>Staff only — use carefully
         </legend>
         <div class="d-flex gap-2 flex-wrap">
-            <button id="force-start-button" class="btn btn-outline-primary" type="button" value="start">Force Start</button>
-            <button id="removeLockButton" class="btn btn-outline-primary" type="button" value="remove_lock">Remove Microscope Lock
+            <button id="force-start-button" class="btn btn-sm btn-outline-primary" type="button" value="start">Force Start</button>
+            <button id="removeLockButton" class="btn btn-sm btn-outline-primary" type="button" value="remove_lock">Remove Microscope Lock
                 File</button>
-            <button id="forceKill" class="btn btn-outline-primary" type="button" value="force_kill">Force-kill all session
+            <button id="forceKill" class="btn btn-sm btn-outline-primary" type="button" value="force_kill">Force-kill all session
                 processes</button>
         </div>
     </fieldset>

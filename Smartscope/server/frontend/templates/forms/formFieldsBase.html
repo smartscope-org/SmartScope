@@ -2,7 +2,7 @@
 <div id="{{id}}" class='{% if row %}row{% endif %} align-items-center m-0 gx-3'>
     {% for field in form %}
     {% if not field.field.widget.attrs.hidden %}
-    <div class="col-{{ col_width|default:3 }} my-1">
+    <div class="col-{{ col_width|default:3 }} my-1" data-advanced="{{ field.field.widget.attrs.data_advanced|default:'false' }}">
         <div class="input-group input-group-sm flex-wrap flex-md-nowrap">
             <span class="input-group-text form-label-span" 
             style="width: {{ input_ratio|default:60 }}%"
