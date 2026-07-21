@@ -75,13 +75,16 @@ class SerialemInterface(MicroscopeInterface):
         sem.SetBinning('S', int(binning))
         self.logger.info(f'Eucentric heigh done, setting Search binning back to {binning}.')
     
-    def eucentric_height_after_distance(self, tilt_to:int=10, increments:int=-5, max_movement:int=200, distance_threshold:int=400):
+    def eucentric_height_after_distance(self, distance_threshold:int=400, method:str='eucentricHeight'):
         last_eucentric_height_distance = self.state.get_last_eucentric_distance()
         if last_eucentric_height_distance < distance_threshold:
             self.logger.info(f'Last eucentric height distance was {last_eucentric_height_distance} um (Threshold {distance_threshold} um), skipping eucentric height by tilt.')
             return
         self.logger.info(f'Last eucentric height distance was {last_eucentric_height_distance} um (Threshold {distance_threshold} um), running eucentric height by tilt.')
-        self.eucentricHeight(tilt_to, increments, max_movement)
+        methods = {'eucentricHeight': self.eucentricHeight, 
+                    'eucentricity_by_focus': self.eucentricity_by_focus, 
+                    'eucentricity_by_beam_tilt': self.eucentricity_by_beam_tilt}
+        methods[method]()
 
     def eucentricity_by_beam_tilt(self, max_movement:int=200, beam_tilt_angle:int=2):
         binning = sem.ReportBinning('V')

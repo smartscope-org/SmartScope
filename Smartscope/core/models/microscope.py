@@ -24,6 +24,7 @@ class Microscope(BaseModel):
     voltage = models.IntegerField(default=200)
     spherical_abberation = models.FloatField(default=2.7)
     cold_FEG = models.BooleanField(default=False,help_text='Check if the microscope has a cold FEG to enable the flashing operations. Only works on CRYOARM at the moment.')
+    narrow_gap_polepiece = models.BooleanField(default=False,help_text='Check if the microscope has a narrow gap polepiece to enable disable tilting. Only works on CRYOARM at the moment.')
     microscope_id = models.CharField(
         max_length=30,
         primary_key=True,

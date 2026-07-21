@@ -115,10 +115,16 @@ def eucentricSearch(scope:MicroscopeInterface,params,instance, content:Dict, *ar
     
     However, this is less precise than Eucentricty and should be avoided when using Falcon detectors or when setting up for data collection.
     """
+    if scope.microscope.narrow_gap_polepiece:
+        logger.info('Narrow gap polepiece detected, using eucentricity by focus instead of stage tilt.')
+        scope.eucentricity_by_focus()
     scope.eucentricHeight()
 
 def eucentricMediumMag(scope:MicroscopeInterface,params,instance, content:Dict, *args, **kwargs) :
     """Calculates eucentricity using the View preset. Equivalent to Eucentric Rough."""
+    if scope.microscope.narrow_gap_polepiece:
+        logger.info('Narrow gap polepiece detected, using eucentricity by focus instead of stage tilt.')
+        scope.eucentricity_by_focus()
     scope.eucentricity()
     instance.eucentricity_refined = True
     instance.save()
@@ -485,7 +491,11 @@ def refineEucentricityByFocus(scope:MicroscopeInterface,params,instance, content
 
 def eucentricSearchAfterDistance(scope:MicroscopeInterface,params,instance, content:Dict, *args, **kwargs):
     distance = content.get('distance', 300)
-    scope.eucentric_height_after_distance(distance_threshold=distance)
+    method = content.get('method', 'eucentricHeight')
+    if scope.microscope.narrowGapPolepiece:
+        logger.info('Narrow gap polepiece detected, using eucentricity by focus instead of stage tilt.')
+        method = 'eucentricity_by_focus'
+    scope.eucentric_height_after_distance(distance_threshold=distance, method=method)
 
 protocolCommandsFactory = dict(
     setAtlasOptics=setAtlasOptics,
