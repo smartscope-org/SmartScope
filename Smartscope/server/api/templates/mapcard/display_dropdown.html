@@ -1,7 +1,6 @@
-<div>
-    <a class="a btn btn-outline-secondary dropdown-toggle" href="#" id="displayDropdown" role="button"
-        data-bs-toggle="dropdown" aria-expanded="false"><i
-            class="bi bi-display"></i></a>
+<li class="nav-item dropdown d-flex align-items-center">
+    <a class="nav-link dropdown-toggle" href="#" id="displayDropdown" role="button"
+        data-bs-toggle="dropdown" aria-expanded="false">View</a>
 
     <div class="dropdown-menu">
         <div class="div" id="quality">
@@ -39,4 +38,13 @@
             {% endif %}
         </div>
     </div>
-</div>
+    <a hx-get="{% url 'selector_view' grid_id=instance.grid_id.pk selector=method maglevel=instance.prefix_lower %}" 
+        hx-trigger="mousedown" class="nav-link {% if display_type != 'selectors' %}disabled{% endif %} px-0"
+        hx-on--before-request="createHTMXloadingMessage(event, 'Loading selector viewer')"
+        hx-on--after-request="processHTMXloadingMessage(event)"
+        hx-target="#main" 
+        hx-swap="beforeend"
+        style="display: inline-flex; align-items: center;"
+        data-bs-toggle="tooltip" data-bs-placement="top" title="Edit selector"><i class="bi bi-gear small"></i>
+    </a>
+</li>

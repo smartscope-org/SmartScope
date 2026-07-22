@@ -6,21 +6,10 @@
         <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#atlasNavBar">
             <span class="navbar-toggler-icon"></span>
         </button>
-        <div class="collapse navbar-collapse justify-content-center" id="atlasNavBar">
-            <ul id="queueBtns" class="navbar-nav">
-                <li id="{{instance.targets_prefix}}SeleMenu" class="nav-item dropdown">
-                {% if display_type == 'selectors' %}
-                <li class="nav-item d-flex align-items-center">
-                    <a hx-get="{% url 'selector_view' grid_id=instance.grid_id.pk selector=method maglevel=instance.prefix_lower %}" 
-                    hx-trigger="mousedown" class="nav-link"
-                    hx-on--before-request="createHTMXloadingMessage(event, 'Loading selector viewer')"
-                    hx-on--after-request="processHTMXloadingMessage(event)"
-                    hx-target="#main" 
-                    hx-swap="beforeend"
-                    data-bs-toggle="tooltip" data-bs-placement="top" title="Edit selector"><i
-                        class="bi bi-pencil"></i></a>
-                </li>
-                {% endif %}
+        <div class="collapse navbar-collapse" id="atlasNavBar">
+            <ul id="queueBtns" class="navbar-nav w-100 justify-content-between">
+                {% include "mapcard/display_dropdown.html" %}
+                <li class="nav-divider" aria-hidden="true"></li>
                 {% if TRAINING_ANNOTATOR_FEATURE_FLAG %}
                 <li class="nav-item d-flex align-items-center">
                     <a hx-get="{% url 'annotator_view' grid_id=instance.grid_id.pk maglevel=instance.prefix_lower %}" 
@@ -32,15 +21,19 @@
                     data-bs-toggle="tooltip" data-bs-placement="top" title="Annotate data for training"><i
                         class="bi bi-bucket"></i></a>
                 </li>
+                <li class="nav-divider" aria-hidden="true"></li>
                 {% endif %}
                 {% include "mapcard/add_targets.html" %}
+                <li class="nav-divider" aria-hidden="true"></li>
                 {% include "mapcard/action_menu.html" %}
+                <li class="nav-divider" aria-hidden="true"></li>
                 <li class="nav-item d-flex align-items-center">
                     <a id='{{instance.targets_prefix}}ClearSele' class="nav-link disabled"
                         onmousedown="clearSelection('{{instance.targets_prefix}}')"
                         data-bs-toggle="tooltip" data-bs-placement="top" title="Clear Selection"><i
                             class="bi bi-x-square"></i></a>
                 </li>
+                <li class="nav-divider" aria-hidden="true"></li>
                 <!--Ruler icon in the square_div -->
                 {% if instance.targets_prefix == 'hole' %}
                 <li class="nav-item d-flex align-items-center">
@@ -71,3 +64,17 @@
     $('[data-bs-toggle="tooltip"]').tooltip();
     htmx.process(htmx.find('.mapCard'))   
 </script>
+
+<style>
+    #queueBtns.navbar-nav {
+        font-size: 0.9rem;
+    }
+    #queueBtns.navbar-nav .nav-divider {
+        margin: 0;
+        padding: 0;
+        width: 1px;
+        align-self: center;
+        /* height: 50%; */
+        background-color: rgba(0, 0, 0, 0.55);
+    }
+</style>
