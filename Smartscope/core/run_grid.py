@@ -258,7 +258,7 @@ def run_grid(
                     square
                 )
                 square = update(square, status=status.ACQUIRED, completion_time=timezone.now())
-            process_square_image_task.delay(square, grid.grid_id, microscope.microscope_id)
+            process_square_image_task.delay(square.square_id, square.directory, grid.grid_id, microscope.microscope_id)
             square = update(square, status=status.QUEUED_FOR_PROCESSING)
         elif is_done:
             microscope_id = microscope.pk

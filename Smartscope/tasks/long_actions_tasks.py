@@ -94,22 +94,22 @@ def regroup_bis_and_select(job_id: str, grid_id: str, square_id: str = 'all'):
     )
 
 @app.task
-def process_square_image(square: str, grid_id: str, microscope_id: str):
+def process_square_image(square_id: str, square_dir: str, grid_id: str, microscope_id: str):
     from Smartscope.core.grid.run_square import RunSquare
     from Smartscope.core.utils.lock_file import acquire_lock, release_lock, LockError
     from celery.result import allow_join_result
 
     try:
-        lock_path = acquire_lock(square.directory)
+        lock_path = acquire_lock(square_dir)
     except LockError as e:
         logger.warning(str(e))
         return
 
     try:
         with allow_join_result():
-            RunSquare.process_square_image(square.square_id, grid_id, microscope_id)
+            RunSquare.process_square_image(square_id, grid_id, microscope_id)
     except Exception as e:
-        logger.error(f"Error processing square {square.square_id}: {e}", exc_info=True)
+        logger.error(f"Error processing square {square_id}: {e}", exc_info=True)
     finally:
         release_lock(lock_path)
 
