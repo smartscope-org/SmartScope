@@ -5,7 +5,7 @@
 
 services:
   smartscope:
-    image: ghcr.io/smartscope-org/smartscope:dev
+    image: ghcr.io/smartscope-org/smartscope:latest
     restart: always
     volumes:
       - ./shared/auth/:/opt/auth/:rw
@@ -29,7 +29,7 @@ services:
       service: smartscope
     command: ["celery", "-A", "Smartscope.tasks.app", "worker", "-n", "long@%h", "-Q", "smartscope", "--loglevel=DEBUG", "--concurrency=4"]
   smartscope_ai:
-    image: ghcr.io/smartscope-org/smartscopeai:dev-cpu
+    image: ghcr.io/smartscope-org/smartscopeai:latest-cpu
     restart: always
     env_file:
       - smartscope.conf

@@ -1,7 +1,7 @@
 #! /bin/bash
 
 readonly cmd_file="dockerCmd.txt"
-readonly dockerRepo="ghcr.io/smartscope-org/smartscope"
+readonly dockerRepo="ghcr.io/niehs/smartscope"
 composeCmd="docker compose"
 dockerCmd="docker"
 
@@ -164,3 +164,4 @@ case $argument in
         helpText
         exit 1;;
 esac
+
