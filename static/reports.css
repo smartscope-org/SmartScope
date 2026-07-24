@@ -537,6 +537,14 @@
     display: block; /* Display submenu on hover */
 }
 
+.dropdown-header {
+    padding-top: 0.15rem;
+    padding-bottom: 0.15rem;
+    padding-left: 0.45rem;
+    color: rgba(0, 0, 0, 0.5);
+    font-weight: 350;
+}
+
 /* Debug CSS to ensure inputs are not blocked */
 .modal-body input,
 .modal-body select {

@@ -4,15 +4,17 @@
 
     <div class="dropdown-menu">
         <div class="div" id="quality">
+            {% if targets_methods.classifiers %}
             <h6 class="dropdown-header">Classifiers</h6>
-
             {% for classifier in targets_methods.classifiers %}
             <button id='opt-classifiers'
                 class="dropdown-item {% if classifier.name == method %}active{% endif %}"
                 data-bs-toggle="tooltip" data-bs-placement="left" title="{{classifier.description}}"
                 onmousedown="{% if instance.targets_prefix == 'square' %}loadAtlas({% else %}loadSquare('{{instance.id}}',{% endif %} false,'classifiers','{{classifier.name}}')">{{classifier.name}}</button>
             {% endfor %}
+            {% endif %}
 
+            {% if targets_methods.selectors %}
             <h6 class="dropdown-header">Selectors</h6>
             {% for selector in targets_methods.selectors %}
             <button id='opt-classifiers' data-bs-toggle="tooltip" data-bs-placement="left"
@@ -20,6 +22,9 @@
                 class="dropdown-item {% if selector.name == method %}active{% endif %}"
                 onmousedown="{% if instance.targets_prefix == 'square' %}loadAtlas({% else %}loadSquare('{{instance.id}}',{% endif %}false,'selectors','{{selector.name}}')">{{selector.name}}</button>
             {% endfor %}
+            {% endif %}
+
+            {% if targets_methods.embeddings %}
             <h6 class="dropdown-header">Embeddings</h6>
             {% for embedding in targets_methods.embeddings %}
             <button id='opt-classifiers' data-bs-toggle="tooltip" data-bs-placement="left"
@@ -27,7 +32,9 @@
                 class="dropdown-item {% if embedding.name == method %}active{% endif %}"
                 onmousedown="{% if instance.targets_prefix == 'square' %}loadAtlas({% else %}loadSquare('{{instance.id}}',{% endif %}false,'embeddings','{{embedding.name}}')">{{embedding.name}}</button>
             {% endfor %}
-            {% if instance.targets_prefix == 'hole' %}
+            {% endif %}
+
+            {% if instance.targets_prefix == 'hole' and targets_methods.metadata %}
             <h6 class="dropdown-header">Metadata</h6>
             {% for metadata in targets_methods.metadata %}
             <button id='opt-classifiers' data-bs-toggle="tooltip" data-bs-placement="left"
@@ -45,6 +52,6 @@
         hx-target="#main" 
         hx-swap="beforeend"
         style="display: inline-flex; align-items: center;"
-        data-bs-toggle="tooltip" data-bs-placement="top" title="Edit selector"><i class="bi bi-gear small"></i>
+        data-bs-toggle="tooltip" data-bs-placement="top" title="Edit selector"><i class="bi {% if display_type == 'selectors' %}bi-gear-fill{% else %}bi-gear{% endif %} small"></i>
     </a>
 </li>

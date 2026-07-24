@@ -127,9 +127,27 @@ $('#main').on("mousedown", '.legend', function () {
 
 $('#main').on('mousedown', '.showLegend', function () {
     console.log($(this), $(this).closest('.mapCard'))
-    $(this).closest('.mapCard').find('#legend, #scaleBar').toggleClass('d-none')
+    $(this).closest('.mapCard').find('#legend, #scaleBar').toggleClass('d-none');
+    $(this).toggleClass('active');
 })
 
+$('#main').on('mousedown', '.toggleNumbers', function () {
+    const $btn = $(this);
+    const $card = $btn.closest('.mapCard');
+    const prefix = $card.data('prefix');
+    const willBeActive = !$btn.hasClass('active');
+    $(`#${prefix}Text`).attr('visibility', willBeActive ? 'visible' : 'hidden');
+    $btn.toggleClass('active');
+});
+
+$('#main').on('mousedown', '.toggleShapes', function () {
+    const $btn = $(this);
+    const $card = $btn.closest('.mapCard');
+    const prefix = $card.data('prefix');
+    const willBeActive = !$btn.hasClass('active');
+    $(`#${prefix}Text, #${prefix}Shapes`).attr('visibility', willBeActive ? 'visible' : 'hidden');
+    $btn.toggleClass('active');
+});
 // $("#main").find(".hasTooltip").tooltip();
 
 
