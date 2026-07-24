@@ -44,14 +44,14 @@
                                     data-bs-content="Some description here. <a href='https://docs.smartscope.org/usage/detailed_procedures/data_collection/' target='_blank'>Read the docs</a>">
                                 </i>
                             </button>
+                        </h2>
+                        <div id="collapseColParams" class="accordion-collapse collapse show" aria-labelledby="headingColParams">
                             <div class="d-flex justify-content-end flex-grow-1 mt-1 pe-3" onclick="event.stopPropagation();">
                                 <div class="form-check form-switch tab-switchers position-relative mb-0">
                                     <input class="form-check-input" type="checkbox" role="switch" id="advancedToggleColParams">
                                     <label class="form-check-label small text-nowrap" for="advancedToggleColParams">Advanced</label>
                                 </div>
                             </div>
-                        </h2>
-                        <div id="collapseColParams" class="accordion-collapse collapse show" aria-labelledby="headingColParams">
                             <div class="accordion-body pt-0">
                                 {% url 'setMultishot' as multishot_url %}
                                 {% include "forms/expand_form.html" with form=form_params row=True id='formParams' trigger='multishot_per_hole' url=multishot_url %}
