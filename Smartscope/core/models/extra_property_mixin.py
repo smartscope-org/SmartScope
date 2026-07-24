@@ -15,7 +15,7 @@ class ExtraPropertyMixin:
 
     @ property
     def is_aws(self):
-        if os.path.isabs(self.directory):
+        if os.path.isabs(self.directory) or self.directory.startswith('..') or self.directory.startswith('.'):
             return False
         return True
 
@@ -36,16 +36,28 @@ class ExtraPropertyMixin:
 
     @ property
     def png(self):
-        return self.get_full_path(os.path.join(self.working_dir, 'pngs', f'{self.name}.png'))
+        webp_path = os.path.join(self.working_dir, 'pngs', f'{self.name}.webp')
+        png_path  = os.path.join(self.working_dir, 'pngs', f'{self.name}.png')
+        if not self.is_aws and os.path.exists(webp_path):
+            return self.get_full_path(webp_path)
+        return self.get_full_path(png_path)
 
     @ property
     def mrc(self):
-        return os.path.join(self.directory, f'{self.name}.mrc')
-
+        stiched = os.path.join(self.directory, f'{self.name}.mrc')
+        if os.path.exists(stiched):
+            return stiched
+        else:
+            return os.path.join(self.working_dir, 'raw', f'{self.name}.mrc')
+    
     @ property
     def raw_mrc(self):
         return os.path.join(self.working_dir, 'raw', f'{self.name}.mrc')
 
     @ property
     def ctf_img(self):
-        return self.get_full_path(os.path.join(self.working_dir, self.name, 'ctf.png'))
+        webp_path = os.path.join(self.working_dir, self.name, 'ctf.webp')
+        png_path  = os.path.join(self.working_dir, self.name, 'ctf.png')
+        if not self.is_aws and os.path.exists(webp_path):
+            return self.get_full_path(webp_path)
+        return self.get_full_path(png_path)

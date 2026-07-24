@@ -8,13 +8,8 @@ function escapeRegExp(string) {
 
 async function loadSVG(data, element) {
     console.log(data, element)
-    // if (data['fullmeta'] !== null) {
-        // var targets = data['targets']
     if ("svg" in data) {
         element.html(data['svg'])
-        // }
-        // updateFullMeta(data['fullmeta'])
-        // grabCuration()
     }
 }
 
@@ -76,6 +71,27 @@ async function queueSquareTargets(elem) {
     await apifetchAsync(url, { 'action': elem.value }, "PATCH", message=`Adding all target to queue for ${currentState.square}`);
     loadSquare(currentState.square)
 }
+
+async function suggestSimilar(magLevel) {
+    var selection = squareSelection.join(',')
+    if (magLevel == 'hole') {
+        selection = holeSelection.join(',')
+    }
+    var url = `/sim_siam/suggest_similar/?mag_level=${magLevel}&grid_id=${currentState.grid_id}&similar_to_ids=${selection}`
+
+    data = await fetchAsync(url, message=`Suggesting similar squares`)
+    suggestion = data['suggestions']
+    console.log('Suggestions:', suggestion)
+    for (item of suggestion) {    
+        $(`#${item}`).addClass('suggestion')
+    }
+    if (magLevel == 'hole') {
+        holeSuggestion = suggestion
+    } else {
+        squareSuggestion = suggestion
+    }
+}
+
 
 
 
@@ -158,28 +174,44 @@ function checkSelection(type = 'square') {
 }
 
 
-function clearSelection(selection, type) {
-    console.log(`Clearing Selection`)
-
-    if (type == 'hole') {
+function clearSelection(type) {
+    console.log(`Clearing Selection, ${type} `)
+    const normalizedType = (type === 'holes' || type === 'hole') ? 'hole' : type;
+    if (normalizedType == 'hole') {
         button = $('#holeClearSele')
-    } else if (type == 'targets') {
-        button = $('#clearTargets')
+        selection = holeSelection
+        suggestion = holeSuggestion
     } else {
+        selection = squareSelection
+        suggestion = squareSuggestion
         button = $('#squareClearSele')
     }
     while (selection.length != 0) {
-        if (type != 'targets') {
-            document.getElementById(selection[0]).classList.remove('clicked')
-        } else {
-            selection[0][0].remove()
-        }
-
+        document.getElementById(selection[0]).classList.remove('clicked')
         selection.shift()
+    }
+
+    while (suggestion.length != 0) {
+        $(`#${suggestion[0]}`).removeClass('suggestion')
+        suggestion.shift()
     }
     button.prop("disabled", true)
     popup_sele = null
+    console.log(`Selection cleared:`, selection)
+    console.log(`suggestion cleared:`, suggestion)
+
+    console.log(`Original squareSelection and holeSelection arrays:`, squareSelection, holeSelection)
     checkSelection(type)
+}
+
+function clearTargetsSelection() {
+    console.log('Clearing targetsSelection')
+    while (targetsSelection.length != 0) {
+        targetsSelection[0][0].remove()
+        targetsSelection.shift()
+    }
+    $('#clearTargets').prop("disabled", true)
+    checkSelection('targets')
 }
 
 async function loadSquare(full_id, metaonly = false, display_type = null, method = null) {
@@ -202,7 +234,7 @@ async function loadSquare(full_id, metaonly = false, display_type = null, method
 async function loadHole(id, metaonly = false) {
     let data = await fetchAsync(`/api/holes/${id}/load`, message=`Loading Hole ${id}`)
     $("#mmHole").html(data.card)
-    hm_data = await fetchAsync(`/api/holes/${id}/highmag/`, message=`Loading high mag data.`)
+    hm_data = await fetchAsync(`/api/holes/${id}/highmag/?squareMethod=${currentState['squareMethod']}`, message=`Loading high mag data.`)
     $('#Hole').html(hm_data)
     grabCuration()
 };
@@ -254,23 +286,18 @@ async function changeGridStatus(status) {
     }
 }
 
-function rateGrid(el) {
-    var url = `/api/grids/${fullmeta.grid_id}/`;
-    var value = el.value
-    let sidebar_element = $(`#sidebarGrids #${fullmeta.grid_id} div`)
+function rateGrid(el, gridId, value) {
+    var url = `/api/grids/${gridId}/`;
     if ( el.classList.contains('active')) {
         value = null
     }
-    document.getElementById("goodGrid").classList.remove('active');
-    document.getElementById("badGrid").classList.remove('active');
+    const container = el.closest('.quality-controls');
+    container.querySelectorAll('.quality-btn').forEach(btn => btn.classList.remove('active'));
     
     apifetchAsync(url, { 'quality': value }, "PATCH", message=`Setting grid quality to ${value}`);
     
-    sidebar_element.removeClass(function (index, className) {
-        return (className.match(/(^|\s)quality-\S+/g) || []).join(' ')})
     if (value != null) {
         el.classList.add('active');
-        sidebar_element.addClass(`quality-${value}`)
     }
 }
 
@@ -327,9 +354,9 @@ function optionMenu(meta, type = 'holes') {
     var skipBtn = document.getElementById(`opt-skip-square`)
     var queueDiv = document.getElementById('squareQueue')
     if (type == 'holes') {
-    var queueBtn = document.getElementById('opt-queued-hole')
-    var queueDiv = document.getElementById('holeQueue')
-    var skipBtn = document.getElementById(`opt-skip-hole`)
+        var queueBtn = document.getElementById('opt-queued-hole')
+        var queueDiv = document.getElementById('holeQueue')
+        var skipBtn = document.getElementById(`opt-skip-hole`)
     }
     if (queueBtn == null) {
         return
@@ -496,7 +523,7 @@ async function popupSele(element) {
 
 async function updateTargets(model, display_type, method, key, new_value, ids = null) {
 
-    var sele = squareSelection
+    var sele = squareSelection.concat(squareSuggestion)
     let stateKey = 'atlas'
     if (model == 'holes') {
         sele = holeSelection
@@ -519,7 +546,7 @@ async function updateTargets(model, display_type, method, key, new_value, ids = 
     updateData(resp)
     // resp = await websocketSend('update.target', request)
     console.log('updateClassifier response: ', resp)
-    clearSelection(sele, model)
+    clearSelection(model)
 }
 
 async function loadMeta() {
@@ -583,7 +610,7 @@ async function addTargets(btn, selection) {
     }
 
     console.log(`Adding targets on square: ${currentState.square}`, coords)
-    clearSelection(selection, 'targets')
+    clearTargetsSelection()
     var url = "/api/addtargets/"
     let res = await apifetchAsync(url, { 'session_id': fullmeta.session_id, 'square_id': currentState.square, 'targets': coords }, 'POST', message='Adding targets')
     console.log(res)
@@ -640,6 +667,8 @@ async function reportMain() {
     hovered = [];
     squareSelection = []
     holeSelection = []
+    squareSuggestion = []
+    holeSuggestion = []
     popupsele = null
     hmSelection = null
     targetsSelection = []
@@ -808,8 +837,8 @@ function clickSquare(elem) {
             return
         }
         currentState.square = elem.id;
-        clearSelection(holeSelection, 'hole')
-        clearSelection(targetsSelection, 'targets')
+        clearSelection('hole')
+        clearTargetsSelection()
         loadSquare(elem.id);
         console.log(currentState)
         pushState()

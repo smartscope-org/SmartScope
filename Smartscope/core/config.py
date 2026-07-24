@@ -35,6 +35,8 @@ def register_plugins(directories, factory):
             factory[data['name']] = out_class.model_validate(data)
 
 def get_active_plugins_list(external_plugins_directory,external_plugins_list) -> List[Path]:
+    if not Path.exists(external_plugins_list):
+        return []
     with open(external_plugins_list,'r') as file:
         return [external_plugins_directory / plugin.strip() for plugin in file.readlines()]
 
@@ -144,6 +146,7 @@ class ProtocolsFactory:
     _protocols_list: List[Path] = []
     _protocols_data: Dict[str, Dict] = {}
     _factory: Dict[str, BaseFeatureAnalyzer] = {}
+    _base_protocol: Dict = {}
 
     def __init__(self, *protocols_directory: Union[str,Path], external_plugins_list_file: Optional[Union[str,Path]]=None, external_plugins_directory: Optional[Union[str,Path]]=None) -> None:
         for directory in protocols_directory:
@@ -151,14 +154,23 @@ class ProtocolsFactory:
         if all([external_plugins_list_file is not None, external_plugins_directory is not None]):
             self._external_plugins_list_file = Path(external_plugins_list_file)
             self._external_plugins_directory = Path(external_plugins_directory)
-            
-    def parse_protocols_directories(self) -> None:
+        self._base_protocol = self.get_base_protocol()
+
+    def get_base_protocol(self):
+        base_protocols = []
         for directory in self._protocols_directories:
-            self._protocols_list += list(directory.glob('*.yaml'))
+            base_protocols += list(directory.glob('base-protocol.yaml'))
+        with open(base_protocols[-1]) as f:
+            data = yaml.safe_load(f)
+        return data
+
+    def parse_protocols_directories(self,glob_string='*.yaml') -> None:
+        for directory in self._protocols_directories:
+            self._protocols_list += list(directory.glob(glob_string))
         if self._external_plugins_directory is not None:
             external_plugins = get_active_plugins_list(self._external_plugins_directory, self._external_plugins_list_file)
             for plugin in external_plugins:
-                self._protocols_list += list((plugin/'smartscope_plugin'/'protocols').glob('*.yaml'))
+                self._protocols_list += list((plugin/'smartscope_plugin'/'protocols').glob(glob_string))
 
     def read_plugin_file(self, file) -> None:
         logger.debug(f'Reading plugin {file}')
@@ -168,13 +180,16 @@ class ProtocolsFactory:
 
     def read_protocols_files(self) -> None:
         for file in self._protocols_list:
+            if file.name == 'base-protocol.yaml':
+                continue
             self.read_plugin_file(file)
 
 
     def register_protocol(self, name:str) -> None:
         data = self._protocols_data[name]
+        protocol_data = self._base_protocol | data
         logger.debug(f'Registering protocol {name}')
-        self._factory[name] = BaseProtocol.model_validate(data)        
+        self._factory[name] = BaseProtocol.model_validate(protocol_data)
 
     def register_protocols(self):
         for name in self._protocols_data.keys():

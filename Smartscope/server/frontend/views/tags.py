@@ -73,4 +73,9 @@ def tag_manager(request, grid_id):
     sample_type_tags_choices = SampleTypeTag.objects.all()
     context['sample_type_tags'] = sample_type_tags
     context['sample_type_tags_choices'] = sample_type_tags_choices
+    projects_tags = get_grid_tags(grid_id, ContentType.objects.get_for_model(ProjectTag))
+    context['projects_tags'] = projects_tags
+    context['project_tags_choices'] = ProjectTag.objects.filter(group_name__in=request.user.groups.all().values_list('name', flat=True))
+
+
     return render(request, 'tags/tags_manager.html', context=context)

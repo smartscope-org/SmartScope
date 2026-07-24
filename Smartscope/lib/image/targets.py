@@ -19,7 +19,7 @@ class Targets:
             force_mdoc=False
         ):
         output_targets = []
-        if isinstance(targets, tuple):
+        if isinstance(targets, tuple) or len(targets) == 2:
             targets, labels = targets
         else:
             labels = [None] * len(targets)

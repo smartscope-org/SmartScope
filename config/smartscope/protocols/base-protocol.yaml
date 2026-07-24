@@ -1,0 +1,17 @@
+preImaging:
+  steps:
+    - setupSerialEM
+    - setupApertures
+    - setHighmagCountingMode
+    - loadGrid
+    - setupFrames
+    - openColumnValve
+    - resetState
+postHighMag:
+  steps:
+    - resetAFISimageShift
+    - refineZLP
+    - collectHardwareDark
+    - flashColdFEG
+    - recenterBeam
+    - zeroImageShift

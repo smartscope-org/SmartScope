@@ -1,13 +1,20 @@
 <button id="regroupAndReselectBtn" class="btn btn-primary"
-{% include "bootstrap_tooltip.html" with position="top" tooltip="Apply new settings to already aquired areas" %}
->
-Regroup and reselect
+        hx-post="{% url 'regroup_bis_select_job' grid_id=grid_id %}" 
+        hx-on--before-request="
+                createHTMXloadingMessage(event, 'Sending long action job request')"
+        hx-on--after-request="
+                processHTMXloadingMessage(event);
+                $('#close-right-sidebar').trigger('mousedown')"
+        hx-target="#loadingMessages" 
+        hx-swap="beforeend"
+        {% include "bootstrap_tooltip.html" with position="top" tooltip="Apply new settings to already aquired areas" %}
+>Regroup and reselect
 </button>
 
 <script>
     $('#regroupAndReselectBtn').tooltip()
-    $('#regroupAndReselectBtn').click(async function() {
-        await regroupBIS('{{grid_id}}', getRegroupBISandReselectUrl)
-        $('#close-right-sidebar').trigger('click')
-    })
+    // $('#main').on('mousedown','#regroupAndReselectBtn', function() {
+    //     // await regroupBIS('{{grid_id}}', getRegroupBISandReselectUrl)
+    //     $('#close-right-sidebar').trigger('click')
+    // })
 </script>

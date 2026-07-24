@@ -1,13 +1,12 @@
 name: Medium Mag AI hole finder
-method: find_holes
-module: Smartscope.lib.Finders.AIFinder.wrapper
+method: send_find_holes_from_montage
+module: Smartscope.tasks.base_tasks
 kwargs: 
   imgsz: 1280
-  thresh: 0.2
-  iou: 0.2
+  conf_thres: 0.3
+  iou_thres: 0.7
   device: '0'
   weights_circle: circle_weights/20241122_view_mag_weight.pt
-  method: yolo
   success_threshold: 1
 targetClass:
   - Finder

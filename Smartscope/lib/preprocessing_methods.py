@@ -167,14 +167,18 @@ def process_hm_from_average(
     process high-resolution images on average
     used by core.processing_pipelines.queue_incomplete_processes
     '''
+    montage = Montage(name=name, working_dir=working_dir)
     if force_reprocess or not os.path.isfile(raw):
         raw_file = os.path.join(scope_path_directory, raw)
         path = split_path(raw_file)
-        file_busy(path.file, path.root)
+        if not os.path.isfile(raw_file):
+            logger.info(f"File {raw_file} not found")
+            return montage
+        # file_busy(path.file, path.root)
         copy_file(path.path, remove=remove)
 
     # process montage
-    montage = Montage(name=name, working_dir=working_dir)
+    
     if force_reprocess or not montage.check_metadata(check_AWS=check_AWS):
         montage.metadata = parse_mdoc(montage.mdoc, montage.is_movie)
         montage.build_montage()

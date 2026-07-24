@@ -17,8 +17,7 @@ class TFSApertures(Apertures):
 class TFSSerialemInterface(SerialemInterface):
     apertures: Apertures = TFSApertures
 
-    def setup(self, *args, **kwargs):
-        super().setup(*args, **kwargs)
+    def setup_apertures(self):
         self.apertures = TFSApertures
 
     def checkDewars(self, wait=30):
@@ -36,7 +35,3 @@ class TFSSerialemInterface(SerialemInterface):
                 return
             self.logger.info(f'Pump is Running, waiting {wait}s')
             time.sleep(wait)
-
-    def atlas(self, size, file=''):
-        super().atlas(size, file)
-        sem.SetLowDoseMode(1)

@@ -5,7 +5,7 @@ from django.views.static import serve
 from django.views.generic import RedirectView
 
 
-from .views import views, tags
+from .views import views, tags, long_actions
 
 urlpatterns = [
     path('', RedirectView.as_view(url='browse/'), name=''),
@@ -28,6 +28,10 @@ urlpatterns = [
     path('tags/addsampletypetag/<grid_id>/',tags.add_sample_type_tag,name='addSampleTypeTag'),
     path('tags/searchtags/<tag_type>/',tags.search_tags,name='searchTags'),
     path('tags/removetag/<object_id>/',tags.remove_tag_from_grid,name='removeTagFromGrid'),
+    path('longactions/start_job/', long_actions.start_job, name='start_long_action_job'),
+    path('longactions/regroup_bis_select/<grid_id>/', long_actions.regroup_bis_and_select_htmx, name='regroup_bis_select_job'),
+    path('longactions/regroup_bis_select/<grid_id>/<square_id>/', long_actions.regroup_bis_and_select_htmx, name='regroup_bis_select_job'),
+    path('longactions/extend_lattice_global/<grid_id>/', long_actions.extend_lattice_global_htmx, name='extend_lattice_global_job'),
 ]
 if settings.USE_MICROSCOPE:
     urlpatterns += [
@@ -35,6 +39,7 @@ if settings.USE_MICROSCOPE:
         path('run/setup/', views.AutoScreenSetup.as_view(), name='setup_autoscreen'),
         path('run/setup/getusers/', views.getUsersInGroup, name='getUsersInGroup'),
         path('run/setup/getdetectors/', views.getMicroscopeDetectors, name='getMicroscopeDetectors'),
+        path('run/setup/getcollectionparamsform/', views.getCollectionParamsForm, name='getCollectionParamsForm'),
         path('run/session/', views.AutoScreenRun.as_view(), name='run_autoscreen'),
         path('run/session/<session_id>/', views.AutoScreenRun.as_view(), name='run_session'),
     ]

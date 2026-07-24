@@ -9,7 +9,8 @@
 
 #sidebar-container {
     /* min-height: 100vh;    */
-    background-color: #333;
+    overflow: hidden;
+    background-color: rgb(33 37 41);
     padding: 0;
 }
 
@@ -29,7 +30,8 @@
 
 /* Menu item*/
 #sidebar-container .list-group a {
-    height: 50px;
+    height: auto;
+    padding: 6px 10px;
     color: white;
 }
 
@@ -39,24 +41,12 @@
     padding-left: 30px;
 }
 
-.sidebar-submenu {
-    font-size: 0.9rem;
-}
-
-/* Separators */
-.sidebar-separator-title {
-    background-color: #333;
-    height: 35px;
-}
-
-.sidebar-separator {
-    background-color: #333;
-    height: 25px;
-}
-
-.logo-separator {
-    background-color: #333;
-    height: 60px;
+#sidebar-container .list-group-item.active {
+    border: 1px solid #0d6efd !important;
+    border-radius: 4px;
+    box-sizing: border-box;
+    margin: 2px 7px;
+    width: calc(100% - 14px);
 }
 
 /* Closed submenu icon */
@@ -67,13 +57,6 @@
     text-align: right;
     padding-left: 10px;
 }
-#sideNav {
-    background-color:#333;
-}
-
-#sideNav .list-group .list-group-item {
-    background: inherit;
-}
 
 /* Opened submenu icon */
 #sidebar-container .list-group .list-group-item[aria-expanded="true"] .submenu-icon::after {
@@ -82,6 +65,97 @@
     display: inline;
     text-align: right;
     padding-left: 10px;
+}
+
+.sidebar-section {
+    border: 1px solid #444;
+    border-radius: 8px;
+    overflow: hidden;
+    margin: 0px 8px 0 8px;
+    /* padding-top: 4px; */
+}
+
+.sidebar-section .input-group {
+    display: none;
+}
+
+.section-resizer {
+    height: 5px;
+    cursor: row-resize;
+    background: #444;
+    border-radius: 2px;
+    margin: 4px 8px;
+}
+
+#sidebarGroups::-webkit-scrollbar-track,
+#sidebarSessions::-webkit-scrollbar-track,
+#sidebarGrids::-webkit-scrollbar-track {
+    background: #444;
+}
+
+.sidebar-submenu {
+    font-size: 0.9rem;
+}
+
+/* Separators */
+.sidebar-separator-title {
+    padding: 0 8px;
+    background-color: rgb(33 37 41);
+    height: 35px;
+    border-bottom: 1px solid #444 !important;
+}
+
+.sidebar-separator {
+    background-color: rgb(33 37 41);
+    height: 25px;
+}
+
+.logo-separator {
+    background-color: rgb(33 37 41);
+    height: 60px;
+}
+
+#sidebarNav {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    overflow: hidden;
+}
+
+#sidebarNav > ul.list-group {
+    display: flex;
+    flex-direction: column;
+    min-height: 120px;             /* lets flex children shrink below content size */
+    overflow: hidden;
+    height: 100%;
+    padding-bottom: 8px;
+}
+
+.sidebar-section {
+    display: flex;
+    flex-direction: column;
+    flex: none;              /* don't grow or shrink */
+    overflow: hidden;
+}
+
+.sidebar-section:last-child {
+    flex: 1 1 0;
+    min-height: 120px;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    /* justify-content: flex-start; */
+}
+
+#sideNav {
+    background-color:rgb(33 37 41);
+    /* overflow: hidden; */
+}
+
+#sideNav .tooltip { pointer-events: none; }
+
+#sideNav .list-group .list-group-item {
+    background: inherit;
 }
 
 .close-btn {
@@ -104,7 +178,6 @@
 .clicked {
     stroke-width: 10;
     fill-opacity: 0.9;
-
 }
 
 .good {
@@ -181,9 +254,11 @@
 
 .acquired,
 .processed,
+.processing_queued,
 .targets_picked,
 .started,
-.selected {
+.selected,
+.grouped {
     stroke: Gold;
     /* fill: Gold; */
     color: Gold;
@@ -199,6 +274,12 @@
     stroke: orange;
     /* fill: orange; */
     color: orange;
+}
+
+.error {
+    stroke: rgb(194, 19, 19);
+    /* fill: green; */
+    color: rgb(194, 19, 19);
 }
 
 .completed.has_queued {
@@ -461,4 +542,26 @@
 .modal-body select {
     pointer-events: auto;
     z-index: 1000;
+}
+
+/* Define the animation */
+@keyframes draw-outline {
+  0% {
+    stroke-dashoffset: 251.2;
+  }
+  50% {
+    stroke-dashoffset: 0;
+  }
+  100% {
+    stroke-dashoffset: -251.2;
+  }
+}
+
+.suggestion {
+    /* stroke-width: 80px; */
+    stroke: white;
+    stroke-dasharray: 251.2;  /* circumference of the circle */
+    stroke-dashoffset: 0;
+    animation: draw-outline 2s linear infinite;
+
 }

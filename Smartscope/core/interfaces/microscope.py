@@ -18,10 +18,14 @@ class MicroscopeState:
     stageZ: float = 0
     last_autofocus_stage_X: float = 999999
     last_autofocus_stage_y: float = 999999
+    last_eucentric_stage_x: float = 999999
+    last_eucentric_stage_y: float = 999999
     tiltAngle: float = None
     preAFISimageShiftX: float = 0
     preAFISimageShiftY: float = 0
     apertureState: Dict = field(default_factory=dict)
+    lastSquareCenteringShiftX: float = 0
+    lastSquareCenteringShiftY: float = 0
     last_autocenter_time: int= -1
     last_refine_zlp_success: bool = True
     current_mag: Optional[Literal['atlas','square', 'hole']] = None
@@ -39,7 +43,14 @@ class MicroscopeState:
 
     def get_last_autofocus_distance(self):
         return np.sqrt((self.stageX - self.last_autofocus_stage_X)**2 + (self.stageY - self.last_autofocus_stage_y)**2)
-    
+
+    def set_last_eucentric_position(self):
+        self.last_eucentric_stage_x = self.stageX
+        self.last_eucentric_stage_y = self.stageY
+
+    def get_last_eucentric_distance(self):
+        return np.sqrt((self.stageX - self.last_eucentric_stage_x)**2 + (self.stageY - self.last_eucentric_stage_y)**2)
+
     def getStage(self):
         return self.stageX, self.stageY, self.stageZ
     
@@ -84,11 +95,13 @@ class AtlasSettings(BaseModel):
 class Detector(BaseModel):
     energyFilter:bool = Field(alias='energy_filter')
     framesDir:str = Field(alias='frames_windows_directory')
+    detectorModel:str = Field(alias='detector_model')
 
     class Config:
         from_attributes=True
 
 class Microscope(BaseModel):
+    microscopeId:str = Field(alias='microscope_id')
     loaderSize:int = Field(alias='loader_size')
     ip:str = Field(alias='serialem_IP')
     port:int = Field(alias='serialem_PORT')

@@ -106,7 +106,11 @@ def calculate_hole_geometry(grid:AutoloaderGrid):
             logger.debug(f'Skipping {group} because not enough hole close to each others.')
             continue
     logger.debug(f'Calculated rotations: {rotations} degrees and spacings: {spacings} pixels. Expected spacing: {expected_spacing:.2f} pixels.')
-    rotation = np.mean(rotations)
+    if len(rotations) == 0:
+        rotation = 0.0
+    else:
+        _r = np.radians(np.array(rotations) * 4.0)
+        rotation = float(np.degrees(np.arctan2(np.mean(np.sin(_r)), np.mean(np.cos(_r)))) / 4.0 % 90.0)
     spacing = np.mean(spacings)
 
     

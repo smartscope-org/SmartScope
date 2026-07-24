@@ -4,8 +4,9 @@ import logging
 import random
 from functools import partial
 from Smartscope.lib.image.target import Target
+from Smartscope.core.models import AtlasModel
 from smartscope_connector.Datatypes.querylist import QueryList
-from Smartscope.core.selector_sorter import initialize_selector
+from Smartscope.core.selector_sorter import initialize_selector, initialize_selector_from_embeddings
 from Smartscope.core.settings.worker import PLUGINS_FACTORY
 import numpy as np
 
@@ -71,9 +72,10 @@ def count_filtered(filtered, value:str="0"):
 def add_selector_to_score_string(score, selector_class):
     return score + str(selector_class)
 
-def filter_targets(parent, targets, stage_radius_limit:int = 975, offset_x:float=0, offset_y:float=0):
+def filter_targets(grid, targets, stage_radius_limit:int = 975, offset_x:float=0, offset_y:float=0):
     classifiers = get_target_methods(targets, 'classifiers')
     selectors = get_target_methods(targets, 'selectors')
+    emdbedding_methods = ['Sim Siam Clustering']
 
     ##Filter out of range targets
     filter_oor_partial = partial(filter_out_of_range, stage_radius_limit=stage_radius_limit, offset_x=offset_x, offset_y=offset_y)
@@ -99,17 +101,26 @@ def filter_targets(parent, targets, stage_radius_limit:int = 975, offset_x:float
     logger.debug(f'Filtered classes against classifiers {classifiers}: {filtered}')            
     # filtered = np.array(filtered)
     for selector in selectors:
-        sorter = initialize_selector(parent.grid_id, selector, targets)
+        sorter = initialize_selector(grid, selector, targets)
         filtered = list(map(add_selector_to_score_string, filtered, sorter.classes))
+
+    filtered = list(map(lambda x: x + "_", filtered))
+    
+    for plugin in emdbedding_methods:
+        sorter = initialize_selector_from_embeddings(grid, plugin, targets)
+        if sorter is None:
+            logger.warning(f'No selector found for {plugin} in grid {grid.grid_id}. Skipping.')
+            continue
+        filtered = list(map(add_selector_to_score_string, filtered, sorter.classes))
+    
+    
     logger.debug(f'Filtered classes against classifiers {classifiers} and selectors {selectors}: {filtered}')
     
     return filtered
 
-def apply_filter(targets, filtered):
-    # for target, filt in zip(targets, filtered):
-    #     if '0' in filt:
-    #         continue
-    #     yield target
+def apply_filter(targets, filtered, invert= False):
+    if invert:
+        return [target for target, filt in zip(targets, filtered) if '0' in filt]
     return [target for target, filt in zip(targets, filtered) if '0' not in filt]
 
 def prepare_filtered_set(filters)-> set:
@@ -156,9 +167,18 @@ def select_n_areas(parent, n, is_bis=False):
     additional_filters = dict()
     if is_bis:
         additional_filters['bis_type'] = 'center'
+
+    limits_kwargs = {}
+    if isinstance(parent, AtlasModel):
+        detector = parent.grid_id.session_id.detector_id
+        limits_kwargs['offset_x'] = detector.atlas_to_search_offset_x
+        limits_kwargs['offset_y'] = detector.atlas_to_search_offset_y
+
     additional_filters['status'] = None
     targets = list(parent.targets.all())
-    filtered= filter_targets(parent, targets)
+    if len(targets) == 0:
+        return []
+    filtered= filter_targets(parent.grid_id, targets, **limits_kwargs)
     targets,filtered = prune_targets(targets, filtered, **additional_filters)
     logger.debug(f'Filtered targets: {len(filtered)}, {filtered}')
     assert len(targets) == len(filtered), f'Length of targets {len(targets)} and filtered {len(filtered)} do not match.'

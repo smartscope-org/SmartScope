@@ -8,7 +8,7 @@ authors = [
     {name = "Jonathan Bouvette", email = "bouvette@princeton.edu"},
 ]
 description = "Smartscope module for automatic CryoEM grid screening"
-requires-python = ">=3.9,<3.10"
+requires-python = ">=3.10"
 keywords = ["smartscope", "cryoem", "screening","serialem"]
 license = {file = "LICENSE"}
 classifiers = [
@@ -17,43 +17,50 @@ classifiers = [
 ]
 dynamic = ["version", "readme"]
 dependencies = [
-    "boto3==1.26.157",
+    "boto3",
     "celery[redis]",
-    "channels_redis==4.1.0",
+    "channels_redis",
     "channels[daphne]",
-    "ddt==1.6.0",
-    "django==4.2.2",
-    "django-environ==0.10.0",
-    "django-filter==23.2",
-    "django-storages==1.13.2",
-    "djangorestframework==3.14.0",
-    "djangorestframework-yaml==2.0.0",
+    "ddt",
+    "django",
+    "django-environ",
+    "django-filter",
+    "django-storages",
+    "djangorestframework",
+    "djangorestframework-yaml",
     "drawSvg[all]",
-    "environ==1.0",
+    "environ",
     "gunicorn",
-    "imutils==0.5.4",
-    "mrcfile==1.4.3",
-    "matplotlib==3.7.1",
-    "mysqlclient",
-    "numpy==1.25.0",
-    "opencv-python==4.7.0.72",
-    "pandas==2.0.2",
-    "pillow==9.0.1",
-    "plotly==5.15.0",
-    "pycv2==0.0.1",
+    "imutils",
+    "mrcfile",
+    "matplotlib",
+    "numpy",
+    "opencv-python",
+    "pandas",
+    "pillow",
+    "plotly",
+    "pycv2",
     "pydantic",
-    "psutil==5.9.5",
-    "pymysql==1.0.3",
-    "pyyaml==6.0",
+    "psutil",
+    "pymysql",
     "seaborn",
-    "scipy==1.10.1",
-    "scikit-image==0.21.0",
+    "scipy",
+    "scikit-image",
     "scikit-learn",
-    "torch==1.8.1",
-    "torchvision==0.9.1",
-    "torchaudio==0.8.1",
     "uvicorn",
-    "websockets==11.0.3",
+    "websockets",
+    "django-cors-headers",
+    "mysqlclient",
+    "serialem",
+    "smartscope-connector",
+    "cryosparc-tools",
+    "pyarrow>=20.0.0",
+    "ipykernel>=6.29.5",
+    "dotenv>=0.9.9",
+    "pyjwt>=2.10.1",
+    "globus-sdk>=4.4.1",
+    "globus-compute-sdk>=4.8.0",
+    "starfile>=0.5.13",
 ]
 
 
@@ -70,6 +77,10 @@ Repository = "https://github.com/NIEHS/SmartScope"
 [tool.setuptools.dynamic]
 version = {file = ["VERSION"]}
 readme = {file = ["README.md"]}
+
+[tool.uv.sources]
+serialem = { git = "https://github.com/JoQCcoz/serialem-pythonmodule.git" }
+smartscope-connector = { git = "https://github.com/JoQCcoz/SmartScope-connector.git" }
 
 [tool.setuptools]
 packages = ["Smartscope"]

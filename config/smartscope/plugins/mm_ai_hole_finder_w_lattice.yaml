@@ -1,18 +1,18 @@
 name: MM AI hole finder with lattice
 method: find_holes_with_lattice
-module: Smartscope.lib.Finders.AIFinder.wrapper
+module: Smartscope.tasks.base_tasks
 create_targets_method: center
 kwargs: 
   imgsz: 1280
-  thresh: 0.2
-  iou: 0.2
+  conf_thres: 0.4
+  iou_thres: 0.7
   device: '0'
   weights_circle: circle_weights/20241122_view_mag_weight.pt
-  method: yolo
   success_threshold: 2
 grid_related_kwargs:
   hole_spacing: holeType.pitch
   lattice_radius: params_id.bis_max_distance
+  hole_size: holeType.hole_size
 targetClass:
   - Finder
 description: |

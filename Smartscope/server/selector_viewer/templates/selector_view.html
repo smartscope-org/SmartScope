@@ -13,18 +13,18 @@
 <div class="d-flex flex-row justify-content-between align-items-center">
     <form method="post" class="col-10">
     {% csrf_token %}
-        <div class="d-flex flex-row justify-content-between align-items-center">
+        <div class="row align-items-center my-1">
             <div class="col-8">
             {% include 'two_way_slider.html' with initial_limits=initial_limits values_range=values_range %}
             </div>
             {% url 'save_selector_limits' grid_id selector.name as save_url%}
 
 
-            <div class="col d-flex flex-row ">
+            <div class="col">
             {% with  url=save_url param1="sliderValue1" param2="sliderValue2"%}
             {% include 'save_button.html' with apply_to="grid" inner_html="Save" tooltip="Save for the current grid" message="Saving parameter for the current grid"%}
                 <span class="mx-1"></span>
-            {% include 'save_button.html' with apply_to="session" inner_html="Save to session" tooltip="Save and apply all the grid in the current session. **This may have wierd results if the session combines carbon and gold foil grids." message="Saving parameters to the session"%}
+            {% include 'save_button.html' with apply_to="grid_type" inner_html="Save to Mesh Type" tooltip="Save and apply for all the grids with the same Mesh Material" message="Saving parameters to the same Mesh Material"%}
             {% endwith %}
             
             </div>

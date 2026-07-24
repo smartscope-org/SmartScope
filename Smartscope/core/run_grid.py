@@ -2,31 +2,33 @@ import os
 import sys
 import time
 import logging
+import numpy as np
+from scipy.spatial.distance import cdist
 from typing import Union
-from enum import Enum
 from pathlib import Path
 from django.utils import timezone
 from django.conf import settings
 from django.db import transaction
 
-from Smartscope.lib.image_manipulations import export_as_png
+from Smartscope.lib.image_manipulations import auto_contrast_triangle_cdf, export_as_png
+from Smartscope.sim_siam.plugin import SimSiamEmbedding
+from Smartscope.tasks.long_actions_tasks import process_square_image as process_square_image_task
 
 from .grid.grid_status import GridStatus
 from .grid.finders import find_targets
 from .grid.grid_io import GridIO
 from .grid.run_io import get_file_and_process
-from .grid.run_square import RunSquare
 from .grid.run_hole import RunHole
 from .interfaces.microscope_interface import MicroscopeInterface
 from .selectors import selector_wrapper
-from .models import SquareModel, AutoloaderGrid
-from .settings.worker import PROTOCOL_COMMANDS_FACTORY, SKIP_WEBSOCKET_DURING_DATACOLLECTION
-from .frames import get_frames_prefix, parse_frames_prefix
+from .models import SquareModel, AutoloaderGrid, Finder, HoleModel
+from .settings.worker import PROTOCOL_COMMANDS_FACTORY
 from .status import status
 from .protocols import get_or_set_protocol
 from .preprocessing_pipelines import load_preprocessing_pipeline
 from .db_manipulations import update, queue_atlas, add_targets
-from .data_manipulations import select_n_areas
+from .selection.strategies import TARGET_SELECTION_STRATEGIES
+from .navigation import get_queue, get_target_priority, NAVIGATION_STRATEGIES, TargetPriority
 from .stats import count_completed
 
 logger = logging.getLogger(__name__)
@@ -50,11 +52,7 @@ def run_grid(
 
 
     grid = update(grid, refresh_from_db=True, last_update=None)
-    # Set the Websocket_update_decorator grid property
-    if SKIP_WEBSOCKET_DURING_DATACOLLECTION and grid.collection_mode == 'collection':
-        logger.info('Skipping websocket updates during data collection')
-    else:
-        update.grid = grid
+    update.grid = grid
 
     if grid.status == GridStatus.COMPLETED:
         logger.info(f'Grid {grid.name} already complete. grid ID={grid.grid_id}')
@@ -83,27 +81,30 @@ def run_grid(
     atlas = queue_atlas(grid)
 
     # scope
-
-    # create frames directory
-    prefix = parse_frames_prefix(get_frames_prefix(grid),grid)
-    grid_dir = grid.frames_dir(prefix=prefix)
-    if params.save_frames:
-        GridIO.create_grid_frames_directory(session.detector_id.frames_directory, grid.frames_dir(prefix=prefix))
-        logger.debug(f'Saving the frames in {grid_dir}')
     if not skip_loading:
-        scope.loadGrid(grid.position)
-    scope.open_valves()
+        runScopeProtocolSteps(
+            scope,
+            protocol.preImaging.steps,
+            params,
+            grid
+        )
+        update(grid, loading_time=timezone.now())
     check_stop_flag(session_id)
-    scope.setup(params.save_frames,grid_dir=grid_dir,framesName=f'{session.date}_{grid.name}')
-    scope.reset_state()
 
+    needs_reregistations = grid.unloading_time is not None and grid.loading_time > grid.unloading_time
+    if needs_reregistations:
+        logger.info('Re-registering grid after re-loading')
+        reregister_grid(scope, grid, protocol)
+
+    SELECTION_STRATEGY = TARGET_SELECTION_STRATEGIES['original']
+    NAVIGATION_STRATEGY = NAVIGATION_STRATEGIES['original']
     # run acquisition
     if atlas.status == status.QUEUED or atlas.status == status.STARTED:
         atlas = update(atlas, status=status.STARTED)
         logger.info('Waiting on atlas file')
-        runAcquisition(
+        runScopeProtocolSteps(
             scope,
-            protocol.atlas.acquisition,
+            protocol.atlas.steps,
             params,
             atlas
         )
@@ -120,7 +121,7 @@ def run_grid(
             name=atlas.name,
             directory=microscope.scope_path
         )
-        export_as_png(montage.image, montage.png)
+        export_as_png(montage.image, montage.png, normalization=auto_contrast_triangle_cdf)
         targets, finder_method, classifier_method, _ = find_targets(
             montage,
             protocol.atlas.targets.finders
@@ -148,10 +149,13 @@ def run_grid(
             montage = Montage(name=atlas.name)
             montage.load_or_process()
         selector_wrapper(protocol.atlas.targets.selectors, atlas, montage=montage)
-        selected = select_n_areas(atlas, grid.params_id.squares_num)
+        # SimSiamEmbedding().run(mag_level='square', grid_id=grid.grid_id)
+        selection_strategy = SELECTION_STRATEGY(n_targets=params.squares_num)
+        selected = selection_strategy.select(atlas)
+        print(f'Selected {len(selected)} targets from atlas')
         with transaction.atomic():
-            for obj in selected:
-                update(obj, selected=True, status='queued')
+            for obj,priority in zip(*selected):
+                update(obj, selected=True, status='queued', acquisition_priority=priority)
         atlas = update(atlas, status=status.COMPLETED)
 
         #Release atlas items from memory.
@@ -166,6 +170,13 @@ def run_grid(
         update(grid, status=GridStatus.COMPLETED)
         return 'finished'
 
+    # Crash recovery: re-dispatch processing tasks for squares left in ACQUIRED
+    # state from a previous interrupted run.
+    for sq in grid.squaremodel_set.filter(status__in=[status.ACQUIRED,status.QUEUED_FOR_PROCESSING,status.PROCESSED]):
+        logger.info(f'Re-dispatching processing task for previously acquired square {sq}')
+        process_square_image_task.delay(sq.square_id, grid.grid_id, microscope.microscope_id)
+        if sq.status != status.QUEUED_FOR_PROCESSING:
+            update(sq, status=status.QUEUED_FOR_PROCESSING)
 
     running = True
     is_done = False
@@ -179,20 +190,21 @@ def run_grid(
         if grid.status == GridStatus.ABORTING:
             running = False
             continue
-        square, hole = get_queue(grid)
-        priority = get_target_priority(grid, (square, hole))
-        logger.debug(f'Priority: {priority}')
 
-        logger.info(f'Queued => Square: {square}, Hole: {hole}')
+        priority = get_target_priority(grid, SELECTION_STRATEGY.target_priority)
+        queue, priority  = get_queue(grid, priority, NAVIGATION_STRATEGY)
+
+        
         logger.info(f'Targets done: {is_done}')
         if priority == TargetPriority.HOLE:
+            hole = queue[0]
             is_done = False
             logger.info(f'Running Hole {hole}')
             # process medium image
             hole = update(hole, status=status.STARTED)
-            runAcquisition(
+            runScopeProtocolSteps(
                 scope,
-                protocol.mediumMag.acquisition,
+                protocol.mediumMag.steps,
                 params,
                 hole
             )
@@ -206,14 +218,14 @@ def run_grid(
             if hole.status == status.SKIPPED:
                 continue
 
-            scope.reset_image_shift_values(afis=params.afis)
+
             for hm in hole.targets.exclude(status__in=[status.ACQUIRED,status.COMPLETED]).order_by('hole_id__number'):
                 hm = update(hm, refresh_from_db=False, status=status.STARTED)
                 if hm.hole_id.status == status.SKIPPED:
                     break
-                hm = runAcquisition(
+                hm = runScopeProtocolSteps(
                     scope,
-                    protocol.highMag.acquisition,
+                    protocol.highMag.steps,
                     params,
                     hm
                 )
@@ -225,27 +237,29 @@ def run_grid(
                 if hm.hole_id.bis_type != 'center':
                     update(hm.hole_id, status=status.ACQUIRED, completion_time=timezone.now())
             update(hole, status=status.COMPLETED)
-            scope.reset_AFIS_image_shift(afis=params.afis)
-            scope.refineZLP(params.zeroloss_delay)
-            scope.collectHardwareDark(params.hardwaredark_delay)
-            scope.flash_cold_FEG(params.coldfegflash_delay)
-            scope.recenter_beam(params.beam_centering_delay)
+            runScopeProtocolSteps(
+                scope,
+                protocol.postHighMag.steps,
+                params,
+                hole
+            )
         elif priority == TargetPriority.SQUARE:
             is_done = False
+            square = queue[0]
             logger.info(f'Running Square {square}')
             # process square
             if square.status == status.QUEUED or square.status == status.STARTED:
                 square = update(square, status=status.STARTED)
                 logger.info('Waiting on square file')
-                runAcquisition(
+                runScopeProtocolSteps(
                     scope,
-                    protocol.square.acquisition,
+                    protocol.square.steps,
                     params,
                     square
                 )
                 square = update(square, status=status.ACQUIRED, completion_time=timezone.now())
-            RunSquare.process_square_image(square, grid, microscope)
-            # calculate_hole_geometry(grid)
+            process_square_image_task.delay(square.square_id, grid.grid_id, microscope.microscope_id)
+            square = update(square, status=status.QUEUED_FOR_PROCESSING)
         elif is_done:
             microscope_id = microscope.pk
             tmp_file = os.path.join(settings.TEMPDIR, f'.pause_{microscope_id}')
@@ -266,44 +280,46 @@ def run_grid(
             else:
                 running = False
         else:
-            logger.debug('All processes complete')
-            is_done = True
+            in_flight_statuses = status().in_flight_statuses
+            if grid.squaremodel_set.filter(status__in=in_flight_statuses).exists():
+                logger.info('Waiting for square processing tasks to complete...')
+                time.sleep(5)
+            else:
+                logger.debug('All processes complete')
+                is_done = True
         logger.debug(f'Running: {running}')
     else:
         update(grid, status=GridStatus.COMPLETED)
         logger.info('Grid finished')
+        scope.unload_grid()
+        update(grid, unloading_time=timezone.now())
         return 'finished'
 
-class TargetPriority(Enum):
-    HOLE = 'hole'
-    SQUARE = 'square'
+# class TargetPriority(Enum):
+    # HOLE = 'hole'
+    # SQUARE = 'square'
 
 
-def get_target_priority(grid, queue):
-    square, hole = queue
-    if hole is None and square is None:
-        return
-    if hole is None:
-        return TargetPriority.SQUARE
-    if square is None:
-        return TargetPriority.HOLE
-    if grid.collection_mode == 'screening' and grid.session_id.microscope_id.vendor != 'JEOL':
-        return TargetPriority.HOLE
-    return TargetPriority.SQUARE
+# def get_target_priority(grid, queue):
+#     square, hole = queue
+#     if hole is None and square is None:
+#         return
+#     if hole is None:
+#         return TargetPriority.SQUARE
+#     if square is None:
+#         return TargetPriority.HOLE
+#     if grid.collection_mode == 'screening' and grid.session_id.microscope_id.vendor != 'JEOL':
+#         return TargetPriority.HOLE
+#     return TargetPriority.SQUARE
 
-    
-
-def get_queue(grid):
-    square = grid.squaremodel_set.filter(selected=True).\
-        exclude(status__in=[status.SKIPPED, status.COMPLETED]).\
-        order_by('number').first()
-    hole = grid.holemodel_set.filter(selected=True, square_id__status=status.COMPLETED).\
-        exclude(status__in=[status.SKIPPED, status.COMPLETED]).\
-        order_by('square_id__completion_time', 'number').first()
-    return square, hole#[h for h in holes if not h.bisgroup_acquired]
-
-
-
+# def get_queue(grid):
+#     square = grid.squaremodel_set.filter(selected=True).\
+#         exclude(status__in=[status.SKIPPED, status.COMPLETED]).\
+#         order_by('number').first()
+#     hole = grid.holemodel_set.filter(selected=True, square_id__status=status.COMPLETED).\
+#         exclude(status__in=[status.SKIPPED, status.COMPLETED]).\
+#         order_by('square_id__completion_time', 'number').first()
+#     return square, hole#[h for h in holes if not h.bisgroup_acquired]
 
 def get_stop_file(session_id: str, default=None) -> Union[Path,None]:
     stop_file = Path(settings.TEMPDIR, f'{session_id}.stop')
@@ -338,7 +354,7 @@ def parse_method(method):
     return method_name, content, args, kwargs
     
 
-def runAcquisition(
+def runScopeProtocolSteps(
         scope,
         methods,
         params,
@@ -350,3 +366,78 @@ def runAcquisition(
         if output is not None:
             instance = output
     return output
+
+def reregister_grid(scope, grid, protocol, rotation:bool=True):
+    from itertools import combinations
+    from Smartscope.lib.mesh_operations import calculate_transformation_matrix, apply_transform
+    import matplotlib.pyplot as plt
+    logger.info('Re-registering grid')
+    completed_squares = list(grid.squaremodel_set.filter(status=status.COMPLETED))
+    if len(completed_squares) < 2:
+        logger.info('Not enough completed squares to re-register grid')
+        return
+    coords = []
+    for square in completed_squares:
+        finder = square.finders.first()
+        coords.append((finder.stage_x, finder.stage_y))
+
+    coords_np = np.asarray(coords, dtype=float)
+    D = cdist(coords_np, coords_np, metric='euclidean')
+
+    if len(completed_squares) >= 3:
+        best = max(
+            combinations(range(len(completed_squares)), 3),
+            key=lambda idx: D[idx[0], idx[1]] + D[idx[0], idx[2]] + D[idx[1], idx[2]]
+        )
+        selected = [completed_squares[k] for k in best]
+        logger.info(f'Using 3 squares for re-registration: {selected}')
+    else:
+        selected = completed_squares
+
+
+    old_positions = []
+    new_positions = []
+    for square in selected:
+        new_pos = PROTOCOL_COMMANDS_FACTORY['reregisterSearchMag'](scope, grid.params_id, square,{})
+        if new_pos is not None:
+            new_positions.append(new_pos)
+            old_positions.append(square.stage_coords)
+
+    if len(old_positions) == 0:
+        logger.warning('Cannot re-register grid: no valid positions returned from re-imaging squares')
+        return
+
+    calculated_matrix = calculate_transformation_matrix(old_positions, new_positions, rotation=rotation)
+    fig = plt.figure(figsize=(8, 8))
+    ax = fig.add_subplot(111)
+    ax.scatter(*zip(*old_positions), color='blue', label='Old Points')
+    ax.scatter(*zip(*new_positions), color='red', label='New Points')
+    transformed_points=  apply_transform(calculated_matrix, old_positions)
+    ax.scatter(*zip(*transformed_points), color='green', label='Transformed Points', marker='x')
+    ax.legend()
+    fig.savefig(Path(grid.directory, 'reregistration_plot.png'))
+    logger.info(f'Re-registration transformation matrix:\n{calculated_matrix}')
+    squares = list(SquareModel.display.filter(grid_id=grid))
+    holes = list(HoleModel.display.filter(grid_id=grid))
+    targets_to_update = squares + holes
+
+    finders_to_create = []
+    for target in targets_to_update:
+        existing_finder = target.finders.order_by('-created_at').first()
+        old_pos = np.array([existing_finder.stage_x, existing_finder.stage_y])
+        new_pos = apply_transform(calculated_matrix, old_pos)
+        finders_to_create.append(
+            Finder(
+                content_object=target,
+                method_name='Registration',
+                x=existing_finder.x,
+                y=existing_finder.y,
+                stage_x=float(new_pos[0]),
+                stage_y=float(new_pos[1]),
+                stage_z=existing_finder.stage_z,
+            )
+        )
+
+    with transaction.atomic():
+        Finder.objects.bulk_create(finders_to_create)
+        logger.info(f'Created {len(finders_to_create)} new finder entries for re-registered targets')

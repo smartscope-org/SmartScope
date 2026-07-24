@@ -8,10 +8,11 @@ from rest_framework.decorators import api_view
 from rest_framework.response import Response
 
 from Smartscope.core.models import AutoloaderGrid, HoleModel, SquareModel, AtlasModel
-from Smartscope.core.selector_sorter import SelectorSorter, initialize_selector, save_selector_data, save_to_session_directory
+from Smartscope.core.selector_sorter import SelectorSorter, initialize_selector, save_selector_data, save_to_grid_type
 from Smartscope.core.settings.worker import PLUGINS_FACTORY
 from Smartscope.core.svg_plots import drawSelector
 from Smartscope.core.status import status
+from Smartscope.core.utils.plot_utils import apply_default_style
 
 logger =logging.getLogger(__name__)
 
@@ -44,7 +45,7 @@ def plot_scatter_selector(selector_sorter:SelectorSorter):
     data = list(selector_sorter.values)
     fig = px.scatter(y=data, labels={'x': 'Holes','y': 'Selector Value', 'color': 'Clusters'})
     fig.add_hrect(y0=selector_sorter.limits[0], y1=selector_sorter.limits[1], fillcolor='lightgreen', opacity=0.5, line_width=0)
-    fig = set_transparent_background(fig)
+    fig = apply_default_style(fig)
     return fig.to_html(full_html=False, config = {'displayModeBar': False}, div_id='selectorPlot')
 
 def draw_selector_image(selector:str, grid:AutoloaderGrid,maglevel=SquareModel, num_to_plot=3):
@@ -77,8 +78,8 @@ def extract_selector_limits(data:HttpRequest):
     low_limit = data.get('low_limit', None)
     high_limit = data.get('high_limit', None)
     apply_to = data.get('apply_to', 'grid')
-    if apply_to == 'session':
-        kwargs = {'save_to':save_to_session_directory}
+    if apply_to == 'grid_type':
+        kwargs = {'save_to':save_to_grid_type}
     return low_limit, high_limit, kwargs
 
 def save_selector_limits(request:HttpRequest, grid_id, selector):

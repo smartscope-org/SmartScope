@@ -1,0 +1,44 @@
+name: SPA
+atlas:
+  acquisition:
+      - setAtlasOpticsDelay:
+          delay: 10
+      - setAperturesForLowMag
+      - resetStage
+      - removeSlit
+      - atlas
+  targets:
+    finders:
+      - AI square finder
+    selectors:
+      - Size selector
+square:
+  acquisition:
+    - setAperturesForLowMag
+    - moveStageWithAtlasToSearchOffset
+    - realignToSquare
+    - eucentricSearch
+    - square
+  targets:
+    finders:
+      - AI hole finder
+      - Regular pattern
+    selectors:
+      - Graylevel selector
+      - Distance from center selector
+mediumMag:
+  acquisition:
+    - setAperturesForHighMag
+    - setFocusPosition
+    - tiltToAngle
+    - moveStage
+    - loadHoleRef
+    - alignToHoleRef
+    - mediumMagHole
+    - rollDefocus
+    - autoFocusAfterDistance
+    - waitDrift
+    - zeroImageShift
+highMag:
+  acquisition:
+    - highMag

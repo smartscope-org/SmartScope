@@ -19,6 +19,7 @@ from django.utils.timezone import now
 
 from ..forms import *
 from Smartscope.core.db_manipulations import viewer_only
+from Smartscope.core.utils.plot_utils import plot_histogram
 from Smartscope.core.stats import get_hole_count
 from Smartscope.core.protocols import get_or_set_protocol
 from Smartscope.core.grid.grid_io import GridIO
@@ -98,7 +99,7 @@ class AutoScreenSetup(LoginRequiredMixin, TemplateView):
             num_grids = set([k.split('-')[0] for k in request.POST.keys() if k.split('-')[0].isnumeric()])
 
             if form_general.is_valid() and form_params.is_valid() and form_preprocess.is_valid():
-
+                mode = form_general.cleaned_data.pop('mode','screening')
                 session, created = ScreeningSession.objects.get_or_create(
                     **form_general.cleaned_data,
                     date=datetime.today().strftime('%Y%m%d')
@@ -388,6 +389,7 @@ class ProtocolView(TemplateView):
         
 class MicroscopeStatus(TemplateView):
     template_name= "autoscreenViewer/microscopes_status.html"
+    template_full_name="autoscreenViewer/auto_screen_viewer.html"
 
     def get_context_data(self,*args, **kwargs):
         context = super().get_context_data(**kwargs)
@@ -397,7 +399,10 @@ class MicroscopeStatus(TemplateView):
     
     def get(self,request, *args, **kwargs):
         context = self.get_context_data(*args, **kwargs)
-        return render(request,self.template_name, context)
+        if request.headers.get('HX-Request'):
+            return render(request, self.template_name, context)
+        return render(request, self.template_full_name, {'initial_partial': self.template_name, **context})
+
     
 class PreprocessingPipeline(TemplateView):
     template_name= "smartscopeSetup/preprocessing/preprocessing_pipeline.html"
@@ -490,51 +495,23 @@ class CollectionStatsView(TemplateView):
     def ctfGraph(self,grid_id):
         ### NEED TO MOVE THE GRAPHING LOGIC OUTSIDE OF HERE
         all_data = list(HighMagModel.objects.filter(status='completed', grid_id=grid_id).order_by('completion_time').values_list('ctffit', flat=True)) # replace with your own data source
-        all_data = list(map(lambda x: 15 if x > 15 else x, all_data))
-        latest_data = all_data[-100:]
-        hist_all = go.Histogram(x=all_data, nbinsx=30, name='All')
-        hist_latest = go.Histogram(x=latest_data, nbinsx=30, name='Latest 100')
-
-
-        layout = go.Layout(
-                            title='CTF fit distribution',
-                            xaxis=dict(
-                                title='CTF fit resolution (Angstrom)',
-                            ),
-                            yaxis=dict(
-                                title='Number of exposures'
-                            ),
-                            showlegend=True,
-                        )
-        fig = go.Figure(data=[hist_all,hist_latest],layout=layout,)
-
-        
-        graph = fig.to_html(full_html=False)
+        graph = plot_histogram(
+            all_data,
+            15,
+            'CTF fit distribution',
+            'CTF fit resolution (Angstrom)'
+        )
         return graph
     
     def ice_thickness_graph(self,grid_id):
         ### NEED TO MOVE THE GRAPHING LOGIC OUTSIDE OF HERE
         all_data = list(HighMagModel.objects.filter(status='completed', grid_id=grid_id, ice_thickness__isnull=False).order_by('completion_time').values_list('ice_thickness', flat=True)) # replace with your own data source
-        # all_data = list(map(lambda x: 15 if x > 15 else x, all_data))
-        latest_data = all_data[-100:]
-        hist_all = go.Histogram(x=all_data, nbinsx=30, name='All')
-        hist_latest = go.Histogram(x=latest_data, nbinsx=30, name='Latest 100')
-
-
-        layout = go.Layout(
-                            title='Ice thickness distribution',
-                            xaxis=dict(
-                                title='Esstimated ice thickness (nm)',
-                            ),
-                            yaxis=dict(
-                                title='Number of exposures'
-                            ),
-                            showlegend=True,
-                        )
-        fig = go.Figure(data=[hist_all,hist_latest],layout=layout,)
-
-        
-        graph = fig.to_html(full_html=False)
+        graph = plot_histogram(
+            all_data,
+            1000,
+            'Ice thickness distribution',
+            'Esstimated ice thickness (nm)'
+        )
         return graph
 
     def get_context_data(self, grid_id, **kwargs):
@@ -566,6 +543,15 @@ def getMicroscopeDetectors(request):
     options = [{"value":d.pk,"field":d} for d in detectors]
     return render(request, "general/options_fields.html", {"options": options})
 
+def getCollectionParamsForm(request):
+    detector_id = request.GET.get('detector_id','')
+    mode = request.GET.get('mode','screening')
+    if detector_id == '':
+        return HttpResponse('Detector not specified')
+    form = GridCollectionParamsForm(initial={'detector': detector_id, 'mode': mode})
+    return TemplateResponse(request=request,template="forms/formFieldsBase.html",context=dict(form=form, row=True, id='formParams'))
+
+
 def targetHistory(request, grid_id):
     # grid_id = request.GET.get('grid_id',None)
     if grid_id is None:
@@ -576,3 +562,13 @@ def targetHistory(request, grid_id):
     target_history.get_current_target()
     target_history.get_next_targets()
     return render(request, "autoscreenViewer/target_history.html", {"target_history": target_history})
+
+def deleteSquares(request, grid_id):
+    if request.method != 'POST':
+        return HttpResponse('Invalid request method')
+    square_ids = request.POST.getlist('square_ids',None)
+    squares = SquareModel.objects.filter(square_id__in=square_ids, grid_id=grid_id, status_isnull=True)
+    if len(squares) != len(square_ids):
+        logger.debug('Some squares could not be deleted')
+    logger.debug(f'Deleting squares: {squares}')
+    squares.delete()

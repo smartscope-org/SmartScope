@@ -96,7 +96,7 @@ def generate_training_data(instance, export_type: str = 'yolo'):
 #     shutil.copy(instance.mrc, output_dir / f'{instance.pk}.mrc')
 
 
-def add_to_training_set(mag_level: str, id: str, dataset_name:str,export_type='yolo', output_directory=None, ):
+def add_to_training_set(mag_level: str, id: str, dataset_name:str,export_type='yolo', output_directory=None):
     instance = mag_level_factory[mag_level].objects.get(pk=id)
     data = generate_training_data(instance=instance)
     if output_directory is None:

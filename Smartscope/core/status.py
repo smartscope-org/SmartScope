@@ -15,14 +15,18 @@ class status:
     STARTED='started'
     QUEUED='queued'
     ACQUIRED='acquired'
+    QUEUED_FOR_PROCESSING='processing_queued'
     PROCESSED='processed'
     TARGETS_PICKED='targets_picked'
     TARGETS_SELECTED='selected'
+    GROUPED='grouped'
     ERROR='error'
     SKIPPED='skipped'
     COMPLETED='completed'
 
-
+    @property
+    def in_flight_statuses(self):
+        return [self.ACQUIRED, self.QUEUED_FOR_PROCESSING, self.PROCESSED, self.TARGETS_PICKED, self.TARGETS_SELECTED, self.GROUPED]
 
 class FileSignal:
 

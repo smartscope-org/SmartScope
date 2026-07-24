@@ -14,6 +14,7 @@ class AtlasModel(BaseModel, ExtraPropertyMixin):
     stage_z = models.FloatField(null=True)
     grid_id = models.ForeignKey(AutoloaderGrid, on_delete=models.CASCADE, to_field='grid_id')
     status = models.CharField(max_length=20, null=True, default=None)
+    curated = models.BooleanField(default=False)
     completion_time = models.DateTimeField(null=True)
 
     # aliases

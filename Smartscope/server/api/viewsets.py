@@ -44,7 +44,7 @@ def image_as_bytes(image_path):
     return open(img,'rb'), img.name
 
 def svg_as_png(instance, context):
-    d = instance.svg(display_type=context['display_type'], method=context['method'])
+    d = instance.svg(display_type=context.get('display_type'), method=context.get('method'))
     scale = min([1000/d.width, 1000/d.height])
     d.set_pixel_scale(scale)
     d.save_png('/tmp/download.png')
@@ -91,6 +91,9 @@ class ExtraActionsMixin:
         return Response(serializer.data, template_name='mapcard.html')
     
     def get_card_context(self,instance,request,**kwargs):
+        if isinstance(instance, HighMagModel):
+            return {}
+        
         context = {
             'instance': instance,
             'targets_methods': targets_methods(instance),
@@ -566,7 +569,7 @@ class AutoloaderGridViewSet(viewsets.ModelViewSet, GeneralActionsMixin, ExtraAct
         except Exception as err:
             logger.exception(f'Error while updating parameters, {err}.')
             return Response(dict(success=False))
-    
+
     @action(detail=True, methods=['post'])
     def write_grid_geometry(self, request, pk=None):
         ### write the grid_geometry.json file from extend lattice form
@@ -794,6 +797,9 @@ class HoleModelViewSet(viewsets.ModelViewSet, GeneralActionsMixin, ExtraActionsM
 
     @ action(detail=True, methods=['get'])
     def highmag(self, request, *args, **kwargs):
+        logger.info('Loading HighMag cards.')
+        logger.debug(f'Request url: {request.build_absolute_uri()}')
+        logger.debug(f'Query params: {request.query_params}')
         obj = self.get_object()
         self.renderer_classes = [TemplateHTMLRenderer]
 
@@ -803,7 +809,9 @@ class HoleModelViewSet(viewsets.ModelViewSet, GeneralActionsMixin, ExtraActionsM
             queryset = list(HighMagModel.objects.filter(grid_id=obj.grid_id,
                                                         hole_id__bis_group=obj.bis_group, status='completed').order_by('hole_id__number','number'))
         context = {}
-        context['classifier'] = PLUGINS_FACTORY.get_plugin('Micrographs curation')
+        classifier = get_request_param(request, 'squareMethod', 'Micrographs curation')
+        logger.info(f'Loading HighMag cards with \'{classifier}\' classifier')
+        context['classifier'] = PLUGINS_FACTORY.get_plugin(classifier)
         response_context= dict(cards=[])
         for hole in queryset:
             context['hole']=hole

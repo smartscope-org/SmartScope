@@ -4,6 +4,7 @@ from .target_label import Finder, Classifier, Selector
 from django.contrib.contenttypes.models import ContentType
 from Smartscope.core.settings.worker import PLUGINS_FACTORY
 from Smartscope.core.ctf.ctf_fit_viewer import CTFFitViewer
+from Smartscope.sim_siam.plugin import SimSiamEmbedding
 import logging
 
 logger = logging.getLogger(__name__)
@@ -27,11 +28,13 @@ def targets_methods(instance):
                                                  object_id__in=targets).values_list('method_name', flat=True).distinct())
     if instance.targets_prefix == 'hole' and len(classifiers) == 0:
         classifiers.append('Micrographs curation')
+        classifiers.append("nextPYP Curation")
     selectors = list(Selector.objects.filter(content_type=contenttype, object_id__in=targets).values_list('method_name', flat=True).distinct())
     logger.debug(f'Finders: {finders}, Classifiers: {classifiers}, Selectors: {selectors}')
     output = dict(finders=[PLUGINS_FACTORY.get_plugin(finder) for finder in finders],
                 classifiers=[PLUGINS_FACTORY.get_plugin(classifier) for classifier in classifiers],
                 selectors=[PLUGINS_FACTORY.get_plugin(selector) for selector in selectors],
+                embeddings = [PLUGINS_FACTORY.get_plugin('Sim Siam Clustering')],
                 metadata=[CTFFitViewer()])
     cache.set(cache_key,output,timeout=300)
     return output

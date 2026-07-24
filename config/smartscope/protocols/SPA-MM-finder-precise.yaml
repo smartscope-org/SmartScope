@@ -1,8 +1,7 @@
 name: SPA MM Finder Precise
 atlas:
-  acquisition:
+  steps:
       - setAtlasOptics
-      - setAperturesForLowMag
       - resetStage
       - removeSlit
       - atlas
@@ -12,8 +11,8 @@ atlas:
     selectors:
       - Size selector
 square:
-  acquisition:
-    - setAperturesForLowMag
+  steps:
+    - setSquareMagOptics
     - moveStageWithAtlasToSearchOffset
     - realignToSquare
     - eucentricMediumMag
@@ -26,8 +25,8 @@ square:
       - Graylevel selector
       - Distance from center selector
 mediumMag:
-  acquisition:
-    - setAperturesForHighMag
+  steps:
+    - setMediumMagOptics
     - setFocusPosition
     - tiltToAngle
     - moveStage
@@ -35,12 +34,22 @@ mediumMag:
     - alignToHoleRef
     - zeroImageShift
     - mediumMagHole
+    - setHighMagOptics
     - rollDefocus
     - autoFocus
     - waitDrift
+    - setAFISimageShift
   targets:
     finders:
       - Medium Mag AI hole finder
 highMag:
-  acquisition:
+  steps:
     - highMag
+# postHighMag:
+#   steps:
+#     - resetAFISimageShift
+#     - refineZLP
+#     - collectHardwareDark
+#     - flashColdFEG
+#     - recenterBeam
+

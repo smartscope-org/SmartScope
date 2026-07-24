@@ -2,6 +2,7 @@ import mrcfile
 import time
 import logging
 import os
+from pathlib import Path
 from .microscope_interface import MicroscopeInterface
 from Smartscope.lib.file_manipulations.fake import Fake
 from Smartscope.lib.image_manipulations import export_as_png
@@ -22,6 +23,15 @@ class FakeScopeInterface(MicroscopeInterface):
     def set_atlas_optics_imaging_state(self, state_name:str='Atlas'):
         self.logger.info(f'Setting atlas optics from the {state_name} imaging state')
         self.logger.info('Done setting atlas optics')
+
+    def set_square_mag_optics(self):
+        self.logger.info('Setting square mag optics')
+
+    def set_medium_mag_optics(self):
+        self.logger.info('Setting medium mag optics')
+
+    def set_high_mag_optics(self):
+        self.logger.info('Setting high mag optics')
 
     def reset_stage(self):
         pass
@@ -45,6 +55,15 @@ class FakeScopeInterface(MicroscopeInterface):
     def checkPump(self, wait=30):
         pass
 
+    def get_mag_area_in_microns(self, magSet='V'):
+        pass
+
+    def medium_mag_montage(self, size, file=''):
+        pass
+
+    def load_grid(self, position):
+        pass
+    
     def open_valves(self):
         pass
 
@@ -53,6 +72,12 @@ class FakeScopeInterface(MicroscopeInterface):
 
     def eucentricity(self):
         pass
+
+    def eucentric_height_after_distance(self, tilt_to:int=10, increments:int=-5, max_movement:int=200, distance_threshold:int=400):
+        pass
+    
+    def autofocus_by_z(self):
+        return False
 
     def moveStage(self, stage_x, stage_y, stage_z=None):
         pass
@@ -79,7 +104,7 @@ class FakeScopeInterface(MicroscopeInterface):
         Fake.generate_fake_file(
             file,
             'square',
-            sleeptime=15,
+            sleeptime=30,
             destination_dir=self.microscope.scopePath
         )
         return 0, 0, 0
@@ -156,7 +181,9 @@ class FakeScopeInterface(MicroscopeInterface):
                 destination_dir=self.microscope.scopePath
             )
             return
-        movies = os.path.join(self.microscope.scopePath, 'movies', self.grid_dir)
+        grid_dir = self.grid_dir.replace("\\", "/")
+        self.logger.debug(f"grid_dir {grid_dir}")
+        movies = os.path.join(self.microscope.scopePath, grid_dir)
         self.logger.info(f"High resolution movies are stored at {movies} in fake mode")
         frames = Fake.generate_fake_file(
             file,
@@ -166,11 +193,23 @@ class FakeScopeInterface(MicroscopeInterface):
         )
         return frames.split('\\')[-1]
 
+    def setup_apertures(self):
+        pass
+    
+    def set_apertures_for_square_mag(self):
+        pass
+    
+    def set_apertures_for_medium_mag(self):
+        pass
+    
+    def set_apertures_for_high_mag(self, condenser_aperture_size:int, objective_aperture_size:int):
+        pass
+
     def connect(self):
         self.logger.info('Connecting to fake scope.')
 
-    def setup(self, saveframes:bool, grid_dir:str, framesName=None):
-        self.grid_dir = grid_dir
+    def setup(self, saveframes:bool, frames_dir:str, framesName=None):
+        self.grid_dir = frames_dir
 
     def disconnect(self, close_valves=True):
         self.logger.info('Disconnecting from fake scope.')
@@ -196,11 +235,17 @@ class FakeScopeInterface(MicroscopeInterface):
     def insert_aperture(self, aperture:int, aperture_size:int, wait:int=10):
         pass
 
-    def set_apertures_for_highmag(self, highmag_aperture_size:int, objective_aperture_size:int):
+    def set_apertures_for_high_mag(self, condenser_aperture_size:int, objective_aperture_size:int):
         pass
 
     def set_apertures_for_lowmag(self):
         pass
 
     def set_focus_for_bis_tilt(self,isY,tiltAngle):
+        pass
+
+    def eucentric_height_after_distance(self, tilt_to:int=10, increments:int=-5, max_movement:int=200, distance_threshold:int=400):
+        pass
+
+    def save_AFIS_image_shift(self, afis:bool=False):
         pass

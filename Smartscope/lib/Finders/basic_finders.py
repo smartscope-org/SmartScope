@@ -29,30 +29,20 @@ def gauss(x, mu, sigma, A):
 
 
 def fit_gauss(blur, min=40, max=255):
-    bins = max - min
     flat_blur = blur.flatten()
     flat_blur = flat_blur[(flat_blur > min) & (flat_blur < max)]
-    y, x, _ = plt.hist(flat_blur, bins=bins)
+
+    bins = max - min
+    y, x = np.histogram(flat_blur, bins=bins)
+
     peak = np.argmax(y)
-    amax = np.max(y)
-    std = [-1, -1]
-    for i in range(peak, int(bins), 1):
-        if y[i] <= amax * 0.25:
-            std[1] = i - peak
-            break
-    for i in range(peak, 0, -1):
-        if y[i] <= amax * 0.25:
-            std[0] = peak - i
-            break
+    expected = (x[peak], np.std(flat_blur), y[peak])
 
-    std = np.mean(np.array([abs(i) for i in std if i >= 0]))
-
-    expected = (x[peak], std, amax)
     try:
-        params, cov = curve_fit(gauss, x[:-1], y, expected)
+        params, _ = curve_fit(gauss, x[:-1], y, p0=expected)
         return params, True
     except Exception:
-        print('Could not fit gaussian, passing expected params')
+        logger.warning('Could not fit gaussian, passing expected params')
         return expected, False
 
 
@@ -75,8 +65,8 @@ def plot_hist_gauss(image, thresh, mu=None, sigma=None, a=None, size=254):
     ax.set_ylabel('Counts')
     ax.legend()
     fig.canvas.draw()
-    hist = np.fromstring(fig.canvas.tostring_rgb(), dtype=np.uint8, sep='')
-    hist = hist.reshape(fig.canvas.get_width_height()[::-1] + (3,))
+    hist = np.frombuffer(fig.canvas.tostring_argb(), dtype=np.uint8)
+    hist = hist.reshape(fig.canvas.get_width_height()[::-1] + (4,))[:,:,1:]
     hist = imutils.resize(hist, height=size)
     plt.close(fig='all')
     return hist
@@ -124,52 +114,47 @@ def rect_to_box(rect):
     x, y, w, h = rect
     return np.array([x, y, x + w, y + h])
 
-def find_targets_binary(image, minsize=20, maxsize=500):
+def find_targets_binary(image, minsize=20, maxsize=500, *args, **kwargs):
     """
     Finds holes by applying a binary threshold on the image.
     The threshold is automatically evaluated based on the gaussian curve
     fitting on the pixel intensity histogram.
     """
     square_mask = create_square_mask(image)
-    image = auto_contrast(image*square_mask)
+    image = auto_contrast(image * square_mask)
     blurred = cv2.GaussianBlur(image, (5, 5), 0)
-    result = cv2.cvtColor(image.copy(), cv2.COLOR_GRAY2RGB)
-    done = False
 
-    (mu, sigma, a), is_fit = fit_gauss(blurred)
-    if mu < 100:
-        sig = 5
-    else:
-        sig = 3
+    (mu, sigma, _), _ = fit_gauss(blurred)
 
-    while not done:
+    sig_start = 5.0 if mu < 100 else 3.0
+    sig_candidates = np.arange(sig_start, 2.0, -0.5)  # [5.0, 4.5, ..., 2.5] or [3.0, 2.5]
+
+    cnts = []
+    for sig in sig_candidates:
         threshold = mu + sigma * sig
+        raw_cnts, _ = find_contours(blurred, threshold)
+        raw_cnts = [cv2.boundingRect(cnt) for cnt in raw_cnts]
+        raw_cnts = [cnt for cnt in raw_cnts if check_aspect(cnt)]
 
-        cnts, t = find_contours(blurred, threshold)
-        cnts = [cv2.boundingRect(cnt) for cnt in cnts]
-        cnts = [cnt for cnt in cnts if check_aspect(cnt)]
-        median_size = np.median([cnt[2]*cnt[3] for cnt in cnts])
-        logger.info(f'Found {len(cnts)} targets with mean size {median_size}')
-        cnts = [rect_to_box(cnt) for cnt in cnts if (minsize < cnt[2]*cnt[3] < maxsize)]
-        # cnts = [cnt for cnt in cnts if (50 < cv2.contourArea(cnt) < 500)]
- 
-        for cnt in cnts:
-            cv2.rectangle(result, cnt[:2],cnt[2:], (0, 255, 0), 2)
+        median_size = np.median([cnt[2] * cnt[3] for cnt in raw_cnts]) if raw_cnts else 0
+        logger.info(f'sig={sig:.1f}: {len(raw_cnts)} targets, median size {median_size:.1f}')
 
-        if len(cnts) < 90 and sig > 2:
-            sig -= 0.5
-        else:
-            done = True
+        cnts = [rect_to_box(cnt) for cnt in raw_cnts if minsize < cnt[2] * cnt[3] < maxsize]
 
-        cv2.imwrite('test.png', result)     
+        if len(cnts) >= 90:
+            break
 
     if len(cnts) < 30:
         return None, False, dict()
 
+    result = cv2.cvtColor(image.copy(), cv2.COLOR_GRAY2RGB)
+    for cnt in cnts:
+        cv2.rectangle(result, cnt[:2], cnt[2:], (0, 255, 0), 2)
+
     return cnts, True, dict()
 
 
-def binary_finder(montage):
+def binary_finder(montage, *args, **kwargs):
     pixel_size = montage.pixel_size
     average_hole_size = 1 / (pixel_size / 10000)
     return find_targets_binary(montage.image, minsize=average_hole_size*0.2, maxsize=average_hole_size*5)
@@ -270,7 +255,7 @@ def regular_pattern(montage, spacing_in_um=3, diameter_in_um=1.2, **kwargs):
     return output, True, dict()
 
 
-def find_square_center(img):
+def find_square_center(img, return_mask = False):
     img = auto_contrast(img)
     thresh = np.mean(img)
     # hist = plot_hist_gauss(montage.montage, thresh, size=montage.montage.shape[0])
@@ -280,7 +265,11 @@ def find_square_center(img):
     M = cv2.moments(largest_contour)
     cX = int(M["m10"] / M["m00"])
     cY = int(M["m01"] / M["m00"])
-    return np.array([cX, cY])
+    if not return_mask:
+        return np.array([cX, cY])
+    mask = np.zeros(img.shape, dtype="uint8")
+    cv2.drawContours(mask, [largest_contour], -1, 1, cv2.FILLED)
+    return np.array([cX, cY]), mask
 
 def create_square_mask(image):
     cnts, center, _ = find_square(image)

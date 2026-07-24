@@ -16,7 +16,7 @@ function delay(fn, ms) {
   }
 
 function selected() {
-    $('.active', '#sidebar-container').removeClass('active');
+    $('.list-group-item.active', '#sidebar-container').removeClass('active');
     for (const [key, val] of Object.entries(currentState)) {
         // console.log(`${key}, ${val}`)
         if (['group', 'session_id', 'grid_id'].includes(key) && val !== undefined) {
@@ -58,22 +58,40 @@ function updateFullMeta(data) {
     console.log(fullmeta)
 }
 
-let idGen = () => {
-    return Math.floor((1 + Math.random()) * 0x10000)
-        .toString(16)
-        .substring(1);
-}
+(function() {
+    const idGen = () => {
+        return Math.floor((1 + Math.random()) * 0x10000)
+            .toString(16)
+            .substring(1);
+    }
 
-let createLoadingMessage = (message) => {
-    let id = idGen()
-    $('#loadingMessages').append(
-        `<div class="notification d-inline-flex justify-content-end">
-            <div id="${id}" class="alert mb-0 mt-1 alert-primary fade show" role="alert">
-                <span>${message}</span>
-            </div>
-        </div>`)
-    return id
-}
+    const createLoadingMessage = (message) => {
+        let id = idGen()
+        $('#loadingMessages').append(
+            `<div class="notification d-inline-flex justify-content-end">
+                <div id="${id}" class="alert mb-0 mt-1 alert-primary fade show" role="alert">
+                    <span>${message}</span>
+                </div>
+            </div>`)
+        return id
+    }
+
+    const processLoadingMessage = (response, id) => {
+        let elem = $(`#loadingMessages [id="${id}"]`)
+        if (response.ok) {
+            elem.removeClass('alert-primary').addClass('alert-success')
+            setTimeout(function() {
+                $(`#loadingMessages [id="${id}"]`).alert('close');
+                $(`#loadingMessages [id="${id}"]`).parent().remove()
+            }, 2000);
+        } else {
+            elem.removeClass('alert-primary').addClass('alert-danger')
+        }
+    }
+
+    window.createLoadingMessage = createLoadingMessage;
+    window.processLoadingMessage = processLoadingMessage;
+})()
 
 function createHTMXloadingMessage(event, message) {
     console.log('Creating htmx loading message')
@@ -81,24 +99,19 @@ function createHTMXloadingMessage(event, message) {
     event.target.setAttribute('messageid', messageID)
 }
 
+function createLongHTMXloadingMessage(event,message) {
+    console.log('Creating long htmx loading message')
+    messageID = createLoadingMessage(message)
+    event.target.setAttribute('messageid', messageID)
+    // event.target.setAttribute('hx-target', `#${messageID}`)
+    event.target.setAttribute("hx-vals", JSON.stringify({message_id:messageID}))
+}
+
 function processHTMXloadingMessage(event) {
     console.log('Processing htmx loading message')
     const responseCode = event.detail.xhr.status;
     const response = {ok: responseCode < 400}
     processLoadingMessage(response, event.target.getAttribute('messageid'))
-}
-
-let processLoadingMessage = (response, id) => {
-    let elem = $(`#loadingMessages #${id}`)
-    if (response.ok) {
-        elem.removeClass('alert-primary').addClass('alert-success')
-        setTimeout(function() {
-            $(`#loadingMessages #${id}`).alert('close');
-            $(`#loadingMessages #${id}`).parent().remove()
-        }, 2000);
-    } else {
-        elem.removeClass('alert-primary').addClass('alert-danger')
-    }
 }
 
 async function fetchAsync(url, message='alert') {
@@ -196,18 +209,62 @@ async function loadSidePanel(requestfield = null, id = null, push = true) {
     const loadInto = { 'group': 'sidebarSessions', 'session_id': 'sidebarGrids' }
     var loadinto = 'sidebarGroups'
     var url = "/api/sidepanel/"
+    var params = []
     if (requestfield !== null) {
-        url += `?${requestfield}=${id}`
+        params.push(`${requestfield}=${id}`)
         currentState[requestfield] = id
         loadinto = loadInto[requestfield]
     }
+    if (currentState['own_sessions'] !== undefined) {
+        params.push(`own_sessions=${currentState['own_sessions']}`)
+    }
+    if (params.length > 0) {
+        url += '?' + params.join('&')
+    }
+
     console.log(url, push)
     let models = await fetchAsync(url, message=`Loading ${requestfield}.`)
     $(`#${loadinto}`).html(models)
+    toggleSearchBar(loadinto)
+    adjustThirdSection()
 
     if (push) {
         pushState()
         selected()
+    }
+}
+
+function toggleSearchBar(sectionId) {
+    const $section = $(`#${sectionId}`)
+    const $search = $section.siblings('.position-relative')
+    // console.log(sectionId, $section.find('a').length, $search.length)
+    if ($section.find('a').length > 3) {
+        $search.show()
+    } else {
+        $search.hide()
+    }
+}
+
+function adjustThirdSection() {
+    const $sections = $('.sidebar-section');
+    const $third = $sections.eq(2);
+    const $container = $('#sidebar-container');
+    
+    const containerHeight = $container.innerHeight();
+    const firstHeight = $sections.eq(0).outerHeight(true);
+    const secondHeight = $sections.eq(1).outerHeight(true);
+    const resizersHeight = $('.section-resizer').toArray()
+                            .reduce((sum, el) => sum + $(el).outerHeight(true), 0);
+    
+    const remaining = containerHeight - firstHeight - secondHeight - resizersHeight;
+    
+    if (remaining > 0) {
+        const headerHeight = $third.find('li').outerHeight(true) || 0;
+        const scrollMaxHeight = remaining - headerHeight;
+        if (scrollMaxHeight > 0) {
+            $third.find('#sidebarGrids')
+                  .css('max-height', scrollMaxHeight + 'px');
+        }
     }
 }
 
@@ -246,6 +303,7 @@ async function loadReport(requestfield = null, id = null, push = true) {
 
     await reportMain()
     websocketMain()
+    console.trace('htmx.process called here')
     htmx.process(htmx.find('#main'))
 }
 

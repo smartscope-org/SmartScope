@@ -10,6 +10,7 @@ For the full list of settings and their values, see
 https://docs.djangoproject.com/en/3.0/ref/settings/
 """
 import os
+from pathlib import Path
 # from django.core.files.storage import FileSystemStorage
 
 # Build paths inside the project like this: os.path.join(BASE_DIR, ...)
@@ -17,21 +18,22 @@ SETTINGS_DIR = os.path.dirname(os.path.abspath(__file__))
 BASE_DIR = os.path.dirname(os.path.dirname(SETTINGS_DIR))
 PROJECT_DIR = os.path.dirname(BASE_DIR)
 
-AUTOSCREENDIR = os.getenv('AUTOSCREENDIR')
+AUTOSCREENDIR = Path(os.getenv('AUTOSCREENDIR')).resolve()
+print(f'Autoscreen directory: {AUTOSCREENDIR}')
 USE_CUSTOM_PATHS = eval(os.getenv('USE_CUSTOM_PATHS', 'False'))
-TEMPDIR = os.getenv('TEMPDIR')
+TEMPDIR = os.getenv('TEMPDIR','/tmp/')
 
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/3.0/howto/deployment/checklist/
 
 SECRET_KEY = os.getenv('SECRET_KEY')
-DEBUG = eval(os.getenv('DEBUG', 'False'))
-DEPLOY = eval(os.getenv('DEPLOY', 'True'))
+DEBUG = os.getenv('DEBUG', 'False')
+DEPLOY = os.getenv('DEPLOY', 'True')
 
 ALTERNATE_LOGIN = eval(os.getenv('ALTERNATE_LOGIN', 'False'))
 ALTERNATE_LOGIN_URL = os.getenv('ALTERNATE_LOGIN_URL', '')
 
-ALLOWED_HOSTS = os.getenv('ALLOWED_HOSTS').split(',')
+ALLOWED_HOSTS = os.getenv('ALLOWED_HOSTS','localhost').split(',')
 CSRF_TRUSTED_ORIGINS = [f'https://*.{host}' for host in ALLOWED_HOSTS]
 
 APP = os.getenv('APP')
@@ -41,6 +43,10 @@ USE_STORAGE = eval(os.getenv('USE_STORAGE', 'True'))
 USE_LONGTERMSTORAGE = eval(os.getenv('USE_LONGTERMSTORAGE', 'False'))
 USE_AWS = eval(os.getenv('USE_AWS',  'False'))
 USE_MICROSCOPE = eval(os.getenv('USE_MICROSCOPE', 'True'))
+
+REDIS_HOST = os.getenv("REDIS_HOST",'localhost')
+REDIS_PORT = int(os.getenv("REDIS_PORT", '6379'))
+REDIS_PASSWORD = os.getenv('REDIS_PASSWORD', None)
 
 if USE_LONGTERMSTORAGE:
     AUTOSCREENSTORAGE = os.getenv('AUTOSCREENSTORAGE')
@@ -68,6 +74,8 @@ INSTALLED_APPS = [
     'Smartscope.core.settings.apps.API',
     'Smartscope.server.selector_viewer',
     'Smartscope.server.annotator',
+    'Smartscope.sim_siam',
+    'Smartscope.server.management_tab'
 ]
 
 MIDDLEWARE = [
@@ -111,14 +119,16 @@ ASGI_APPLICATION = 'Smartscope.server.main.asgi.application'
 # Database
 # https://docs.djangoproject.com/en/3.0/ref/settings/#databases
 
+if REDIS_PASSWORD is not None:
+    REDIS_URL = f"redis://:{REDIS_PASSWORD}@{REDIS_HOST}:{REDIS_PORT}"
+else:
+    REDIS_URL = f"redis://{REDIS_HOST}:{REDIS_PORT}"
+
 CHANNEL_LAYERS = {
     "default": {
         "BACKEND": "channels_redis.core.RedisChannelLayer",
         "CONFIG": {
-            "hosts": [
-                (os.getenv("REDIS_HOST"), 
-                int(os.getenv("REDIS_PORT")))
-            ],
+            "hosts": [REDIS_URL],
         },
     },
 }
@@ -126,7 +136,7 @@ CHANNEL_LAYERS = {
 CACHES = {
     'default': {
         'BACKEND': 'django.core.cache.backends.redis.RedisCache',
-        'LOCATION': f"redis://{os.getenv('REDIS_HOST')}:{os.getenv('REDIS_PORT')}",
+        'LOCATION': REDIS_URL,
     }
 }
 
@@ -208,7 +218,11 @@ USE_TZ = True
 # https://docs.djangoproject.com/en/3.0/howto/static-files/
 STATIC_URL = '/static/'
 
-STATIC_ROOT = os.path.join(PROJECT_DIR, "static")
+STATIC_ROOT = '/opt/shared/static/'
+# print(f'Static root: {STATIC_ROOT}')
+STATICFILES_DIRS = (
+  os.path.join(PROJECT_DIR, "static"),
+)
 
 LOGIN_REDIRECT_URL = '/smartscope'
 LOGOUT_REDIRECT_URL = '/login'

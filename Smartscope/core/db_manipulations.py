@@ -73,8 +73,10 @@ def update_target_selection(model:models.BaseModel,objects_ids:List[str],value:s
     with transaction.atomic():
         for obj in objs:
             obj.selected = value
+            obj.selection_mode = 'manual'
+            obj.acquisition_priority = 0
             obj.status = status
-            obj.save()  
+            obj.save(update_fields=['selected','selection_mode','acquisition_priority','status'])  
 
 def update_target_label(model:models.BaseModel,objects_ids:List[str],value:str,method:str, *args, **kwargs):
 
@@ -98,9 +100,9 @@ def update_target_status(model:models.BaseModel,objects_ids:List[str],value:str,
             obj.save()
 
 
-def set_or_update_refined_finder(object_id, stage_x, stage_y, stage_z):
+def set_or_update_refined_finder(object_id, stage_x, stage_y, stage_z, method_name='Recentering'):
 
-    refined = models.Finder.objects.filter(object_id=object_id, method_name='Recentering')
+    refined = models.Finder.objects.filter(object_id=object_id, method_name=method_name)
     if refined:
         refined.update(stage_x=stage_x,
                         stage_y=stage_y,
@@ -111,7 +113,7 @@ def set_or_update_refined_finder(object_id, stage_x, stage_y, stage_z):
         content_type=original.content_type,
         x=original.x,
         y=original.y,
-        method_name='Recentering',
+        method_name=method_name,
         object_id=object_id,
         stage_x=stage_x,
         stage_y=stage_y,
@@ -228,8 +230,8 @@ def group_holes_for_BIS(hole_models:List[models.HoleModel], max_radius=4, min_gr
     # Find lines with the most hits as max group size
     max_group_size = np.max(np.sum(filter_start, axis=0))
     additional_msg = ''
-    if max_group_size > 20 and min_group_size < max_group_size/2:
-        min_group_size = int(max_group_size//2)
+    if max_group_size > 20 and min_group_size < max_group_size/4:
+        min_group_size = int(max_group_size//4)
         additional_msg = f' Adjusted min group size to {min_group_size}.'
 
     logger.debug(f'Max group size: {max_group_size}.{additional_msg}')
@@ -304,7 +306,7 @@ def group_holes_for_BIS(hole_models:List[models.HoleModel], max_radius=4, min_gr
 def group_holes_from_square_for_BIS(square:models.SquareModel, max_radius=4, min_group_size=1, iterations=500, score_weight=2):
     
     targets = square.targets.filter(status__isnull=True)
-    filtered = filter_targets(square, targets)
+    filtered = filter_targets(square.grid_id, targets)
     holes_for_grouping = list(apply_filter(targets, filtered))
     
     logger.info(f'Holes for grouping = {len(holes_for_grouping)}')
@@ -378,6 +380,36 @@ def add_targets(grid, parent, targets, model, finder, classifier=None, start_num
                                               label=target.quality)
                 classifier_model.save()
     return output
+
+
+def add_fiducials(grid, targets, finder, classifier=None):
+    from Smartscope.core.models.fiducial_area import FiducialArea
+    model_content_type_id = ContentType.objects.get_for_model(FiducialArea)
+    with transaction.atomic():
+        for ind, target in enumerate(targets):
+            obj = FiducialArea(
+                grid_id=grid,
+                number=ind,
+                area_type=target.quality,
+            )
+            obj.save()
+            models.Finder(
+                content_type=model_content_type_id,
+                object_id=obj.pk,
+                method_name=finder,
+                x=target.x,
+                y=target.y,
+                stage_x=target.stage_x,
+                stage_y=target.stage_y,
+                stage_z=target.stage_z,
+            ).save()
+            if classifier is not None:
+                models.Classifier(
+                    content_type=model_content_type_id,
+                    object_id=obj.pk,
+                    method_name=classifier,
+                    label=target.quality,
+                ).save()
 
 
 def add_high_mag(grid, parent):
