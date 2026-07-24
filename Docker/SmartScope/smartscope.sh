@@ -85,7 +85,7 @@ Local sha: $local_sha"
 cd $(dirname "$(readlink -f "$0")")
 
 createDirs () {
-    mkdir -p logs shared/nginx shared/auth shared/smartscope db data backups scratch
+    mkdir -p logs/ai shared/nginx shared/auth shared/smartscope shared/fake_scope db data backups scratch
 }
 
 case $argument in

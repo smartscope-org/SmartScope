@@ -179,7 +179,7 @@ class SelectorSorter:
     def calculate_classes(self):
         # logger.debug(f'Getting classes from selector {self._selector.name}. Inputs {len(self._targets)} targets and {self._n_classes} with limits {self.limits}.')
         map_in_bounds = self.included_in_limits()
-        step = np.diff(self.limits) / (self._n_classes)
+        step = abs(self.limits[0] - self.limits[1]) / self._n_classes
         
         # for value, in_bounds in zip(values, map_in_bounds):
         def get_class(value, in_bounds) -> int:

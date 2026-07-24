@@ -65,7 +65,7 @@ def plot_hist_gauss(image, thresh, mu=None, sigma=None, a=None, size=254):
     ax.set_ylabel('Counts')
     ax.legend()
     fig.canvas.draw()
-    hist = np.fromstring(fig.canvas.tostring_argb(), dtype=np.uint8, sep='')
+    hist = np.frombuffer(fig.canvas.tostring_argb(), dtype=np.uint8)
     hist = hist.reshape(fig.canvas.get_width_height()[::-1] + (4,))[:,:,1:]
     hist = imutils.resize(hist, height=size)
     plt.close(fig='all')

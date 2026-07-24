@@ -55,7 +55,7 @@ services:
   #     - smartscopenet
   #   command: ["celery", "-A", "Smartscope.tasks.app", "worker", "-n", "ai_rcnn@%h", "-Q", "smartscope_ai_rcnn", "--loglevel=DEBUG", "--pool=solo"]
   db:
-    image: mariadb:10.5
+    image: mariadb:10.6
     restart: always
     env_file:
       - database.conf
