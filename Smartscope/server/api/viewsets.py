@@ -357,10 +357,22 @@ class ScreeningSessionsViewSet(viewsets.ModelViewSet, GeneralActionsMixin,):
 
         if process is not None:
             if process.status == 'running':
-                return Response({'isRunning': True, 'pid': process.PID, 'status': process.status})
+                return Response({
+                            'isRunning': True, 
+                            'pid': process.PID, 
+                            'status': process.status, 
+                            'start': process.start_time, 
+                            'end': process.end_time
+                        })
             else:
-                return Response({'isRunning': False, 'pid': process.PID, 'status': process.status})
-        return Response({'isRunning': False, 'pid': None, 'status': None})
+                return Response({
+                            'isRunning': False, 
+                            'pid': process.PID, 
+                            'status': process.status,
+                            'start': process.start_time, 
+                            'end': process.end_time
+                        })
+        return Response({'isRunning': False, 'pid': None, 'status': None, 'start': None, 'end': None})
 
     @ action(detail=True, methods=['put'])
     def pause_between_grids(self, request, **kwargs):
@@ -782,6 +794,9 @@ class HoleModelViewSet(viewsets.ModelViewSet, GeneralActionsMixin, ExtraActionsM
 
     @ action(detail=True, methods=['get'])
     def highmag(self, request, *args, **kwargs):
+        logger.info('Loading HighMag cards.')
+        logger.debug(f'Request url: {request.build_absolute_uri()}')
+        logger.debug(f'Query params: {request.query_params}')
         obj = self.get_object()
         self.renderer_classes = [TemplateHTMLRenderer]
 
@@ -791,7 +806,9 @@ class HoleModelViewSet(viewsets.ModelViewSet, GeneralActionsMixin, ExtraActionsM
             queryset = list(HighMagModel.objects.filter(grid_id=obj.grid_id,
                                                         hole_id__bis_group=obj.bis_group, status='completed').order_by('hole_id__number','number'))
         context = {}
-        context['classifier'] = PLUGINS_FACTORY.get_plugin('nextPYP Curation')
+        classifier = get_request_param(request, 'squareMethod', 'Micrographs curation')
+        logger.info(f'Loading HighMag cards with \'{classifier}\' classifier')
+        context['classifier'] = PLUGINS_FACTORY.get_plugin(classifier)
         response_context= dict(cards=[])
         for hole in queryset:
             context['hole']=hole

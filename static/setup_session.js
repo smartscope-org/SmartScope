@@ -159,3 +159,5 @@ document.querySelectorAll('[data-bs-toggle="popover"]').forEach(el => {
         tip?.addEventListener('mouseleave', () => popover.hide());
     });
 });
+
+initAdvancedToggle('advancedToggleColParams', 'formParams');

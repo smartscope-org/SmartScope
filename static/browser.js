@@ -9,7 +9,8 @@ $(document).ready(async function () {
     toggleSearchBar('sidebarSessions')
     toggleCheckboxLabel()
     initBrowser()
-    setSidebarOpen(true)
+    adjustThirdSection()
+    $(window).on('resize', adjustThirdSection)
 })
 
 // ---- Re-init on HTMX history restore (back/forward) ----
@@ -21,7 +22,7 @@ document.addEventListener('htmx:historyRestore', async function() {
     selected()
     toggleCheckboxLabel()
     initBrowser()
-    setSidebarOpen(true)
+    adjustThirdSection()
 })
 
 function initBrowser() {
@@ -42,6 +43,8 @@ function initBrowser() {
 
     // ---- Sidebar resizer ----
     $('#sidebar-resizer').off('mousedown.resize').on('mousedown.resize', function(e) {
+        e.preventDefault(); // prevents text selection and default drag behavior
+
         $(document).on('mousemove.resize', function(e) {
             $('#sidebar-container').css({
                 'width': e.clientX + 'px',
@@ -51,6 +54,10 @@ function initBrowser() {
         })
         $(document).on('mouseup.resize', function() {
             $(document).off('mousemove.resize mouseup.resize')
+            $(document).one('click.resize', function(e) {
+            e.stopPropagation();
+            e.preventDefault();
+        }, true);
         })
     })
 
@@ -81,6 +88,7 @@ function initBrowser() {
                 .css('max-height', getScrollMaxHeight($above, newAbove) + 'px') 
             $below.find('#sidebarGroups, #sidebarSessions, #sidebarGrids')
                 .css('max-height', getScrollMaxHeight($below, newBelow) + 'px')
+            adjustThirdSection();
         })
 
         $(document).on('mouseup.sectionResize', function() {

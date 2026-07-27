@@ -1,0 +1,115 @@
+{% load static %}
+<link rel="stylesheet" href="{% static 'dialogueform.css' %}">
+
+{% if instance.targets_prefix == 'hole' %}
+<li class="nav-item dropdown d-flex align-items-center">
+    <a class="nav-link dropdown-toggle" href="#" id="allHolesDropdown" role="button" data-bs-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
+        All Holes 
+    </a>
+    <ul class="dropdown-menu" aria-labelledby="allHolesDropdown">
+        <li>
+            <button class="dropdown-item" onmousedown="queueSquareTargets(this)" value="addall">Queue all holes</button>
+        </li>
+        <li>
+            <button class="dropdown-item" onmousedown="queueSquareTargets(this)" value="cancelall">Cancel all holes</button>
+        </li>
+        <li>
+            <button id="regroupBIS" class="dropdown-item" 
+                        hx-post="{% url 'regroup_bis_select_job' grid_id=instance.grid_id.pk square_id=instance.pk %}" 
+                        hx-on--before-request="createHTMXloadingMessage(event, 'Sending long action job request')"
+                        hx-on--after-request="processHTMXloadingMessage(event)"
+                        hx-target="#loadingMessages" 
+                        hx-swap="beforeend">Regroup BIS and Reselect</button>
+        </li>
+        <li>
+            <button id="deleteHoles" class="dropdown-item" onmousedown="deleteHoles('{{instance.pk}}')">Delete Holes</button>
+        </li>
+        <li class="dropdown-submenu">
+            <a class="dropdown-item dropdown-toggle" href="#" id="extendLatticeDropdown" data-instance-pk="{{ instance.pk }}" data-grid-id="{{ instance.grid_id.pk }}">
+                Extend Lattice
+            </a>
+            <ul class="dropdown-menu" aria-labelledby="extendLatticeDropdown">
+                <li>
+                    <button class="dropdown-item" onmousedown="extendLattice('{{instance.pk}}')">Default</button>
+                </li>
+                <li>
+                    <button class="dropdown-item" onmousedown="openExtendLatticeForm('{{ instance.pk }}', '{{ instance.grid_id.pk }}')">Interactive</button>
+                </li>
+            </ul>
+        </li>
+    </ul>
+</li>
+
+{% else %}
+<li class="nav-item dropdown d-flex align-items-center">
+    <a class="nav-link dropdown-toggle" href="#" id="allHolesDropdownElse" role="button" data-bs-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
+        All Holes
+    </a>
+    <ul class="dropdown-menu" aria-labelledby="allHolesDropdownElse">
+        <li>
+            <button id="regroupBIS" class="dropdown-item" 
+                                    hx-post="{% url 'regroup_bis_select_job' grid_id=instance.grid_id.pk %}" 
+                                    hx-on--before-request="createHTMXloadingMessage(event, 'Sending long action job request')"
+                                    hx-on--after-request="processHTMXloadingMessage(event)"
+                                    hx-target="#loadingMessages" 
+                                    hx-swap="beforeend">Regroup BIS and Reselect</button>
+            <button id="extendLatticeGlobal" class="dropdown-item" 
+                                    hx-post="{% url 'extend_lattice_global_job' grid_id=instance.grid_id.pk %}" 
+                                    hx-on--before-request="createHTMXloadingMessage(event, 'Sending long action job request')"
+                                    hx-on--after-request="processHTMXloadingMessage(event)"
+                                    hx-target="#loadingMessages" 
+                                    hx-swap="beforeend">Extend Lattice All Squares</button>
+        </li>
+    </ul>
+</li>
+{% endif %}
+
+<!-- Hidden Form -->
+<div id="dialogueForm" class="dialogue-form">
+    <h5>Extend Lattice Parameters</h5>
+    <form id="extendLatticeForm">
+        <div class="form-group row">
+            <label for="squareMeshSpacing" class="col-4 col-form-label">Square Mesh Spacing</label>
+            <div class="col-8">
+                <input type="number" class="form-control" id="squareMeshSpacing" name="square_mesh_spacing" step="0.01">
+            </div>
+        </div>
+        <div class="form-group row">
+            <label for="squareMeshRotation" class="col-4 col-form-label">Square Mesh Rotation</label>
+            <div class="col-8">
+                <input type="number" class="form-control" id="squareMeshRotation" name="square_mesh_rotation" step="0.01">
+            </div>
+        </div>
+        <div class="form-group row">
+            <label for="holeSquareSpacing" class="col-4 col-form-label">Hole Square Spacing</label>
+            <div class="col-8">
+                <input type="number" class="form-control" id="holeSquareSpacing" name="hole_square_spacing" step="0.01" required>
+            </div>
+        </div>
+        <div class="form-group row">
+            <label for="holeSquareRotation" class="col-4 col-form-label">Hole Square Rotation</label>
+            <div class="col-8">
+                <input type="number" class="form-control" id="holeSquareRotation" name="hole_square_rotation" step="0.01" required>
+            </div>
+        </div>
+        <div class="form-group row">
+            <label for="holeMedmagSpacing" class="col-4 col-form-label">Hole MedMag Spacing</label>
+            <div class="col-8">
+                <input type="number" class="form-control" id="holeMedmagSpacing" name="hole_medmag_spacing" step="0.01">
+            </div>
+        </div>
+        <div class="form-group row">
+            <label for="holeMedmagRotation" class="col-4 col-form-label">Hole MedMag Rotation</label>
+            <div class="col-8">
+                <input type="number" class="form-control" id="holeMedmagRotation" name="hole_medmag_rotation" step="0.01">
+            </div>
+        </div>
+        <div class="d-flex justify-content-end mt-4">
+            <button type="button" class="btn btn-secondary me-2" onclick="closeExtendLatticeForm()">Cancel</button>
+            <button type="button" class="btn btn-primary" onclick="submitExtendLatticeForm()">Submit</button>
+        </div>
+    </form>
+</div>
+
+<!-- Background Overlay -->
+<div id="dialogueOverlay" class="dialogue-overlay" onclick="closeExtendLatticeForm()"></div>

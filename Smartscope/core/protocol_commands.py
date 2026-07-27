@@ -1,5 +1,6 @@
 from typing import Dict
 from random import random
+import os
 import numpy as np
 import logging
 from Smartscope.core.interfaces.microscope_interface import MicroscopeInterface
@@ -89,7 +90,7 @@ def moveStageWithAtlasToSearchOffset(scope:MicroscopeInterface,params,instance, 
     """Moves the stage to the instance position with an offset"""
     offset_x = scope.atlas_settings.atlas_to_search_offset_x + scope.state.lastSquareCenteringShiftX
     offset_y = scope.atlas_settings.atlas_to_search_offset_y + scope.state.lastSquareCenteringShiftY
-    finder = instance.finders.first()
+    finder = instance.finders.order_by('-created_at').first()
     stage_args = [finder.stage_x + offset_x, finder.stage_y + offset_y]
     if instance.prefix.lower() != 'square':
         stage_args.append(finder.stage_z)
@@ -114,10 +115,16 @@ def eucentricSearch(scope:MicroscopeInterface,params,instance, content:Dict, *ar
     
     However, this is less precise than Eucentricty and should be avoided when using Falcon detectors or when setting up for data collection.
     """
+    if scope.microscope.narrow_gap_polepiece:
+        logger.info('Narrow gap polepiece detected, using eucentricity by focus instead of stage tilt.')
+        scope.eucentricity_by_focus()
     scope.eucentricHeight()
 
 def eucentricMediumMag(scope:MicroscopeInterface,params,instance, content:Dict, *args, **kwargs) :
     """Calculates eucentricity using the View preset. Equivalent to Eucentric Rough."""
+    if scope.microscope.narrow_gap_polepiece:
+        logger.info('Narrow gap polepiece detected, using eucentricity by focus instead of stage tilt.')
+        scope.eucentricity_by_focus()
     scope.eucentricity()
     instance.eucentricity_refined = True
     instance.save()
@@ -285,7 +292,7 @@ def createHoleRef(scope,params,instance, content:Dict, *args, **kwargs):
 
 def alignToHoleNoTemplate(scope,params,instance, content:Dict, *args, **kwargs):
     """
-    Aligns the hole using Ptolemy instead of a hole reference image. Slower but very precise
+    Aligns the hole using MM-finderinstead of a hole reference image. Slower but very precise
     """
 
     from Smartscope.lib.image.base_image import BaseImage
@@ -296,6 +303,7 @@ def alignToHoleNoTemplate(scope,params,instance, content:Dict, *args, **kwargs):
         scope.acquire_medium_mag()
         pixel_size = scope.get_image_settings()
         image, _, _, _, _, pixel_size = scope.buffer_to_numpy()
+        print(f'Pixel size is {pixel_size:.3f}')
         montage = BaseImage('recentering')
         montage.image = image
         targets = find_targets(montage, ['Medium Mag AI hole finder'], convert_to_stage=False)[0]
@@ -303,10 +311,13 @@ def alignToHoleNoTemplate(scope,params,instance, content:Dict, *args, **kwargs):
         coords_from_center = np.array([[target.x,target.y] for target in targets]) - np.array([montage.shape_x,montage.shape_y])//2
         dist_to_center = np.sqrt(np.sum(np.power(coords_from_center,2),axis=1))
         closest_index = np.argmin(dist_to_center)
+        print(f'Distance to center is {dist_to_center[closest_index] * pixel_size:.3f} nm')
         if dist_to_center[closest_index] * pixel_size < 500: # 500 nm
+            print(f'Hole is within the 500 nm threshold, no need to recenter')
             set_or_update_refined_finder(instance.pk,*scope.report_stage())
             break
         iteration += 1
+        print(f'Aligning to hole and retrying.')
         scope.align_to_coord(coords_from_center[closest_index])
 
 def findHoleGeometry(scope,params,instance, content:Dict, *args, **kwargs):
@@ -316,6 +327,7 @@ def findHoleGeometry(scope,params,instance, content:Dict, *args, **kwargs):
     from Smartscope.lib.Datatypes.grid_geometry import GridGeometry, GridGeometryLevel
 
     grid = instance.grid_id
+    os.chdir(grid.directory)
     pitch = grid.holeType.pitch
     num_tiles_x, num_tiles_y = scope.set_medium_mag_size_mini_montage(hole_pitch_um=pitch)
     im_file = 'raw/medium_mag_geometry.mrc'
@@ -326,9 +338,8 @@ def findHoleGeometry(scope,params,instance, content:Dict, *args, **kwargs):
 
     microscope_id = grid.session_id.microscope_id
     montage = get_file_and_process(
-        raw=im_file,
+        raw=os.path.join(microscope_id.scope_path, im_file),
         name='medium_mag_geometry',
-        directory=microscope_id.scope_path,
         force_reprocess=True
     )
 
@@ -424,14 +435,38 @@ def reregisterMediumMag(scope:MicroscopeInterface,params,instance, content:Dict,
     new_stage_y = t.stage_y
     return(new_stage_x, new_stage_y)
 
+def reregisterMediumMagFiducial(scope:MicroscopeInterface,params,instance, content:Dict, *args, **kwargs):
+    from Smartscope.core.grid.run_io import get_file_and_process
+    grid = instance.grid_id
+    pitch = grid.holeType.pitch
+    num_tiles_x, num_tiles_y = scope.set_medium_mag_size_mini_montage(hole_pitch_um=pitch)
+    im_file = f'raw/register_fiducial_{instance.pk}.mrc'
+    if max(num_tiles_x, num_tiles_y) == 1:
+        scope.acquire_medium_mag(file=im_file)
+    else:
+        scope.medium_mag_montage((num_tiles_x, num_tiles_y), file=im_file)
+
+    microscope_id = grid.session_id.microscope_id
+    montage = get_file_and_process(
+        raw=im_file,
+        name=f'medium_mag_fiducial_{instance.pk}',
+        directory=microscope_id.scope_path,
+        force_reprocess=True
+    )
+    ###NEED TO CONTINUE HERE.
+
+
 def reregisterSearchMag(scope:MicroscopeInterface,params,instance, content:Dict, *args, **kwargs):
-    finder = instance.finders.first()
+    finder = instance.finders.order_by('-created_at').first()
     stage_x = finder.stage_x
     stage_y = finder.stage_y
 
     moveStage(scope,params,instance, content, *args, **kwargs)
     shift = scope.find_square_center_microns()
-    return (stage_x + shift[0], stage_y + shift[1])
+    shift = (stage_x + shift[0], stage_y + shift[1])
+    logger.info(f'Reregistered search mag to {shift[0]:.2f}, {shift[1]:.2f}')
+    scope.zero_image_shift()
+    return shift
 
 def openColumnValve(scope:MicroscopeInterface,params,instance, content:Dict, *args, **kwargs):
     scope.open_valves()
@@ -456,7 +491,11 @@ def refineEucentricityByFocus(scope:MicroscopeInterface,params,instance, content
 
 def eucentricSearchAfterDistance(scope:MicroscopeInterface,params,instance, content:Dict, *args, **kwargs):
     distance = content.get('distance', 300)
-    scope.eucentric_height_after_distance(distance_threshold=distance)
+    method = content.get('method', 'eucentricHeight')
+    if scope.microscope.narrowGapPolepiece:
+        logger.info('Narrow gap polepiece detected, using eucentricity by focus instead of stage tilt.')
+        method = 'eucentricity_by_focus'
+    scope.eucentric_height_after_distance(distance_threshold=distance, method=method)
 
 protocolCommandsFactory = dict(
     setAtlasOptics=setAtlasOptics,
@@ -514,5 +553,6 @@ protocolCommandsFactory = dict(
     setupSerialEM=setupSerialEM,
     setupApertures=setupApertures,
     refineEucentricityByFocus=refineEucentricityByFocus,
-    eucentricSearchAfterDistance=eucentricSearchAfterDistance
+    eucentricSearchAfterDistance=eucentricSearchAfterDistance,
+    findHoleGeometry=findHoleGeometry,
 )

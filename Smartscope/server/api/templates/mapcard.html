@@ -1,57 +1,75 @@
 {% load rest_framework %}
 {% load static %}
-<div class="card holeCard mapCard" targets="{{instance.targets_prefix}}">
+<div class="card holeCard mapCard" targets="{{instance.targets_prefix}}" data-prefix="{{ instance.prefix|lower }}">
     {% include "mapcard/card_header.html" %}
-    <nav class=" card-header py-0 navbar navbar-expand-xl navbar-light bg-light" role="navigation">
+    <nav class=" card-header py-0 navbar navbar-expand-sm navbar-light bg-light" role="navigation">
         <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#atlasNavBar">
             <span class="navbar-toggler-icon"></span>
         </button>
-        <div class="collapse navbar-collapse justify-content-center" id="atlasNavBar">
-            <ul id="queueBtns" class="navbar-nav">
-                <li id="{{instance.targets_prefix}}SeleMenu" class="nav-item dropdown">
-                {% if display_type == 'selectors' %}
-                <li class="nav-item d-flex align-items-center">
-                    <a hx-get="{% url 'selector_view' grid_id=instance.grid_id.pk selector=method maglevel=instance.prefix_lower %}" 
-                    hx-trigger="mousedown" class="nav-link"
-                    hx-on--before-request="createHTMXloadingMessage(event, 'Loading selector viewer')"
-                    hx-on--after-request="processHTMXloadingMessage(event)"
-                    hx-target="#main" 
-                    hx-swap="beforeend"
-                    data-bs-toggle="tooltip" data-bs-placement="top" title="Edit selector"><i
-                        class="bi bi-pencil"></i></a>
-                </li>
-                {% endif %}
-                {% if TRAINING_ANNOTATOR_FEATURE_FLAG %}
-                <li class="nav-item d-flex align-items-center">
-                    <a hx-get="{% url 'annotator_view' grid_id=instance.grid_id.pk maglevel=instance.prefix_lower %}" 
-                    hx-trigger="mousedown" class="nav-link"
-                    hx-on--before-request="createHTMXloadingMessage(event, 'Loading selector viewer')"
-                    hx-on--after-request="processHTMXloadingMessage(event)"
-                    hx-target="#main" 
-                    hx-swap="beforeend"
-                    data-bs-toggle="tooltip" data-bs-placement="top" title="Annotate data for training"><i
-                        class="bi bi-bucket"></i></a>
-                </li>
-                {% endif %}
-                {% include "mapcard/add_targets.html" %}
+        <div class="collapse navbar-collapse" id="atlasNavBar">
+
+            <!-- Row 1: always visible -->
+            <ul id="queueBtns" class="navbar-nav w-100 justify-content-between">
+                {% include "mapcard/display_dropdown.html" %}
+                <li class="nav-divider" aria-hidden="true"></li>
+                {% include "mapcard/all_target_actions.html" %}
+                <li class="nav-divider" aria-hidden="true"></li>
                 {% include "mapcard/action_menu.html" %}
+                <li class="nav-divider" aria-hidden="true"></li>
                 <li class="nav-item d-flex align-items-center">
                     <a id='{{instance.targets_prefix}}ClearSele' class="nav-link disabled"
                         onmousedown="clearSelection('{{instance.targets_prefix}}')"
                         data-bs-toggle="tooltip" data-bs-placement="top" title="Clear Selection"><i
                             class="bi bi-x-square"></i></a>
                 </li>
-                <!--Ruler icon in the square_div -->
-                {% if instance.targets_prefix == 'hole' %}
+
+                {% if instance.targets_prefix == 'hole' or TRAINING_ANNOTATOR_FEATURE_FLAG %}
+                <li class="nav-divider" aria-hidden="true"></li>
                 <li class="nav-item d-flex align-items-center">
-                    <a id="angleMeasure" class="nav-link"
-                       data-bs-toggle="tooltip" data-bs-placement="top"
-                       title="Measure square rotation angle">
-                        <i class="bi bi-rulers"></i>
+                    <a class="nav-link" href="#" role="button"
+                        data-bs-toggle="collapse" data-bs-target="#atlasNavBarRow2"
+                        aria-expanded="false" aria-controls="atlasNavBarRow2"
+                        id="atlasNavBarRow2Toggle"
+                        data-bs-toggle-tooltip="tooltip" title="Show more options">
+                        <i class="bi bi-arrow-bar-down"></i>
                     </a>
                 </li>
                 {% endif %}
             </ul>
+
+            <!-- Row 2: collapsible, only when total items exceed 4 -->
+            {% if instance.targets_prefix == 'hole' or TRAINING_ANNOTATOR_FEATURE_FLAG %}
+            <div class="collapse" id="atlasNavBarRow2">
+                <ul class="navbar-nav w-100 justify-content-between">
+                    {% if TRAINING_ANNOTATOR_FEATURE_FLAG %}
+                    <li class="nav-item d-flex align-items-center">
+                        <a hx-get="{% url 'annotator_view' grid_id=instance.grid_id.pk maglevel=instance.prefix_lower %}" 
+                        hx-trigger="mousedown" class="nav-link"
+                        hx-on--before-request="createHTMXloadingMessage(event, 'Loading selector viewer')"
+                        hx-on--after-request="processHTMXloadingMessage(event)"
+                        hx-target="#main" 
+                        hx-swap="beforeend"
+                        data-bs-toggle="tooltip" data-bs-placement="top" title="Annotate data for training"><i
+                            class="bi bi-bucket"></i></a>
+                    </li>
+                    {% if instance.targets_prefix == 'hole' %}<li class="nav-divider" aria-hidden="true"></li>{% endif %}
+                    {% endif %}
+
+                    <!--Ruler icon in the square_div -->
+                    {% if instance.targets_prefix == 'hole' %}
+                    {% include "mapcard/add_targets.html" %}
+                    <li class="nav-divider" aria-hidden="true"></li>
+                    <li class="nav-item d-flex align-items-center">
+                        <a id="angleMeasure" class="nav-link"
+                        data-bs-toggle="tooltip" data-bs-placement="top"
+                        title="Measure square rotation angle">
+                            <i class="bi bi-rulers"></i>
+                        </a>
+                    </li>
+                    {% endif %}
+                </ul>
+            </div>
+            {% endif %}
         </div>
     </nav>
 
@@ -71,3 +89,55 @@
     $('[data-bs-toggle="tooltip"]').tooltip();
     htmx.process(htmx.find('.mapCard'))   
 </script>
+
+<style>
+    @media (min-width: 576px) {
+        #atlasNavBar {
+            display: flex !important;
+            flex-direction: column;
+            align-items: stretch;
+            width: 100%;
+        }
+        #queueBtns.navbar-nav,
+        #atlasNavBarRow2 .navbar-nav {
+            flex-wrap: nowrap;
+            display: flex;
+            flex-direction: row;
+            justify-content: space-evenly;
+        }
+        #queueBtns.navbar-nav .nav-divider,
+        #atlasNavBarRow2 .navbar-nav .nav-divider {
+            display: block !important;
+        }
+    }
+    #queueBtns.navbar-nav,
+    #atlasNavBarRow2 .navbar-nav {
+        font-size: 0.9rem;
+        width: 100%;
+    }
+    #atlasNavBarRow2 {
+        width: 100%;
+        border-top: 1px solid rgba(0, 0, 0, 0.1);
+    }
+    #queueBtns.navbar-nav .nav-divider,
+    #atlasNavBarRow2 .navbar-nav .nav-divider {
+        margin: 0;
+        padding: 0;
+        width: 1px;
+        align-self: center;
+        height: 1.25rem;
+        background-color: rgba(0, 0, 0, 0.15);
+        display: none;
+    }
+    #queueBtns.navbar-nav .nav-link,
+    #atlasNavBarRow2 .navbar-nav .nav-link {
+        padding: 0.4rem;
+    }
+    #atlasNavBarRow2Toggle[aria-expanded="true"] .bi-arrow-bar-down {
+        transform: rotate(180deg);
+    }
+    #atlasNavBarRow2Toggle .bi-arrow-bar-down {
+        transition: transform 0.15s ease-in-out;
+        display: inline-block;
+    }
+</style>

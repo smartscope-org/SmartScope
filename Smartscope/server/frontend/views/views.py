@@ -31,6 +31,7 @@ from Smartscope.core.protocols import load_protocol, set_protocol
 from Smartscope.core.preprocessing_pipelines import PREPROCESSING_PIPELINE_FACTORY, load_preprocessing_pipeline
 from Smartscope.server.service.collection_params import update_collection_params, update_grid
 from Smartscope.core.settings.worker import COLLECTION_PARAMETERS
+from Smartscope.lib.Datatypes.base_collection_params import Property
 
 from Smartscope.core.models.grid import AutoloaderGrid
 from Smartscope.core.models.grid_collection_params import GridCollectionParams
@@ -75,6 +76,8 @@ class AutoScreenSetup(LoginRequiredMixin, TemplateView):
         if not 'form_general' in kwargs.keys():
             form_general = ScreeningSessionForm()
             form_params = GridCollectionParamsForm()
+            extra_params, _ = COLLECTION_PARAMETERS.get_collection_params("")
+            form_params = form_auxiliary_update(form_params, extra_params)
             form_preprocess = PreprocessingPipelineIDForm()
         else:
             form_general = kwargs['form_general']
@@ -313,9 +316,10 @@ class MultiShotView(TemplateView):
             grid = AutoloaderGrid.objects.get(grid_id=grid_id)
             mutlishot_file = Path(grid.directory,'multishot.json')
             multishot = RunHole.load_multishot_from_file(mutlishot_file)
-            context['current'] = multishot
-            context['form'] = SetMultiShotForm(initial=multishot.params.model_dump())
-            logger.debug(f'MultiShotViewGrid with {grid_id}')
+            if multishot:
+                context['current'] = multishot
+                context['form'] = SetMultiShotForm(initial=multishot.params.model_dump())
+                logger.debug(f'MultiShotViewGrid with {grid_id}')
         return context
     
     def get(self,request, *args, **kwargs):
@@ -421,14 +425,17 @@ class CollectionParams(TemplateView):
         grid = AutoloaderGrid.objects.get(pk=grid_id)
         context['grid'] = grid
         context['gridform'] = AutoloaderGridReportForm(instance=grid)
-        context['gridCollectionParamsForm'] = GridCollectionParamsForm(
-                                                                instance=grid.params_id, 
-                                                                grid_id=grid.grid_id, 
-                                                                initial={
-                                                                    'detector': str(grid.session_id.detector_id.pk), 
-                                                                    'mode': grid.collection_mode
-                                                                }
-                                                            )
+        collection_params_form = GridCollectionParamsForm(
+                                                            instance=grid.params_id, 
+                                                            grid_id=grid.grid_id, 
+                                                        )
+        extra_params, _ = COLLECTION_PARAMETERS.get_collection_params(
+                                                                        "", 
+                                                                        detector_id=grid.session_id.detector_id, 
+                                                                        mode=grid.collection_mode
+                                                                    )
+        # logger.debug(f"Collection parameters {extra_params}")
+        context['gridCollectionParamsForm'] = form_auxiliary_update(collection_params_form, extra_params)
         context['values'] = json.dumps({'grid_id': grid_id})
         return context
     
@@ -444,7 +451,14 @@ class CollectionParams(TemplateView):
             extra_context= {}
             
         elif form_type == 'collection_params':
+            grid = AutoloaderGrid.objects.get(pk=grid_id)
             form_params = GridCollectionParamsForm(request.POST)
+            extra_params, _ = COLLECTION_PARAMETERS.get_collection_params(
+                                                                        "", 
+                                                                        detector_id=grid.session_id.detector_id, 
+                                                                        mode=grid.collection_mode
+                                                                    )
+            form_params = form_auxiliary_update(form_params, extra_params)
             template = self.template_form_extended
             extra_context = {
                         'trigger': 'multishot_per_hole',
@@ -697,10 +711,24 @@ def form_auxiliary_update(form, extra_params):
     for field, data in extra_params.items():
         if field not in form.fields:
             continue
+        if "multishot" not in field:
+            form.fields[field].widget.attrs['data_advanced'] = 'true' if data.advanced else 'false'
+        if "defocus" in field:
+            form.fields[field].widget.attrs['data_advanced'] = 'true'
         print(f"Field: {field}, hidden: {data.hidden}")
         if data.hidden:
             form.fields[field].widget = forms.HiddenInput()
             form.fields[field].widget.attrs['hidden'] = True
         
         form.fields[field].widget.attrs.update(data.css_attr)
+    
+    multishot = extra_params.get("multishot_per_hole", Property(initial=False))
+    form.fields["multishot_per_hole"].widget.attrs['data_advanced'] = 'true' if multishot.advanced else 'false'
+    form.fields["multishot_per_hole_id"].widget.attrs['data_advanced'] = 'true' if multishot.advanced else 'false'
+
+    form.order_fields(sorted(
+        form.fields.keys(),
+        key=lambda name: form.fields[name].widget.attrs.get('data_advanced') == 'true'
+    ))
+
     return form

@@ -35,7 +35,9 @@ def sim_siam_prepare_data(mag_level:Literal['square','hole'],grid_id_list:List[s
         from Smartscope.core.models import SquareModel
         queryset = list(SquareModel.display.filter(grid_id__in=grid_id_list, status__in=[status.PROCESSED,status.COMPLETED]))
         if len(queryset) == 0:
-            raise ValueError(f"No data found for grid IDs: {grid_id_list} at magnification level {mag_level}.")
+            if raise_on_empty:
+                raise ValueError(f"No data found for grid IDs: {grid_id_list} at magnification level {mag_level}.")
+            return []
         item_sizes_microns = []
         for grid in grid_id_list:
             hole_size = grid.holeType.hole_size
@@ -47,7 +49,7 @@ def sim_siam_prepare_data(mag_level:Literal['square','hole'],grid_id_list:List[s
         filepath_attr = 'raw_mrc'
         extract_size_pixel = 50
 
-    item_size_microns = item_sizes_microns[0] * extract_size_factor
+    item_size_microns = item_sizes_microns[0]
 
     skipped = 0
     extracted = 0
@@ -58,13 +60,14 @@ def sim_siam_prepare_data(mag_level:Literal['square','hole'],grid_id_list:List[s
         image = getattr(item, filepath_attr)
         item_size_pixel = item_size_microns / (item.pixel_size /10_000)
         binning_factor = item_size_pixel / extract_size_pixel
+        print(f'Processing {mag_level} {item.pk} with image {image}. Item size: {item_size_microns} microns, pixel size: {item.pixel_size} Angstroms, item size in pixels: {item_size_pixel}, binning factor: {binning_factor}')
 
         resized_image_path = Path(directory , f'sim_siam_{extract_size_pixel}.png')
         if not resized_image_path.is_file():
             print(f'Binned image not found, creating {resized_image_path}')
             with mrcfile.open(image) as mrc:
                 img = mrc.data
-            new_height = int(round(img.shape[0] / binning_factor))
+            new_height = max(1, int(round(img.shape[0] / binning_factor)))
             img = convert_to_png(img, height=new_height, normalization=auto_contrast)
             cv2.imwrite(resized_image_path, img)
         else:
@@ -120,7 +123,7 @@ def sim_siam_transfer_trained_model(process_id:str,scratch_dir=None):
     weights = training_process.sim_siam_weights
     if weights is None:
         raise ValueError(f"No trained weights found for training process ID {process_id}.")
-    for file in [training_process.training_results_weights, training_process.training_config_file]:
+    for file in [training_process.training_results_weights]: #, training_process.training_config_file]:
         sim_siam_copy_output_file_from_scratch(file, weights.weights_directory, scratch_dir=scratch_dir)
 
 
@@ -135,7 +138,7 @@ def sim_siam_find_checkpoint(mag_level:Literal['square','hole'], grid:Autoloader
     """
     weights = SimSiamWeights.objects.filter(mag_level=mag_level, grid_id=grid).first()
     if weights is not None:
-        return
+        return weights
     sample_tags = grid.sample_tags.all()
     if len(sample_tags) > 0:
         weights = SimSiamWeights.objects.filter(mag_level=mag_level, sample_tag__in=sample_tags).all()

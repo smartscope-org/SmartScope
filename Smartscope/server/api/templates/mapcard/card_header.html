@@ -1,20 +1,71 @@
-<div class="card-header">
+<div class="card-header py-1 px-2">
     <div class="d-flex flex-row p-0 align-items-center justify-content-between">
-        <h3 class="d-inline my-0">{{instance.alias_name}}</h3>
+        <h3 class="d-inline my-0 px-2">{{instance.alias_name}}</h3>
 
-        <div class="p-0 justify-content-center d-none d-md-flex">
-            <div>
-                <button id='' class='a btn btn-outline-secondary showLegend' type="button" value='1'
+        <div class="p-0 justify-content-center d-none d-md-flex gap-1">
+            <!-- <div>
+                <button id='' class='a btn btn-link text-secondary border-0 showLegend' type="button" value='1'
                     data-bs-toggle="tooltip" data-bs-placement="top" title="Toggle legend">
                     <i class="bi bi-card-list "></i></button>
+            </div> -->
+            <div class="p-0 justify-content-center card-toggle-group" role="group" aria-label="Display toggles">
+                <button type="button" class="card-toggle-btn active showLegend" data-toggle="legend"
+                        data-bs-toggle="tooltip" data-bs-placement="top" title="Toggle legend">
+                    Lg
+                </button>
+                <button type="button" class="card-toggle-btn active toggleNumbers" data-toggle="numbers"
+                        data-bs-toggle="tooltip" data-bs-placement="top" title="Toggle target numbers">
+                    Nb
+                </button>
+                <button type="button" class="card-toggle-btn active toggleShapes" data-toggle="shapes"
+                        data-bs-toggle="tooltip" data-bs-placement="top" title="Toggle target shapes">
+                    Sh
+                </button>
             </div>
             {% include "autoscreenViewer/download_images_dropdown.html" with instance=instance %}
-            {% include "mapcard/display_dropdown.html" %}
             <div>
-                <button id='' class='a btn btn-outline-secondary zoomBtn' type="button" value='1'><i
+                <button id='' class='a btn btn-link text-secondary border-0 zoomBtn' type="button" value='1'><i
                         class="bi bi-zoom-in zoomIcon"></i></button>
             </div>
 
         </div>
     </div>
 </div>
+<style>
+    .card-header .btn-link.text-secondary {
+        text-decoration: none;
+        background-color: rgba(0, 0, 0, 0.04);
+        padding: 0.2rem 0.45rem;
+        transition: background-color 0.15s ease-in-out;
+    }
+    .card-header .btn-link.text-secondary:hover,
+    .card-header .btn-link.text-secondary:focus {
+        background-color: rgba(0, 0, 0, 0.15);
+        color: #212529;
+    }
+    .card-toggle-group {
+        background-color: rgba(0, 0, 0, 0.04);
+        border-radius: 0.25rem;
+        padding: 1px;
+        gap: 0;
+    }
+    .card-toggle-btn {
+        background-color: transparent;
+        border: 1px solid transparent;
+        color: #adb5bd;
+        font-size: 0.9rem;
+        font-weight: 400;
+        line-height: 1;
+        padding: calc(0.45rem - 1px) calc(0.45rem - 1px);
+        border-radius: 0.2rem;
+        transition: background-color 0.15s ease-in-out, color 0.15s ease-in-out, border-color 0.15s ease-in-out;
+    }
+    .card-toggle-btn:hover {
+        color: #495057;
+        background-color: rgba(0, 0, 0, 0.15);
+    }
+    .card-toggle-btn.active {
+        color: rgba(0, 0, 0, 0.55);
+        background-color: rgba(0, 0, 0, 0.05);
+    }
+</style>

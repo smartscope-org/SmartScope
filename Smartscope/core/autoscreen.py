@@ -3,6 +3,9 @@ import os
 import sys
 import logging
 
+from django.db import close_old_connections
+from django.utils import timezone
+
 logger = logging.getLogger(__name__)
 
 
@@ -68,13 +71,15 @@ def autoscreen(session_id:str, screening_mode: bool=False, skip_loading: bool=Fa
         status = 'error'
         if 'grid' in locals():
             update.grid = grid
+            close_old_connections()
             update(grid, status=GridStatus.ERROR)
     except KeyboardInterrupt:
         logger.info('Stopping Smartscope.py autoscreen')
         status = 'killed'
     finally:
         os.remove(microscope_model.lockFile)
-        update(process, status=status)
+        close_old_connections()
+        update(process, status=status, end_time=timezone.now())
         logger.info('Done.')
 
 

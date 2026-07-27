@@ -21,7 +21,7 @@ from .grid.run_io import get_file_and_process
 from .grid.run_hole import RunHole
 from .interfaces.microscope_interface import MicroscopeInterface
 from .selectors import selector_wrapper
-from .models import SquareModel, AutoloaderGrid
+from .models import SquareModel, AutoloaderGrid, Finder, HoleModel
 from .settings.worker import PROTOCOL_COMMANDS_FACTORY
 from .status import status
 from .protocols import get_or_set_protocol
@@ -93,8 +93,8 @@ def run_grid(
 
     needs_reregistations = grid.unloading_time is not None and grid.loading_time > grid.unloading_time
     if needs_reregistations:
-        logger.info('NOT IMPLEMENTED YET. Re-registering grid after re-loading')
-        # reregister_grid(scope, grid, protocol)
+        logger.info('Re-registering grid after re-loading')
+        reregister_grid(scope, grid, protocol)
 
     SELECTION_STRATEGY = TARGET_SELECTION_STRATEGIES['original']
     NAVIGATION_STRATEGY = NAVIGATION_STRATEGIES['original']
@@ -367,7 +367,10 @@ def runScopeProtocolSteps(
             instance = output
     return output
 
-def reregister_grid(scope, grid, protocol):
+def reregister_grid(scope, grid, protocol, rotation:bool=True):
+    from itertools import combinations
+    from Smartscope.lib.mesh_operations import calculate_transformation_matrix, apply_transform
+    import matplotlib.pyplot as plt
     logger.info('Re-registering grid')
     completed_squares = list(grid.squaremodel_set.filter(status=status.COMPLETED))
     if len(completed_squares) < 2:
@@ -375,27 +378,66 @@ def reregister_grid(scope, grid, protocol):
         return
     coords = []
     for square in completed_squares:
-        coordinates = square.finders.first()
-        coords.append((coordinates.stage_x, coordinates.stage_y))
+        finder = square.finders.first()
+        coords.append((finder.stage_x, finder.stage_y))
 
-    coords_np = np.asarray(coordinates, dtype=float)
-    # use scipy cdist to compute pairwise distances
+    coords_np = np.asarray(coords, dtype=float)
     D = cdist(coords_np, coords_np, metric='euclidean')
 
-    i, j = np.unravel_index(int(np.argmax(D)), D.shape)
-    maxd = float(D[i, j])
-    pair = (completed_squares[i], completed_squares[j])
+    if len(completed_squares) >= 3:
+        best = max(
+            combinations(range(len(completed_squares)), 3),
+            key=lambda idx: D[idx[0], idx[1]] + D[idx[0], idx[2]] + D[idx[1], idx[2]]
+        )
+        selected = [completed_squares[k] for k in best]
+        logger.info(f'Using 3 squares for re-registration: {selected}')
+    else:
+        selected = completed_squares
 
-    logger.info(f'Farthest squares: {pair[0]} and {pair[1]}, distance={maxd}')
 
     old_positions = []
     new_positions = []
-    for square in pair:
-        new_positions.append(PROTOCOL_COMMANDS_FACTORY['reregister_square'](scope, grid.params_id, square))    
-        old_positions.append(square.stage_coords)
-    
-    # Compute rotation and translation
-    old_positions = np.array(old_positions)
-    new_positions = np.array(new_positions)
-    
-    
+    for square in selected:
+        new_pos = PROTOCOL_COMMANDS_FACTORY['reregisterSearchMag'](scope, grid.params_id, square,{})
+        if new_pos is not None:
+            new_positions.append(new_pos)
+            old_positions.append(square.stage_coords)
+
+    if len(old_positions) == 0:
+        logger.warning('Cannot re-register grid: no valid positions returned from re-imaging squares')
+        return
+
+    calculated_matrix = calculate_transformation_matrix(old_positions, new_positions, rotation=rotation)
+    fig = plt.figure(figsize=(8, 8))
+    ax = fig.add_subplot(111)
+    ax.scatter(*zip(*old_positions), color='blue', label='Old Points')
+    ax.scatter(*zip(*new_positions), color='red', label='New Points')
+    transformed_points=  apply_transform(calculated_matrix, old_positions)
+    ax.scatter(*zip(*transformed_points), color='green', label='Transformed Points', marker='x')
+    ax.legend()
+    fig.savefig(Path(grid.directory, 'reregistration_plot.png'))
+    logger.info(f'Re-registration transformation matrix:\n{calculated_matrix}')
+    squares = list(SquareModel.display.filter(grid_id=grid))
+    holes = list(HoleModel.display.filter(grid_id=grid))
+    targets_to_update = squares + holes
+
+    finders_to_create = []
+    for target in targets_to_update:
+        existing_finder = target.finders.order_by('-created_at').first()
+        old_pos = np.array([existing_finder.stage_x, existing_finder.stage_y])
+        new_pos = apply_transform(calculated_matrix, old_pos)
+        finders_to_create.append(
+            Finder(
+                content_object=target,
+                method_name='Registration',
+                x=existing_finder.x,
+                y=existing_finder.y,
+                stage_x=float(new_pos[0]),
+                stage_y=float(new_pos[1]),
+                stage_z=existing_finder.stage_z,
+            )
+        )
+
+    with transaction.atomic():
+        Finder.objects.bulk_create(finders_to_create)
+        logger.info(f'Created {len(finders_to_create)} new finder entries for re-registered targets')

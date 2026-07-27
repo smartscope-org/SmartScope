@@ -161,7 +161,54 @@ async function checkIsRunning(element, response = null) {
     if (!isRunning && interval != null) {
         autoRefresh(isRunning)
     }
+
+    updateSessionStatusPill(response)
+
     return response;
+}
+
+function updateSessionStatusPill(data) {
+    if (!data || !data.status) {
+        $('#sessionStatus').html('No process').css('color', '').css('text-transform', '');
+        $('#sessionStatusIcon').css('color', '').removeClass('bi-circle-fill').addClass('bi-circle');
+        $('#sessionStatusIcon').closest('.badge-pill').css('border-color', '').css('--pill-color', '');
+
+        $('#sessionPID').html('PID: --');
+        $('#sessionStartTime').html('Start: --');
+        $('#sessionEndTime').html('End: --');
+        $('#sessionInfoIcon').removeClass('bi-circle-fill').addClass('bi-circle');
+        return;
+    }
+
+    const sessionStatusColorMap = {
+        'complete':  '#28a745',
+        'finished':  '#28a745',
+        'running':   'var(--bs-primary)',
+        'error':     '#dc3545',
+        'killed':  'var(--bs-red)',
+        'stopped':    'var(--bs-orange)',
+    };
+    const color = sessionStatusColorMap[data.status] || 'var(--bs-secondary)';
+
+    $('#sessionStatus').html(`${data.status}`)
+        .css('color', color)
+        .css('text-transform', 'uppercase');
+    $('#sessionStatusIcon').css('color', color).removeClass('bi-circle').addClass('bi-circle-fill');
+    $('#sessionStatusIcon').closest('.badge-pill')
+        .css('border-color', color)
+        .css('--pill-color', color);
+
+    $('#sessionPID').html(`PID: ${data.pid ?? '--'}`);
+    $('#sessionStartTime').html(`Start: ${formatSessionDate(data.start)}`);
+    $('#sessionEndTime').html(`End: ${formatSessionDate(data.end)}`);
+    $('#sessionInfoIcon').removeClass('bi-circle').addClass('bi-circle-fill');
+}
+
+function formatSessionDate(value) {
+    if (!value) return '--';
+    const date = new Date(value);
+    if (isNaN(date.getTime())) return '--';
+    return date.toLocaleString('en-CA', { 'localeMatcher': 'lookup', 'hour12': false });
 }
 
 $(document).ready(async function () {

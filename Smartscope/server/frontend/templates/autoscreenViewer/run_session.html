@@ -4,33 +4,74 @@
 {% block main %}
 {% csrf_token %}
 
-<div class="d-flex flex-row align-items-center px-2 gap-3 mb-2 mt-3 min-width-0">
-    <h2 class="mb-0 flex-shrink-0">Session | {{session}}</h2>
-    {% if session.currentGrid is not None %}
-    <a class='btn btn-outline-primary ms-auto' href="{% url 'browser' %}?group={{session.group.pk}}&session_id={{session.pk}}&grid_id={{session.currentGrid.pk}}">Go to session
-        browser</a>
-    {% endif %}
-    <p id="disk" class="text-secondary mb-0 ms-auto text-end" style="max-width: 30%;"> Loading...</p>
-</div>
+<div class="d-flex align-items-start gap-5 m-0 mb-2 mt-3 min-width-0">
+    <div class="d-flex align-items-start gap-2 min-width-0 flex-wrap" style="flex: 1 1 auto; row-gap: 4px;">
+        <h2 class="mb-0 px-2" style="flex: 0 1 auto; overflow-wrap: anywhere;">Session | {{session}}</h2>
+        <div class="position-relative flex-shrink-0" style="height: 26px; width: 55px;">
+            <div class="d-flex gap-2 position-absolute top-0 start-0" style="z-index: 26;">
+                {% if process is not None %}
+                    {% with color=process.status %}
+                    <div class="badge-pill pill-status"
+                        data-bs-toggle="tooltip" data-bs-placement="bottom" title="Session Status">
+                        <div class="circle-icon">
+                            <i class="bi bi-circle-fill" id="sessionStatusIcon""></i>
+                        </div>
+                        <span class="pill-label">
+                            <span id="sessionStatus" style="text-transform: uppercase;">
+                                {{ process.status }}
+                            </span>
+                        </span>
+                    </div>
+                    {% endwith %}
 
-{% if process is not None%}
-<div class="d-flex flex-row"  style="font-size: 0.9rem;">
-    <span class="px-2 border-end border-secondary">Session process PID: 
-        <span class="badge rounded-3 bg-dark text-dark border border-dark" style="font-size: 0.75rem;">{{process.PID}}</span>
-    </span>
-    {% with color=process.status|status_color %}
-    <span class="px-2 border-end border-secondary">Session Status: 
-        <span class="badge rounded-3 bg-{{ color }} text-{{ color }} border border-{{ color }}" style="font-size: 0.75rem;">{{process.status}}</span>
-    </span>
-    {% endwith %}
-    <span class="px-2 border-end border-secondary">Session Start Time: 
-        <span class="badge rounded-3 bg-dark text-dark border border-dark" style="font-size: 0.75rem;">{{process.start_time}}</span>
-    </span>
-    <span class="px-2">Session End Time: 
-        <span class="badge rounded-3 bg-dark text-dark border border-dark"  style="font-size: 0.75rem;">{{process.end_time}}</span>
-    </span>
+                    <div class="badge-pill pill-secondary pill-multiline"
+                        data-bs-toggle="tooltip" data-bs-placement="bottom" title="Session Info">
+                        <div class="circle-icon">
+                            <i class="bi bi-circle-fill" id="sessionInfoIcon"></i>
+                        </div>
+                        <span class="pill-label d-flex flex-column">
+                            <span id="sessionPID">PID: {{ process.PID }}</span>
+                            <span id="sessionStartTime">Start: {{ process.start_time }}</span>
+                            <span id="sessionEndTime">End: {{ process.end_time }}</span>
+                        </span>
+                    </div>
+                {% else %}
+                    <div class="badge-pill pill-status"
+                        data-bs-toggle="tooltip" data-bs-placement="bottom" title="Session Status">
+                        <div class="circle-icon">
+                            <i class="bi bi-circle" id="sessionStatusIcon"></i>
+                        </div>
+                        <span class="pill-label">
+                            <span id="sessionStatus">No running sessions</span>
+                        </span>
+                    </div>
+
+                    <div class="badge-pill pill-secondary pill-multiline"
+                        data-bs-toggle="tooltip" data-bs-placement="bottom" title="Session Info">
+                        <div class="circle-icon">
+                            <i class="bi bi-circle" id="sessionInfoIcon"></i>
+                        </div>
+                        <span class="pill-label d-flex flex-column">
+                            <span id="sessionPID">PID: --</span>
+                            <span id="sessionStartTime">Start: --</span>
+                            <span id="sessionEndTime">End: --</span>
+                        </span>
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+    {% if session.currentGrid is not None %}
+    <a class="btn btn-sm btn-outline-primary flex-shrink-1" style=="min-width: 60%;"
+        href="{% url 'browser' %}?group={{session.group.pk}}&session_id={{session.pk}}&grid_id={{session.currentGrid.pk}}">
+        Go to session browser
+    </a>
+    {% endif %}
+
+    <p id="disk" class="text-secondary mb-0 text-end text-truncate px-2" style="min-width: 0; max-width: 60%; flex-shrink: 3;">
+        Loading...
+    </p>
 </div>
-{% endif %}
 
 <div id='stopSignal' class="d-flex align-items-center justify-content-center d-none px-2">
     <div class='alert alert-info p-2 m-2' role="alert">Stop signal was received, Session will stop after the current acquisition. This may
@@ -51,51 +92,54 @@
 {% endif %}
 
 <!-- Session toggle with start annd stop button. Start button changes to stop and vice versa-->
-<div class="d-flex align-items-end gap-2 flex-wrap my-3 px-2">
-    <div class="dropdown d-inline pb-2">
-        <button class="btn btn-outline-primary dropdown-toggle session-toggle" type="button" id="start-button" data-bs-toggle="dropdown">
-            Start
-        </button>
-        <!-- Screening options full screening and atlas-only options are available as dropdown -->
-        <ul class="dropdown-menu" aria-labelledby="start-button">
-            <li>
-                <button class="dropdown-item screening-type" id="full-screening" data-mode="false">
-                    Full Screening
-                </button>
-            </li>
-            <li>
-                <button class="dropdown-item screening-type" id="atlas-only" data-mode="true">
-                    Atlas Only
-                </button>
-            </li>
-        </ul>
-    </div>
+<div class="d-flex align-items-end justify-content-between gap-2 flex-wrap m-0 mb-2 px-2">
+    <div class="d-flex align-items-end justify-content-start gap-2 flex-wrap">
+        <div class="dropdown d-inline pb-1">
+            <button class="btn btn-sm btn-outline-primary dropdown-toggle session-toggle" type="button" id="start-button" data-bs-toggle="dropdown">
+                Start
+            </button>
+            <!-- Screening options full screening and atlas-only options are available as dropdown -->
+            <ul class="dropdown-menu" aria-labelledby="start-button">
+                <li>
+                    <button class="dropdown-item screening-type" id="full-screening" data-mode="false">
+                        Full Screening
+                    </button>
+                </li>
+                <li>
+                    <button class="dropdown-item screening-type" id="atlas-only" data-mode="true">
+                        Atlas Only
+                    </button>
+                </li>
+            </ul>
+        </div>
+    
         
-    <!-- Pause session -->
-    <div class="d-inline pb-2">
-        <button id="pause" class="btn active" type="button" value="pause">Pause between grids</button>
-    </div>
+        <!-- Pause session -->
+        <div class="d-inline pb-1">
+            <button id="pause" class="btn btn-sm active" type="button" value="pause">Pause between grids</button>
+        </div>
 
-    <!-- Dropdown for downloading logs of run.out and proc.out files -->
-    <div class="dropdown d-inline pb-2">
-        <button class="btn btn-outline-primary dropdown-toggle" type="button" id="downloadLogs" data-bs-toggle="dropdown">
-            Download Logs
-        </button>
-        <div class="dropdown-menu" aria-labelledby="downloadLogs">
-            <a class="dropdown-item" href="/api/sessions/{{ session_id }}/download_logs/?file_type=run">run.out</a>
-            <a class="dropdown-item" href="/api/sessions/{{ session_id }}/download_logs/?file_type=proc">proc.out</a>
-        </div>    
+        <!-- Dropdown for downloading logs of run.out and proc.out files -->
+        <div class="dropdown d-inline pb-1">
+            <button class="btn btn-sm btn-outline-primary dropdown-toggle" type="button" id="downloadLogs" data-bs-toggle="dropdown">
+                Download Logs
+            </button>
+            <div class="dropdown-menu" aria-labelledby="downloadLogs">
+                <a class="dropdown-item" href="/api/sessions/{{ session_id }}/download_logs/?file_type=run">run.out</a>
+                <a class="dropdown-item" href="/api/sessions/{{ session_id }}/download_logs/?file_type=proc">proc.out</a>
+            </div>    
+        </div>
     </div>
     {% if request.user.is_staff %}
-    <fieldset class="border border-danger rounded p-2 position-relative mx-4" id="staff-section">
-        <legend class="float-none w-auto px-1 text-danger m-0" style="font-size: 0.85rem;">
+    <fieldset class="border border-danger rounded p-1 px-2 position-relative" id="staff-section">
+        <legend class="float-none w-auto px-1 text-danger m-0" style="font-size: 0.75rem;">
             <i class="bi bi-shield-exclamation me-1"></i>Staff only — use carefully
         </legend>
         <div class="d-flex gap-2 flex-wrap">
-            <button id="force-start-button" class="btn btn-outline-primary" type="button" value="start">Force Start</button>
-            <button id="removeLockButton" class="btn btn-outline-primary" type="button" value="remove_lock">Remove Microscope Lock
+            <button id="force-start-button" class="btn btn-sm btn-outline-primary" type="button" value="start">Force Start</button>
+            <button id="removeLockButton" class="btn btn-sm btn-outline-primary" type="button" value="remove_lock">Remove Microscope Lock
                 File</button>
-            <button id="forceKill" class="btn btn-outline-primary" type="button" value="force_kill">Force-kill all session
+            <button id="forceKill" class="btn btn-sm btn-outline-primary" type="button" value="force_kill">Force-kill all session
                 processes</button>
         </div>
     </fieldset>

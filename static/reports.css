@@ -537,6 +537,14 @@
     display: block; /* Display submenu on hover */
 }
 
+.dropdown-header {
+    padding-top: 0.15rem;
+    padding-bottom: 0.15rem;
+    padding-left: 0.45rem;
+    color: rgba(0, 0, 0, 0.5);
+    font-weight: 350;
+}
+
 /* Debug CSS to ensure inputs are not blocked */
 .modal-body input,
 .modal-body select {
@@ -611,7 +619,7 @@
     height: 0.85em;  /* smaller height */
     background-color: #f7f7f7;  /* grey when unchecked */
     border-color: #adb5bd;
-
+    margin-top: 0.35em;
 }
 .tab-switchers .form-check-input:checked {
     background-color: rgba(33, 37, 41, 0.494);  /* darker grey when checked */
@@ -695,4 +703,17 @@
 .badge-pill:hover .pill-label {
     opacity: 1;
     transform: translateX(0);
+}
+.badge-pill.pill-secondary.pill-multiline:hover {
+    height: auto;
+    min-height: 26px;
+    align-items: flex-start;
+}
+.pill-secondary.pill-multiline .pill-label {
+    line-height: 1.2;
+    font-size: 0.75rem;
+    justify-content: center;
+}
+.pill-secondary.pill-multiline .pill-label span {
+    display: block;
 }

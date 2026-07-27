@@ -78,16 +78,19 @@ def send_find_squares_from_montage(montage, class_map:Dict[str,BaseModel], **kwa
     data['kwargs']['class_mapping'] = {k:v.model_dump() for k,v in class_map.items()}
 
     queue, scratch_dir = get_queue()
-    print(f'Sending find_squares task to queue {queue} with scratch dir {scratch_dir}')
-    
+    #print(f'Sending find_squares task to queue {queue} with scratch dir {scratch_dir}')
+    logger.debug(f'Sending find_squares task to queue {queue} with scratch dir {scratch_dir}')
     result = app.send_task('SmartscopeAI.interfaces.celery.tasks.find_squares', args=[json.dumps(data)], queue=queue)
     task_id = result.id
+    logger.info(f"[grid={kwargs.get('grid_id', '-')}] dispatched find_squares -> task_id={task_id}")
     res = AsyncResult(task_id, app=app)
     coords, labels = res.get(interval=1, timeout=120)
     yolo_class_map = class_map_to_yolo(class_map=class_map)
-    print(labels)
+    #print(labels)
+    logger.debug(f'find_squares labels: {labels}')
     labels_converted =  [yolo_class_map[item] for item in labels]
-    print(coords, labels_converted)
+    #print(coords, labels_converted)
+    logger.debug(f'find_squares coords: {coords}, labels: {labels_converted}')
     return (coords,labels_converted), True, dict()
 
 def send_find_holes_from_montage(montage:Montage, class_map:Dict[str,BaseModel], success_threshold:int=10,  **kwargs):
@@ -103,9 +106,11 @@ def send_find_holes_from_montage(montage:Montage, class_map:Dict[str,BaseModel],
     
     result = app.send_task('SmartscopeAI.interfaces.celery.tasks.find_holes', args=[json.dumps(data)], queue=get_queue()[0])
     task_id = result.id
+    logger.info(f"[grid={kwargs.get('grid_id', '-')}] dispatched find_holes -> task_id={task_id}")
     res = AsyncResult(task_id, app=app)
     final_result = res.get(interval=1, timeout=120)
-    print(final_result)
+    #print(final_result)
+    logger.debug(f'find_holes result: {final_result}')
     return final_result, True, dict()
 
 def send_find_holes_from_square(montage:Montage, class_map:Dict[str,BaseModel], success_threshold:int=10,  **kwargs):
@@ -122,9 +127,11 @@ def send_find_holes_from_square(montage:Montage, class_map:Dict[str,BaseModel], 
     
     result = app.send_task('SmartscopeAI.interfaces.celery.tasks.find_holes', args=[json.dumps(data)], queue=get_queue()[0])
     task_id = result.id
+    logger.info(f"[grid={kwargs.get('grid_id', '-')}] dispatched find_holes -> task_id={task_id}")
     res = AsyncResult(task_id, app=app)
     final_result = res.get(interval=1, timeout=600)
-    print(final_result)
+    #print(final_result)
+    logger.debug(f'find_holes result: {final_result}')
     return final_result, True, dict()
 
 def find_holes_with_lattice(montage, hole_spacing:float, hole_size:float, lattice_radius:float, class_map:Dict=None, success_threshold:int=2, **kwargs):
@@ -190,14 +197,15 @@ def sim_siam_inference(mag_level:Literal['square','hole'], grid_id:str, **kwargs
     checkpoint_path = None
     config_path = None
     queue, scratch_dir = get_queue()
-    print(f'Sending find_squares task to queue {queue} with scratch dir {scratch_dir}')
-
+    #print(f'Sending find_squares task to queue {queue} with scratch dir {scratch_dir}')
+    logger.debug(f'Sending sim_siam task to queue {queue} with scratch dir {scratch_dir}')
     weights = sim_siam_find_checkpoint(mag_level, grid)
-    print(f'Found weights {weights} for mag level {mag_level} and grid {grid_id}')
+    #print(f'Found weights {weights} for mag level {mag_level} and grid {grid_id}')
+    logger.debug(f'Found weights {weights} for mag level {mag_level} and grid {grid_id}')
     if weights is not None:
         training_process = SimSiamTrainingProcess.objects.filter(sim_siam_weights=weights).first()
         checkpoint_path = (weights.checkpoint_file,Path(*training_process.training_results_weights.parts[1:]))
-        config_path = (weights.config_file, Path(*training_process.training_config_file.parts[1:]))
+        # config_path = (weights.config_file, Path(*training_process.training_config_file.parts[1:]))
 
     grid_ids = [grid_id]  # Replace with actual grid IDs
     dataset_name = '_'.join(grid_ids) + "_" + mag_level
@@ -217,12 +225,15 @@ def sim_siam_inference(mag_level:Literal['square','hole'], grid_id:str, **kwargs
         checkpoint_path = str(checkpoint_path)
     ))
 
-    print(f'Sending SimSiam inference request for grid {grid_id} with magnification level {mag_level} and checkpoint {checkpoint_path}')
+    #print(f'Sending SimSiam inference request for grid {grid_id} with magnification level {mag_level} and checkpoint {checkpoint_path}')
+    logger.info(f'Sending SimSiam inference request for grid {grid_id}...')
     result = app.send_task('SmartscopeAI.interfaces.celery.tasks.sim_siam_data', args=[data], queue=queue)
     task_id = result.id
+    logger.info(f'[grid={grid_id}] dispatched sim_siam_data -> task_id={task_id}')
     res = AsyncResult(task_id, app=app)
     final_result = res.get(interval=1, timeout=600)
-    print(final_result)
+    #print(final_result)
+    logger.debug(f'sim_siam inference result: {final_result}')
     
     sim_siam_copy_output_file_from_scratch(final_result, grid.directory, scratch_dir=scratch_dir)
 
@@ -260,8 +271,10 @@ def sim_siam_training(mag_level:Literal['square','hole'], grid_id:str, related_g
         mag_level = mag_level,
         checkpoint_path = str(checkpoint_path)
     ))
-    print(f'Sending SimSiam training request for grid {grid_id} with magnification level {mag_level} and checkpoint {checkpoint_path}')
+    #print(f'Sending SimSiam training request for grid {grid_id} with magnification level {mag_level} and checkpoint {checkpoint_path}')
+    logger.info(f'Sending SimSiam training request for grid {grid_id}...')
     result = app.send_task('SmartscopeAI.interfaces.celery.tasks.sim_siam_training', args=[data], queue=queue)
+    logger.info(f'[grid={grid_id}] dispatched sim_siam_training -> task_id={result.id}')
     return result.id
     # res = AsyncResult(task_id, app=app)
     # final_result = res.get(interval=1, timeout=120)
