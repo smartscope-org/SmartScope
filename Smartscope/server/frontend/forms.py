@@ -1,19 +1,45 @@
+import yaml
 from typing import Optional, Dict, Any
 from django import forms
 from django.urls import reverse
+
 from Smartscope.core.models import *
-from Smartscope.core.settings.worker import SMARTSCOPE_CUSTOM_CONFIG, SMARTSCOPE_DEFAULT_CONFIG, PROTOCOLS_FACTORY 
+from Smartscope.core.settings.worker import (SMARTSCOPE_CUSTOM_CONFIG, 
+                                             SMARTSCOPE_DEFAULT_CONFIG, 
+                                             PROTOCOLS_FACTORY, 
+                                             COLLECTION_PARAMETERS)
 from Smartscope.core.preprocessing_pipelines import PREPROCESSING_PIPELINE_FACTORY
-import yaml
-from django.urls import reverse
 
 
+def read_config_legacy(filename = 'default_collection_params.yaml'):
+    collections_params = yaml.safe_load(Path(SMARTSCOPE_DEFAULT_CONFIG,filename).read_text())
+    custom_collections_params = SMARTSCOPE_CUSTOM_CONFIG / filename
+    if custom_collections_params.exists():
+        collections_params.update(yaml.safe_load(custom_collections_params.read_text()))
+    return collections_params
 
+def read_config(filename = 'default_collection_params.yaml', detector_id = 'default', mode='screening'):
+    try:
+        collections_params = yaml.safe_load(Path(SMARTSCOPE_DEFAULT_CONFIG,filename).read_text())
+        custom_collections_params = SMARTSCOPE_CUSTOM_CONFIG / filename
+        if custom_collections_params.exists():
+            yaml_data = yaml.safe_load(custom_collections_params.read_text())
+            detector_specific_data = yaml_data.get(detector_id, {})
+            mode_specific_data = detector_specific_data.get(mode, {})
+            collections_params.update(mode_specific_data)
+        return collections_params
+    except Exception as e:
+        logger.error(f'Error reading config file {filename}: {e}, trying legacy method.')
+        return read_config_legacy()
+    
 
 class ScreeningSessionForm(forms.ModelForm):
-    mode = forms.ChoiceField(choices=[('screening','screening'),('collection','collection')], initial='screening', label='Session Mode', 
+    mode = forms.ChoiceField(choices=[('screening','Screening'),('collection','Collection')], initial='screening', label='Session Mode', 
                              help_text='Select the session mode. Screening mode will use screening parameters and collection mode will use data collection parameters.',
                              widget=forms.Select(attrs={"id": "id_mode"}))
+    preset = forms.ChoiceField(choices=[('default', 'Default')], initial='default', label='Presets', 
+                             help_text='Select the preset. Presets allows you to choose between default and custom data collection parameters.',
+                             widget=forms.Select(attrs={"id": "id_preset"}))
 
     class Meta:
         from Smartscope.core.models.screening_session import ScreeningSession
@@ -40,53 +66,49 @@ class ScreeningSessionForm(forms.ModelForm):
         })
         self.fields['group'].widget.attrs.update({
             "hx-get": reverse('getUsersInGroup'),
-            "hx-target":"#id_user",
-            "hx-trigger":"change"
+            "hx-target": "#id_user",
+            "hx-trigger": "change",
+            "hx-on:htmx:after-request": (
+                            "htmx.ajax('GET', '{url}', {{target: '#id_preset', values: htmx.values(htmx.find('#id_group, #id_detector_id, #id_mode'))}}).then(() => "
+                            "{{ const d = document.querySelector('#id_preset'); if (d) d.dispatchEvent(new Event('change', {{bubbles: true}})); }})"
+                            ).format(url=reverse('getSetsNames'))
         })
         self.fields['user'].required = False
         self.fields['microscope_id'].widget.attrs.update({
             "hx-get": reverse('getMicroscopeDetectors'),
-            "hx-target":"#id_detector_id",
-            "hx-trigger":"change",
+            "hx-target": "#id_detector_id",
+            "hx-trigger": "change",
+            "hx-on:htmx:after-request": "const d = document.querySelector('#id_detector_id'); console.log(d); if (d) d.dispatchEvent(new Event('change', { bubbles: true }));"
         })
         self.fields['detector_id'].widget.attrs.update({
-            "hx-get": reverse('getCollectionParamsForm'),
-            "hx-target":"#collection-params-form",
-            "hx-trigger":"change",
-            "hx-include":"#id_mode",
-            "hx-on": "htmx:afterSwap: const d = document.querySelector('#id_detector_id'); console.log(d); if (d) d.dispatchEvent(new Event('change', { bubbles: true }));"
-
+            "hx-get": reverse('getSetsNames'),
+            "hx-target": "#id_preset",
+            "hx-trigger": "change",
+            "hx-include": "#id_mode, #id_group",
+            "hx-on:htmx:after-request": "const d = document.querySelector('#id_preset'); console.log(d); if (d) d.dispatchEvent(new Event('change', { bubbles: true }));"
         })
         self.fields['mode'].widget.attrs.update({
-            "hx-get": reverse('getCollectionParamsForm'),
-            "hx-target":"#collection-params-form",
-            "hx-trigger":"change",
-            "hx-include":"#id_detector_id",
+            "hx-get": reverse('getSetsNames'),
+            "hx-target": "#id_preset",
+            "hx-trigger": "change",
+            "hx-include": "#id_detector_id, #id_group",
+            "hx-on:htmx:after-request": "const d = document.querySelector('#id_preset'); console.log(d); if (d) d.dispatchEvent(new Event('change', { bubbles: true }));"
         })
+        self.fields['preset'].widget.attrs.update({
+            "hx-get": reverse('getCollectionParamsForm'),
+            "hx-target":"#formParams",
+            "hx-swap": "outerHTML",
+            "hx-trigger":"change",
+            "hx-include":"#id_group, #id_detector_id, #id_mode",
+            # "hx-on::after-swap": "const d = document.querySelector('#id_preset'); console.log(d); if (d) d.dispatchEvent(new Event('change', { bubbles: true }));",
+        })
+        self.fields['preset'].validate = lambda value: None
+
         for visible in self.visible_fields():
-            visible.field.widget.attrs['class'] = 'form-control'
-
-
-def read_config_legacy(filename = 'default_collection_params.yaml'):
-    collections_params = yaml.safe_load(Path(SMARTSCOPE_DEFAULT_CONFIG,filename).read_text())
-    custom_collections_params = SMARTSCOPE_CUSTOM_CONFIG / filename
-    if custom_collections_params.exists():
-        collections_params.update(yaml.safe_load(custom_collections_params.read_text()))
-    return collections_params
-
-def read_config(filename = 'default_collection_params.yaml', detector_id = 'default', mode='screening'):
-    try:
-        collections_params = yaml.safe_load(Path(SMARTSCOPE_DEFAULT_CONFIG,filename).read_text())
-        custom_collections_params = SMARTSCOPE_CUSTOM_CONFIG / filename
-        if custom_collections_params.exists():
-            yaml_data = yaml.safe_load(custom_collections_params.read_text())
-            detector_specific_data = yaml_data.get(detector_id, {})
-            mode_specific_data = detector_specific_data.get(mode, {})
-            collections_params.update(mode_specific_data)
-        return collections_params
-    except Exception as e:
-        logger.error(f'Error reading config file {filename}: {e}, trying legacy method.')
-        return read_config_legacy()
+            if visible.field.label != "Session Name":
+                visible.field.widget.attrs['class'] = 'form-select'
+            else:
+                visible.field.widget.attrs['class'] = 'form-control'
 
 
 class AutoloaderGridForm(forms.ModelForm):
@@ -102,15 +124,17 @@ class AutoloaderGridForm(forms.ModelForm):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
+        
+        for visible in self.visible_fields():
+            visible.field.widget.attrs['class'] = 'form-select col-7'
+            # visible.label = ''
+            visible.field.required = False
+        
         self.fields['position'].widget.attrs.update({
             'class': 'form-control',
             'min': 0,
             'max': 99999
         })
-        for visible in self.visible_fields():
-            visible.field.widget.attrs['class'] = 'form-control col-7'
-            # visible.label = ''
-            visible.field.required = False
 
         self.fields['name'].widget.attrs.update({'class': 'form-control',
                                                 'placeholder': self.fields['name'].label, 'aria-label': "...",
@@ -133,7 +157,7 @@ class AutoloaderGridReportForm(forms.ModelForm):
         self.form_labels = ('Hole Type', 'Mesh Size', 'Mesh Material')
         for visible in self.visible_fields():
 
-            visible.field.widget.attrs['class'] = 'form-control'
+            visible.field.widget.attrs['class'] = 'form-select'
             visible.field.required = False
 
 class MyCheckBox(forms.CheckboxInput):
@@ -174,22 +198,16 @@ class GridCollectionParamsForm(forms.ModelForm):
             hardwaredark_delay= 'Delay in hours for the hardware dark acquisition. Use -1 to deactivate',
             offset_targeting='Enable targeting off-center to sample the ice gradient and carbon mesh particles. Use the Offset Distance setting to change behavior. Disabled in data collection mode unless offset distance is set.',
             offset_distance='Set a fixed offset value in microns. During screening, use -1 for a random offset dependent of the hole size. During data collection, only fixed values are allowed.',
-            multishot_per_hole='Enable multishot per hole.'
+            multishot_per_hole='Enable multishot per hole. A setup form will appear after checking it'
         )
 
     # multishot_per_hole = forms.BooleanField(label='Multishot per hole', initial=False,help_text='Enable multishot per hole. The mutlishot menu will need to be filled.')
-    multishot_per_hole_id = forms.CharField(label='Multishot per hole ID', required=False)
+    multishot_per_hole_id = forms.CharField(label='Multishot per hole ID', required=False, help_text='Applied automatically after setting up Multishot per hole settings')
 
 
     def __init__(self, *args, grid_id=None, detector_id=None, **kwargs):
 
         super().__init__(*args, **kwargs)
-
-        detector = self.initial.get('detector', None)
-        mode = self.initial.get('mode', 'screening')
-
-
-        print(f"Detector in form init: {detector}, mode: {mode}")
 
         self.fields['target_defocus_min'].widget.attrs.update({
             "max": 0,
@@ -223,7 +241,7 @@ class GridCollectionParamsForm(forms.ModelForm):
             "min": -1,
             "step": 0.05
         })
-        self.fields['multishot_per_hole'].widget = MultishotCheckBox(grid_id=grid_id)
+        self.fields['multishot_per_hole'].widget = MyCheckBox()
         self.fields['afis'].widget = MyCheckBox()
 
         for visible in self.visible_fields():
@@ -235,21 +253,16 @@ class GridCollectionParamsForm(forms.ModelForm):
                 visible.field.widget.attrs['class'] = 'form-control'
             visible.field.required = False
 
-        for field, data in read_config(detector_id=detector, mode=mode).items():
-            if field not in self.fields.keys():
-                continue
-            self.fields[field].initial = data.pop('initial')
-            hidden = data.pop('hidden', False)
-            print(f"Field: {field}, hidden: {hidden}")
-            if hidden:
-                self.fields[field].widget = forms.HiddenInput()
-                self.fields[field].widget.attrs['hidden'] = True
-            
-            self.fields[field].widget.attrs.update(data)
-
 
 class PreprocessingPipelineIDForm(forms.Form):
-    preprocessing_pipeline_id = forms.CharField(label='Preprocessing pipeline ID', required=False)
+    preprocessing_pipeline = forms.BooleanField(label='Set up preprocessing pipeline ', required=False, help_text='Check it up to set up Preprocess pipeline')
+    preprocessing_pipeline_id = forms.CharField(label='Preprocessing pipeline ID', required=False, 
+                                                help_text='Applied automatically after setting up Preprocess pipeline settings')
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields['preprocessing_pipeline'].widget = MyCheckBox()
+        self.fields['preprocessing_pipeline_id'].widget.attrs['class'] = 'form-control'
 
 
 class AssingBisGroupsForm(forms.Form):
@@ -287,7 +300,7 @@ class SelectProtocolForm(forms.Form):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.fields['protocol'].widget.attrs.update({
-            'class': 'form-control'
+            'class': 'form-select'
         })
 
 class SelectPeprocessingPipilelineForm(forms.Form):
@@ -296,5 +309,5 @@ class SelectPeprocessingPipilelineForm(forms.Form):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.fields['pipeline'].widget.attrs.update({
-            'class': 'form-control',
+            'class': 'form-select',
         })

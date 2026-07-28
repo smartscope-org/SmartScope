@@ -26,11 +26,7 @@ FILTER_FIELD_MAP = {
 }
 
 def table_view(request):
-    if request.headers.get('HX-Request'):
-        return render(request, "management_table.html")
-    return render(request, 'autoscreenViewer/auto_screen_viewer.html', {
-        'initial_partial': 'management_table.html',
-    })
+    return render(request, "management_table.html")
 
 def utc_time_conversion(date: str,):
     try:

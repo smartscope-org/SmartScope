@@ -1,0 +1,32 @@
+
+<form id='editGridForm' 
+    hx-post="{% url 'collectionParams' grid_id=grid.grid_id %}"
+    hx-target="#editGridForm"
+    hx-swap="outerHTML">
+    {% csrf_token %}
+    <input type="hidden" name="form_type" value="grid">
+    {% include 'forms/formFieldsBase.html' with form=gridform row=True includeSubmitButton=True %}
+</form>
+<hr class="mb-1">
+<div class="d-flex justify-content-end flex-grow-1 mt-0 pe-2" onclick="event.stopPropagation();">
+    <div class="form-check form-switch tab-switchers position-relative mb-0">
+        <input class="form-check-input" type="checkbox" role="switch" id="advancedToggleColParamsEdit">
+        <label class="form-check-label small text-nowrap" for="advancedToggleColParamsEdit">Advanced</label>
+    </div>
+</div>
+<form id='editCollectionParamsForm' 
+    hx-post="{% url 'collectionParams' grid_id=grid.grid_id %}"
+    hx-target="#editCollectionParamsForm"
+    hx-swap="outerHTML">
+    {% csrf_token %}
+    <input type="hidden" name="form_type" value="collection_params">
+    {% url 'setMultishot' as multishot_url %}
+    {% with id='formParamsEdit' trigger='multishot_per_hole' url=multishot_url values=values %}
+        {% include "forms/expand_form.html" with form=gridCollectionParamsForm row=True includeSubmitButton=True %}
+    {% endwith %}
+</form>
+
+<script>
+    $("img[id$='_help']").tooltip();
+    initAdvancedToggle('advancedToggleColParamsEdit', 'formParamsEdit');
+</script>

@@ -15,6 +15,8 @@ from Smartscope.server.frontend.forms import *
 from Smartscope.server.lib.worker_jobs import send_to_worker
 from Smartscope.core.db_manipulations import update_target_selection, update_target_label, update_target_status
 from Smartscope.core.main_commands import list_plugins, reload_plugins, list_protocols, reload_protocols
+from Smartscope.core.protocols import load_protocol
+from Smartscope.core.preprocessing_pipelines import load_preprocessing_pipeline
 from Smartscope.core.models import *
 from .serializers import *
 
@@ -223,13 +225,10 @@ class ReportPanel(APIView):
             context = dict()
             context['grid'] = grid
             context['tagsFeatureFlag'] = settings.TAGS_FEATURE_FLAG
-            context['gridform'] = AutoloaderGridReportForm(instance=context['grid'])
-            detector_id = grid.session_id.detector_id
-            context['gridCollectionParamsForm'] = GridCollectionParamsForm(instance=context['grid'].params_id, 
-                                                                           grid_id=context['grid'].grid_id, 
-                                                                           initial={'detector': str(detector_id.pk) if detector_id is not None else None, 
-                                                                                    'mode': grid.collection_mode}
-                                                                            )
+            protocol = load_protocol(file=grid.protocol)
+            context['protocol'] = protocol.name
+            pipeline_data = load_preprocessing_pipeline(Path(grid.directory, 'preprocessing.json'))
+            context['pipeline'] = PREPROCESSING_PIPELINE_FACTORY[pipeline_data.pipeline].verbose_name
             context['useMicroscope'] = settings.USE_MICROSCOPE
             try:
                 context['atlas_id'] = context['grid'].atlasmodel_set.all().first().atlas_id
