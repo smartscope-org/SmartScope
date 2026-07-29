@@ -255,6 +255,8 @@ class CollectionParameters(BaseModel):
                 )
 
     def get_collection_params(self, group:str, detector_id='default', mode='screening', name='default'):
+        # call sites pass detector_id as a Detector, its pk, or a str; keys are str(pk)
+        detector_id = str(getattr(detector_id, 'pk', detector_id))
         params = deepcopy(self.basic_parameters)
         specific_params = self.granular_parameters.get(detector_id, DetectorParams())
         detector_params = getattr(specific_params, mode, {})
@@ -269,6 +271,7 @@ class CollectionParameters(BaseModel):
         return params, initials
 
     def get_presets(self, group: str, detector_id = 'default', mode='screening'):
+        detector_id = str(getattr(detector_id, 'pk', detector_id))
         logger.debug(f"Request {detector_id}, {group}")
         logger.debug(f"Custom parameters {self.custom_parameters.get(group, {})}")
         specific_params = self.custom_parameters.get(group, {}).get(detector_id, CustomDetectorParams())
