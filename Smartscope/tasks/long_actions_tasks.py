@@ -100,7 +100,8 @@ def process_square_image(square_id: str, square_dir: str, grid_id: str, microsco
     from celery.result import allow_join_result
 
     try:
-        lock_path = acquire_lock(square_dir)
+        lock_path = acquire_lock(square_dir, square_id)
+        logger.info(f"Lock file for {square_id} under the path {lock_path}")
     except LockError as e:
         logger.warning(str(e))
         return
