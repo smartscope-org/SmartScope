@@ -115,14 +115,14 @@ def eucentricSearch(scope:MicroscopeInterface,params,instance, content:Dict, *ar
     
     However, this is less precise than Eucentricty and should be avoided when using Falcon detectors or when setting up for data collection.
     """
-    if scope.microscope.narrow_gap_polepiece:
+    if scope.microscope.narrowGapPolepiece:
         logger.info('Narrow gap polepiece detected, using eucentricity by focus instead of stage tilt.')
         scope.eucentricity_by_focus()
     scope.eucentricHeight()
 
 def eucentricMediumMag(scope:MicroscopeInterface,params,instance, content:Dict, *args, **kwargs) :
     """Calculates eucentricity using the View preset. Equivalent to Eucentric Rough."""
-    if scope.microscope.narrow_gap_polepiece:
+    if scope.microscope.narrowGapPolepiece:
         logger.info('Narrow gap polepiece detected, using eucentricity by focus instead of stage tilt.')
         scope.eucentricity_by_focus()
     scope.eucentricity()
