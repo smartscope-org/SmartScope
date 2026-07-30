@@ -717,3 +717,10 @@
 .pill-secondary.pill-multiline .pill-label span {
     display: block;
 }
+
+.holeCard.panZoomActive svg {
+    cursor: grab;
+}
+.holeCard.panZoomActive svg:active {
+    cursor: grabbing;
+}

@@ -358,9 +358,11 @@
 </style>
 
 {% block script %}
+<script src="{% static 'common_components.js' %}"></script>
+<script src="{% static 'image_interactions.js' %}"></script>
 <script>
     var reportscript = "{% static 'reports.js' %}";
     var websocketscript = "{% static 'websocket.js' %}";
 </script>
-<script src="{% static 'common_components.js' %}"></script>
+
 {% endblock script %}

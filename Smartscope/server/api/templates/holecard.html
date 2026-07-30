@@ -34,6 +34,16 @@
                     <div class="w-100">
                         {{svg | safe }}
                     </div>
+                    <div class="zoomControls">
+                        <button class="panZoomBtn" title="Enable pan & zoom">
+                            <i class="bi bi-arrows-move"></i>
+                        </button>
+                        <button class="zoomPreset" data-scale="2">2x</button>
+                        <button class="zoomPreset" data-scale="4">4x</button>
+                        <button class="zoomResetBtn" title="Reset zoom">
+                            <i class="bi bi-arrow-counterclockwise"></i>
+                        </button>
+                    </div>
                 </div>
                 <div class="col-12 col-md-6 p-0 d-flex align-items-center justify-content-center">
                     <img class="w-100" src="{{hole.power_spectrum | safe}}">
@@ -64,3 +74,9 @@
 
     </div>
 </div>
+
+<style>
+    .col-12.col-md-6:has(.zoomControls) {
+        position: relative; /* anchor point for the overlay, scoped to just the SVG column */
+    }
+</style>
