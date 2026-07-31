@@ -33,7 +33,7 @@ class Finder(TargetLabel):
     stage_y = models.FloatField()
     stage_z = models.FloatField(null=True)
  
-    class Meta(BaseModel.Meta):
+    class Meta(TargetLabel.Meta):
         db_table = 'finder'
 
     def radius_from_origin(self, offset_x=0, offset_y=0) -> float:
@@ -50,7 +50,7 @@ class Finder(TargetLabel):
 class Classifier(TargetLabel):
     label = models.CharField(max_length=30, null=True)
 
-    class Meta(BaseModel.Meta):
+    class Meta(TargetLabel.Meta):
         db_table = 'classifier'
 
 
@@ -58,5 +58,5 @@ class Selector(TargetLabel):
     label = models.CharField(max_length=30, null=True)
     value = models.FloatField(null=True)
 
-    class Meta(BaseModel.Meta):
+    class Meta(TargetLabel.Meta):
         db_table = 'selector'
