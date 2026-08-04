@@ -54,6 +54,7 @@ dependencies = [
     "serialem",
     "smartscope-connector",
     "cryosparc-tools",
+    "openpyxl",
     "pyarrow>=20.0.0",
     "ipykernel>=6.29.5",
     "dotenv>=0.9.9",

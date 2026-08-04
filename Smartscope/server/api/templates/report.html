@@ -257,41 +257,6 @@
 {% include 'general/base_modal.html' %}
 
 
-<!-- <div id='legends' class="collapse px-1"> -->
-    <!-- <div class='col-12'>
-        <div class='d-flex flex-row align-items-center'>
-            <b>General Toggle:</b>
-            <button class='btn btn-xs btn-outline-primary active' onmousedown='hideSVG(this)' value='Numbers'>
-                Numbers</button>
-            <button class='btn btn-xs btn-outline-primary active' onmousedown='hideSVG(this)' value='Labels'>
-                Labels</button>
-            <button class='btn btn-xs btn-outline-primary active' onmousedown='hideSVG(this)' value='Legends'>
-                Legends</button>
-        </div>
-    </div> -->
-    <!-- <div class='col-6'>
-        <div id='atlasLegend' class='d-flex flex-row'>
-            <b>Atlas labels:</b>
-            <button class="btn btn-xs completed active" onmousedown="hideSVGlabel(this,'Atlas_im')"
-                value='completed'>Acquired</button>
-            <button class='btn btn-xs queued active' onmousedown="hideSVGlabel(this,'Atlas_im')"
-                value='queued'>Queued</button>
-        </div>
-    </div>
-    <div class='col-6'>
-        <div id='squareLegend' class='d-flex flex-row'>
-            <b>Area labels:</b>
-            <button class="btn btn-xs completed active" onmousedown="hideSVGlabel(this,'Square_im')"
-                value='completed'>Acquired</button>
-            <button class='btn btn-xs queued active' onmousedown="hideSVGlabel(this,'Square_im')"
-                value='queued'>Queued</button>
-        </div>
-    </div>
-    <hr>
-</div> -->
-
-
-
 <div id='zoomedView' class="popupFull hidden">
     <button class="btn btn-outline-primary close-btn" onmousedown='closePopup(this.parentElement)' value=''>X</button>
 
@@ -358,9 +323,11 @@
 </style>
 
 {% block script %}
+<script src="{% static 'common_components.js' %}"></script>
+<script src="{% static 'image_interactions.js' %}"></script>
 <script>
     var reportscript = "{% static 'reports.js' %}";
     var websocketscript = "{% static 'websocket.js' %}";
 </script>
-<script src="{% static 'common_components.js' %}"></script>
+
 {% endblock script %}
