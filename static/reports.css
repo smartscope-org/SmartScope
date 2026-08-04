@@ -724,3 +724,10 @@
 .holeCard.panZoomActive svg:active {
     cursor: grabbing;
 }
+.holeCard.highmag-linked {
+    outline: 2px solid #4CAF50;
+    outline-offset: -2px; /* keeps outline inside the card bounds, avoids layout shift with neighbors */
+    box-shadow: 0 0 8px rgba(0, 128, 1, 0.6);
+    transition: outline-color 0.15s ease, box-shadow 0.15s ease;
+    z-index: 5; /* lift slightly above sibling cards in case of overlap during scroll animation */
+}

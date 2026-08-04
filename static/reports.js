@@ -765,24 +765,54 @@ $('#main').on('change', ".card circle", function () {
     console.log('Changed!')
 })
 
-$('#main').on('mouseenter', ".holeCard", function (e) {
-    var hole = document.getElementById($(this).attr('hole_id'))
-    var highmag = document.getElementById($(this).attr('id'))
-    if (hole) {
-        hovered.push(hole)
-        hole.classList.add("hovered")
-    }
-    if (highmag) {
-        hovered.push(highmag)
-        highmag.classList.add("hovered")
-    }
-}).on("mouseleave", ".holeCard", function () {
-    for (let i in hovered) {
-        hovered[i].classList.remove("hovered")
-    };
-    hovered = []
+// Square-level: circle id matches .holeCard's hole_id attribute
+$('#main').on('mouseenter', '#squareShapes circle', function () {
+    highlightAndCenterHighMag($(this).attr('id'), 'hole_id')
+}).on('mouseleave', '#squareShapes circle', function () {
+    clearHighMagHighlight()
+})
+
+// Medium-mag: circle id matches .holeCard's own id attribute directly
+$('#main').on('mouseenter', '#holeShapes circle', function () {
+    highlightAndCenterHighMag($(this).attr('id'), 'id')
+}).on('mouseleave', '#holeShapes circle', function () {
+    clearHighMagHighlight()
+})
+
+function highlightAndCenterHighMag(holeId, matchAttr) {
+    let cards = $('#Hole .holeCard')
+    let matched = matchAttr === 'id'
+        ? cards.filter(`#${holeId}`)
+        : cards.filter(`[hole_id="${holeId}"]`)
+
+    if (matched.length === 0) return
+
+    matched.addClass('highmag-linked')
+
+    let target = matched.get(0)
+    let index = cards.index(target)
+
+    let container = document.getElementById('Hole_div')
+
+    // measure the outer column wrapper, not the card itself, to include px-1 spacing
+    let targetColumn = target.closest('.col-12, [class*="col-"]') || target.parentElement
+    let slotWidth = targetColumn.getBoundingClientRect().width
+
+    let visibleCount = Math.max(1, Math.round(container.clientWidth / slotWidth))
+    let centerSlot = Math.floor(visibleCount / 2)
+
+    let desiredScroll = (index - centerSlot) * slotWidth
+    desiredScroll = Math.max(0, desiredScroll)
+
+    let maxScroll = container.scrollWidth - container.clientWidth
+    desiredScroll = Math.min(desiredScroll, maxScroll)
+
+    $(container).animate({ scrollLeft: desiredScroll }, 300)
 }
-);
+
+function clearHighMagHighlight() {
+    $('#Hole .holeCard').removeClass('highmag-linked')
+}
 
 function clickHole(elem) {
     selectElement(elem, holeSelection);
