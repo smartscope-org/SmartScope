@@ -1,6 +1,7 @@
 import logging
 from pathlib import Path
 import yaml
+from pydantic import ValidationError
 from Smartscope.core.settings.worker import PROTOCOLS_FACTORY, SMARTSCOPE_CUSTOM_CONFIG, SMARTSCOPE_DEFAULT_CONFIG
 from Smartscope.lib.Datatypes.base_protocol import BaseProtocol
 from Smartscope.lib.converters import rgetattr
@@ -10,7 +11,13 @@ logger = logging.getLogger(__name__)
 def load_protocol(file:Path):
     if file.exists():
         with open(file) as f:
-            return BaseProtocol.model_validate(yaml.safe_load(f))
+            data = yaml.safe_load(f)
+        try:
+            return BaseProtocol.model_validate(data)
+        except ValidationError:
+            logger.warning(f'{file} is missing fields introduced in a newer protocol schema; falling back to base-protocol defaults for those fields.')
+            protocol_data = PROTOCOLS_FACTORY._base_protocol | data
+            return BaseProtocol.model_validate(protocol_data)
 
     # from Smartscope.lib.storage.temporary_s3_file import TemporaryS3File
     # if eval(os.getenv('USE_AWS')):
