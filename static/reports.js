@@ -183,11 +183,11 @@ function checkSelection(type = 'square') {
 
     if (selection.length > 0) {
         $(menuBtn).removeClass("disabled")
-        $(clearBtn).removeClass("disabled")
+        $(clearBtn).prop("disabled", false)
         return
     }
     $(menuBtn).addClass("disabled")
-    $(clearBtn).addClass("disabled")
+    $(clearBtn).prop("disabled", true)
 
 }
 
@@ -874,6 +874,7 @@ async function submitExtendLatticeForm() {
 
 
 $('#main').on("mousedown", '#Square_div svg', function (event) {
+    if (isPanZoomActive(this.id)) return;
     if (event.shiftKey) {
         targetsSelection.push(SvgCoords(event))
         console.log(targetsSelection)
@@ -953,18 +954,38 @@ function colorBISgroups() {
 
 }
 
+function closeCardZoom(card) {
+    let svg = card.find('svg')[0]
+    card.removeClass('popupFull')
+    card.find('.zoomIcon').removeClass("bi-zoom-out").addClass("bi-zoom-in")
+    if (svg) {
+        if (zoomState[svg.id]) {
+            resetZoomPan(svg.id)   // restore the actual viewBox before discarding state
+        }
+        delete zoomState[svg.id]
+        if (panZoomState.svgId === svg.id) {
+            panZoomState.enabled = false
+            panZoomState.svgId = null
+        }
+        card.find('.panZoomBtn').removeClass('active')
+        card.removeClass('panZoomActive')
+    }
+}
+
 $("#main").on('mousedown', '.zoomBtn', function () {
-    console.log('Click', $(this))
     let card = $(this).closest('.holeCard')
-    let icon = $(this).children('.zoomIcon')
-    console.log(card)
+
     if (card.hasClass('popupFull')) {
-        card.removeClass('popupFull')
-        icon.removeClass("bi-zoom-out").addClass("bi-zoom-in")
+        closeCardZoom(card)
         return
     }
+
+    $('.holeCard.popupFull').not(card).each(function () {
+        closeCardZoom($(this))
+    })
+
     card.addClass('popupFull')
-    icon.removeClass("bi-zoom-in").addClass("bi-zoom-out")
+    card.find('.zoomIcon').removeClass("bi-zoom-in").addClass("bi-zoom-out")
 })
 
 function zoomOnOtherCard(elem, inc) {
@@ -1071,6 +1092,7 @@ $(document).on("click", "#angleMeasure", function () {
 
 // this code captures the starting coordinates on mouse down 
 $('#main').on("mousedown", '#Square_div svg', function (event) {
+    if (isPanZoomActive(this.id)) return;
     if (!isDrawingEnabled) return;
 
     let svg = event.target.closest("svg");

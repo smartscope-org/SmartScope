@@ -2,12 +2,15 @@ import json
 import logging
 from zoneinfo import ZoneInfo
 from datetime import datetime
+import pandas as pd
 
 from django.shortcuts import render
 from django.db.models import Q, Prefetch, Avg, Max, Min, Count, Case, When, Value, CharField
+from django.http import HttpResponse
 
 from rest_framework.views import APIView
 from rest_framework.response import Response
+from rest_framework.permissions import IsAdminUser
 
 from .serializers import SessionSerializer
 from Smartscope.core.models.screening_session import ScreeningSession
@@ -130,4 +133,33 @@ class SessionsListView(APIView):
 
         serializer = SessionSerializer(page, many=True)
         return Response({"rows": serializer.data, "totalRows": total_rows})
-    
+
+
+class SessionExportView(SessionsListView):
+    permission_classes = [IsAdminUser]
+
+    def get(self, request, *args, **kwargs):
+        queryset = self.get_queryset()
+        serializer = SessionSerializer(queryset, many=True)
+        df = pd.DataFrame(serializer.data)
+        columns_dict = {
+            "session_label": "Session",
+            "group": "Group",
+            "microscope": "Microscope",
+            "user": "User",
+            "creation_time": "StartTime",
+            "last_update": "EndTime",
+            "session_type": "SessionType",
+            "grid_count": "#Grids",
+        }
+        df = df[list(columns_dict.keys())].rename(columns=columns_dict)
+        for cols in ["StartTime", "EndTime"]:
+            df[cols] = df[cols].str.split('.').str[0]
+            df[cols] = pd.to_datetime(df[cols], errors='coerce').dt.tz_localize(None)
+
+        response = HttpResponse(
+            content_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+        )
+        response["Content-Disposition"] = 'attachment; filename="sessions_history.xlsx"'
+        df.to_excel(response, index=False, engine="openpyxl")
+        return response

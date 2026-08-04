@@ -3,106 +3,143 @@
 {% block title %}Smartscope Sessions{% endblock %}
 {% block content %}
     <div id="container" class="d-flex flex-column p-2" style="width: 100%; height: 100%; display: flex; flex-direction: column; background-color: #f5f5f5;">
-        <h2 class="pt-2 pb-0">Sessions History</h2>
+        <div class="d-inline-flex justify-content-between pt-2 pb-0">
+            <h2 class="flex-grow-1">Sessions History</h2>
+            <a id="export-excel-link" class="a btn btn-link text-secondary border-0 align-self-center" href="{% url 'export_excel' %}" role="button" aria-haspopup="true">
+                <i class="bi bi-download"></i>
+            </a>
+        </div>
         <div id="data-grid" style="flex: 1; width: 100%; min-height: 0;" class="ag-theme-balham"></div>
     </div>
 {% endblock content %}
 
 {% block script %}
 <script type="text/javascript" charset="utf-8">
-(function() {
-    // formats "2024-01-15T10:30:00Z" to "2024-01-15 10:30"
-function formatDate(params) {
-    if (!params.value) return "";
-    var d = new Date(params.value);
-    return d.toLocaleString("en-CA", { localeMatcher: "lookup", hour12: false });
-}
-
-// renders session name as a clickable link
-function sessionLinkRenderer(params) {
-    if (!params.value) return "";
-    var data = params.data;
-    var url = `/smartscope/browse/?group=${data.group_id}&session_id=${data.session_id}&grid_id=${data.grid_id}`;
-    return `<a href="${url}" target="_blank">${params.value}</a>`;
-}
-
-var textFilter = {
-    suppressAndOrCondition: true,
-    filterOptions: ["contains", "equals"],
-};
-
-var dateFilter = {
-    suppressAndOrCondition: true,
-    filterOptions: ["equals", "greaterThan", "lessThan"],
-};
-
-var numberFilter = {
-    suppressAndOrCondition: true,
-    filterOptions: ["equals", "greaterThan", "lessThan"],
-};
-
-var columnDefs = [
-    {headerName: "Session", field: "session_label", filter: "agTextColumnFilter", cellRenderer: sessionLinkRenderer},
-    {headerName: "Group", field: "group", filter: "agTextColumnFilter", filterParams: textFilter},
-    {headerName: "StartTime", field: "creation_time", filter: "agTextColumnFilter", valueFormatter: formatDate, filterParams: dateFilter},
-    {headerName: "EndTime", field: "last_update", filter: "agTextColumnFilter", valueFormatter: formatDate, filterParams: dateFilter},
-    {headerName: "Microscope", field: "microscope", filter: "agTextColumnFilter", filterParams: textFilter},
-    {headerName: "User", field: "user", filter: "agTextColumnFilter"},
-    {headerName: "SessionType", field: "session_type", filter: "agTextColumnFilter"},
-    {headerName: "#Grids", field: "grid_count", filter: "agNumberColumnFilter", filterParams: numberFilter},
-    {headerName: "#Grids.Good", field: "grid_good", filter: "agNumberColumnFilter", filterParams: numberFilter},
-    {headerName: "#Grids.Bad", field: "grid_bad", filter: "agNumberColumnFilter", filterParams: numberFilter},
-];
-
-var gridOptions = {
-    columnDefs: columnDefs,
-    defaultColDef: {
-        filterParams: {suppressAndOrCondition: true, filterOptions: ["contains"]},
-        resizable: true,
-        enableCellTextSelection: true,  // allows copying text from cells
-    },
-    enableCellTextSelection: true,  // allows copying text from cells
-    rowModelType: "infinite",
-    cacheBlockSize: 100,
-    maxBlocksInCache: 10,
-    datasource: {
-        getRows: function(params) {
-            var filtering = encodeURIComponent(JSON.stringify(params.filterModel));
-            var sorting = encodeURIComponent(JSON.stringify(params.sortModel));
-            var url = `/sessions_history/sessions/?startRow=${params.startRow}&endRow=${params.endRow}&filter=${filtering}&sort=${sorting}`;
-            fetch(url)
-                .then((response) => response.json())
-                .then((data) => {
-                    params.successCallback(data.rows, data.totalRows);
-                })
-                .catch(() => {
-                    params.failCallback();
-                });
-        }
+    (function() {
+        // formats "2024-01-15T10:30:00Z" to "2024-01-15 10:30"
+    function formatDate(params) {
+        if (!params.value) return "";
+        var d = new Date(params.value);
+        return d.toLocaleString("en-CA", { localeMatcher: "lookup", hour12: false });
     }
-};
 
-var gridDiv = document.querySelector("#data-grid");
-var gridApi = agGrid.createGrid(gridDiv, gridOptions);
-setTimeout(() => gridApi.sizeColumnsToFit(), 100);
-})();
+    // renders session name as a clickable link
+    function sessionLinkRenderer(params) {
+        if (!params.value) return "";
+        var data = params.data;
+        var url = `/smartscope/browse/?group=${data.group_id}&session_id=${data.session_id}&grid_id=${data.grid_id}`;
+        return `<a href="${url}" target="_blank">${params.value}</a>`;
+    }
+
+    var textFilter = {
+        suppressAndOrCondition: true,
+        filterOptions: ["contains", "equals"],
+    };
+
+    var dateFilter = {
+        suppressAndOrCondition: true,
+        filterOptions: ["equals", "greaterThan", "lessThan"],
+    };
+
+    var numberFilter = {
+        suppressAndOrCondition: true,
+        filterOptions: ["equals", "greaterThan", "lessThan"],
+    };
+
+    var columnDefs = [
+        {headerName: "Session", field: "session_label", filter: "agTextColumnFilter", cellRenderer: sessionLinkRenderer},
+        {headerName: "Group", field: "group", filter: "agTextColumnFilter", filterParams: textFilter},
+        {headerName: "StartTime", field: "creation_time", filter: "agTextColumnFilter", valueFormatter: formatDate, filterParams: dateFilter},
+        {headerName: "EndTime", field: "last_update", filter: "agTextColumnFilter", valueFormatter: formatDate, filterParams: dateFilter},
+        {headerName: "Microscope", field: "microscope", filter: "agTextColumnFilter", filterParams: textFilter},
+        {headerName: "User", field: "user", filter: "agTextColumnFilter"},
+        {headerName: "SessionType", field: "session_type", filter: "agTextColumnFilter"},
+        {headerName: "#Grids", field: "grid_count", filter: "agNumberColumnFilter", filterParams: numberFilter},
+        {headerName: "#Grids.Good", field: "grid_good", filter: "agNumberColumnFilter", filterParams: numberFilter},
+        {headerName: "#Grids.Bad", field: "grid_bad", filter: "agNumberColumnFilter", filterParams: numberFilter},
+    ];
+
+    var gridOptions = {
+        columnDefs: columnDefs,
+        defaultColDef: {
+            filterParams: {suppressAndOrCondition: true, filterOptions: ["contains"]},
+            resizable: true,
+            enableCellTextSelection: true,  // allows copying text from cells
+        },
+        enableCellTextSelection: true,  // allows copying text from cells
+        rowModelType: "infinite",
+        cacheBlockSize: 100,
+        maxBlocksInCache: 10,
+        datasource: {
+            getRows: function(params) {
+                var filtering = encodeURIComponent(JSON.stringify(params.filterModel));
+                var sorting = encodeURIComponent(JSON.stringify(params.sortModel));
+                var url = `/sessions_history/sessions/?startRow=${params.startRow}&endRow=${params.endRow}&filter=${filtering}&sort=${sorting}`;
+                fetch(url)
+                    .then((response) => response.json())
+                    .then((data) => {
+                        params.successCallback(data.rows, data.totalRows);
+                    })
+                    .catch(() => {
+                        params.failCallback();
+                    });
+            }
+        }
+    };
+
+    var gridDiv = document.querySelector("#data-grid");
+    var gridApi = agGrid.createGrid(gridDiv, gridOptions);
+    setTimeout(() => gridApi.sizeColumnsToFit(), 100);
+    
+
+    document.getElementById("export-excel-link").addEventListener("click", (e) => {
+        e.preventDefault();
+
+        const filterModel = gridApi.getFilterModel();
+        const sortModel = gridApi.getColumnState()
+            .filter(c => c.sort)
+            .map(c => ({ colId: c.colId, sort: c.sort }));
+
+        const params = new URLSearchParams();
+        if (Object.keys(filterModel).length) {
+            params.set("filter", JSON.stringify(filterModel));
+        }
+        if (sortModel.length) {
+            params.set("sort", JSON.stringify(sortModel));
+        }
+
+        const baseUrl = document.getElementById("export-excel-link").href;
+        window.location.href = params.toString() ? `${baseUrl}?${params.toString()}` : baseUrl;
+    });
+    })();
 </script>
 <style>
-.ag-theme-balham a {
-    color: #222;
-    text-decoration: none;
-}
-.ag-theme-balham a:hover {
-    color: #555;
-    text-decoration: underline;
-}
-.badge-cell {
-    display: inline-block;
-    padding: 2px 8px;
-    border-radius: 4px;
-    font-size: 12px;
-    font-weight: 500;
-    line-height: 1.5;
-}
+    .ag-theme-balham a {
+        color: #222;
+        text-decoration: none;
+    }
+    .ag-theme-balham a:hover {
+        color: #555;
+        text-decoration: underline;
+    }
+    .badge-cell {
+        display: inline-block;
+        padding: 2px 8px;
+        border-radius: 4px;
+        font-size: 12px;
+        font-weight: 500;
+        line-height: 1.5;
+    }
+    .btn-link.text-secondary {
+        text-decoration: none;
+        background-color: rgba(0, 0, 0, 0.04);
+        padding: 0.2rem 0.45rem;
+        transition: background-color 0.15s ease-in-out;
+    }
+    .btn-link.text-secondary:hover,
+    .btn-link.text-secondary:focus {
+        background-color: rgba(0, 0, 0, 0.15);
+        color: #212529;
+    }
 </style>
 {% endblock script %}
