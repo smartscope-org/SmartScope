@@ -713,8 +713,6 @@ def form_auxiliary_update(form, extra_params):
             continue
         if "multishot" not in field:
             form.fields[field].widget.attrs['data_advanced'] = 'true' if data.advanced else 'false'
-        if "defocus" in field:
-            form.fields[field].widget.attrs['data_advanced'] = 'true'
         print(f"Field: {field}, hidden: {data.hidden}")
         if data.hidden:
             form.fields[field].widget = forms.HiddenInput()
