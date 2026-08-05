@@ -263,7 +263,12 @@ class CollectionParameters(BaseModel):
         logger.debug(f"Collection parameters from custome source {detector_params}")
         params.update(detector_params)
         if name != 'default':
-            custom_params = self.custom_parameters.get(group, {}).get(detector_id, CustomDetectorParams())
+            logger.debug(f"Name of preset is {name} and it is general {name.startswith('G-')}")
+            if name.startswith('G-'):
+                custom_params = self.custom_parameters.get('general_parameters', {}).get(detector_id, CustomDetectorParams())
+                name = name.split('G-').pop()
+            else:
+                custom_params = self.custom_parameters.get(group, {}).get(detector_id, CustomDetectorParams())
             custom_params_by_mode = getattr(custom_params, mode, {})
             custom_params_by_name = custom_params_by_mode.get(name, {})
             params.update(custom_params_by_name)
@@ -279,7 +284,7 @@ class CollectionParameters(BaseModel):
             specific_params = self.custom_parameters.get(n, {}).get(detector_id, CustomDetectorParams())
             specific_params_names = list(specific_params.model_dump().get(mode, {}).keys())
             if n == 'general_parameters':
-                specific_params_names = [f"G_{name}" for name in specific_params_names]
-            presets_names.append(specific_params_names)
+                specific_params_names = [f"G-{name}" for name in specific_params_names]
+            presets_names.extend(specific_params_names)
         return presets_names
     
