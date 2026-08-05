@@ -183,11 +183,11 @@ function checkSelection(type = 'square') {
 
     if (selection.length > 0) {
         $(menuBtn).removeClass("disabled")
-        $(clearBtn).prop("disabled", false)
+        $(clearBtn).removeClass("disabled")
         return
     }
     $(menuBtn).addClass("disabled")
-    $(clearBtn).prop("disabled", true)
+    $(clearBtn).addClass("disabled")
 
 }
 
