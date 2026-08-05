@@ -274,7 +274,12 @@ class CollectionParameters(BaseModel):
         detector_id = str(getattr(detector_id, 'pk', detector_id))
         logger.debug(f"Request {detector_id}, {group}")
         logger.debug(f"Custom parameters {self.custom_parameters.get(group, {})}")
-        specific_params = self.custom_parameters.get(group, {}).get(detector_id, CustomDetectorParams())
-        specific_params_names = specific_params.model_dump().get(mode, {}).keys()
-        return list(specific_params_names)
+        presets_names = list()
+        for n in ['general_parameters', group]:
+            specific_params = self.custom_parameters.get(n, {}).get(detector_id, CustomDetectorParams())
+            specific_params_names = list(specific_params.model_dump().get(mode, {}).keys())
+            if n == 'general_parameters':
+                specific_params_names = [f"G_{name}" for name in specific_params_names]
+            presets_names.append(specific_params_names)
+        return presets_names
     
