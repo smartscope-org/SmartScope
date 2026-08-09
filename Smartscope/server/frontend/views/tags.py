@@ -66,6 +66,8 @@ def add_tag_to_grid(request, tag_type: Tag, grid_id:str):
 def add_sample_type_tag(request, grid_id):
     return add_tag_to_grid(request, SampleTypeTag, grid_id=grid_id)
 
+def add_project_tag(request, grid_id):
+      return add_tag_to_grid(request, ProjectTag, grid_id=grid_id)
     
 def tag_manager(request, grid_id):
     context = { 'grid_id': grid_id }
@@ -75,7 +77,7 @@ def tag_manager(request, grid_id):
     context['sample_type_tags_choices'] = sample_type_tags_choices
     projects_tags = get_grid_tags(grid_id, ContentType.objects.get_for_model(ProjectTag))
     context['projects_tags'] = projects_tags
-    context['project_tags_choices'] = ProjectTag.objects.filter(group_name__in=request.user.groups.all().values_list('name', flat=True))
+    context['projects_tags_choices'] = ProjectTag.objects.filter(group_name__in=request.user.groups.all().values_list('name', flat=True))
 
 
     return render(request, 'tags/tags_manager.html', context=context)

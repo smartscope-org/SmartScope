@@ -4,16 +4,16 @@
     <hr class="mx-3 my-2">
     <div class="col justify-content-center" hx-target="#sampleTypeTags">
         <span><b>Sample Type Tags</b></span>
-        {% include "tags/tags_list_dropdown.html" with tags=sample_type_tags_choices %}
+        {% include "tags/tags_list_dropdown.html" with tags=sample_type_tags_choices post_url='addSampleTypeTag' %}
         <div id="sampleTypeTags" >
             {% include "tags/tags_list.html" with tags=sample_type_tags %}
         </div>
     </div>
     <hr class="mx-3 my-2">
-        <div class="col justify-content-center" hx-target="#sampleTypeTags">
+        <div class="col justify-content-center" hx-target="#projectsTags">
         <span><b>Projects Tags</b></span>
-        {% include "tags/tags_list_dropdown.html" with tags=projects_tags_choices %}
-        <div id="sampleTypeTags" >
+        {% include "tags/tags_list_dropdown.html" with tags=projects_tags_choices post_url='addProjectTag' %}
+        <div id="projectsTags" >
             {% include "tags/tags_list.html" with tags=projects_tags %}
         </div>
     </div>

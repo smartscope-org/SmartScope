@@ -98,6 +98,21 @@ function createHTMXloadingMessage(event, message) {
     messageID = createLoadingMessage(message)
     event.target.setAttribute('messageid', messageID)
 }
+function applyTagFilter() {
+      currentState['sample_type_tag'] = Array.from(document.querySelectorAll('.filter-sample-type:checked')).map(e => e.value)
+      currentState['project_tag'] = Array.from(document.querySelectorAll('.filter-project:checked')).map(e => e.value)
+      loadSidePanel('group', currentState['group'])
+      $('#sidebarGrids').html('')
+      bootstrap.Dropdown.getOrCreateInstance(document.querySelector('.bi-funnel')).hide()
+}
+
+function clearTagFilter() {
+    currentState['sample_type_tag'] = []
+    currentState['project_tag'] = []
+    for (const e of document.querySelectorAll('.filter-sample-type, .filter-project')) { e.checked = false }
+    loadSidePanel('group', currentState['group'])
+    $('#sidebarGrids').html('')
+}
 
 function createLongHTMXloadingMessage(event,message) {
     console.log('Creating long htmx loading message')
@@ -218,6 +233,8 @@ async function loadSidePanel(requestfield = null, id = null, push = true) {
     if (currentState['own_sessions'] !== undefined) {
         params.push(`own_sessions=${currentState['own_sessions']}`)
     }
+    for (const v of (currentState['sample_type_tag'] || [])) { params.push(`sample_type_tag=${v}`) }
+    for (const v of (currentState['project_tag'] || [])) { params.push(`project_tag=${v}`) }
     if (params.length > 0) {
         url += '?' + params.join('&')
     }
