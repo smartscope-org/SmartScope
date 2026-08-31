@@ -581,9 +581,9 @@
 }
 
 .category-collection {
-    background-color: MediumAquaMarine;
-    color: rgb(78, 150, 126);
-    border-color: 0.5px solid rgb(78, 150, 126);
+    background-color: MediumAquaMarine; /* rgb(143 221 195) */
+    color: rgb(26 83 65);
+    border-color: 0.5px solid rgb(26 83 65);
 }
 
 .nav-tabs.card-header-tabs .nav-link {
