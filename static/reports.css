@@ -731,3 +731,9 @@
     transition: outline-color 0.15s ease, box-shadow 0.15s ease;
     z-index: 5; /* lift slightly above sibling cards in case of overlap during scroll animation */
 }
+
+.holeCard.highmag-linked .card-header,
+.holeCard.highmag-linked .card-footer {
+    background-color: rgba(76, 175, 80, 0.15); /* #4CAF50 diluted */
+    transition: background-color 0.15s ease;
+}

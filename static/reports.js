@@ -1,5 +1,6 @@
 
 const csrftoken = document.querySelector('[name=csrfmiddlewaretoken]').value
+let lastHoveredHoleShapeId = null
 
 function escapeRegExp(string) {
     return string.match(/(\d+)$/g); // $& means the whole matched string
@@ -765,6 +766,25 @@ $('#main').on('change', ".card circle", function () {
     console.log('Changed!')
 })
 
+$('#main').on('mouseenter', ".holeCard", function (e) {
+    var hole = document.getElementById($(this).attr('hole_id'))
+    var highmag = document.getElementById($(this).attr('id'))
+    if (hole) {
+        hovered.push(hole)
+        hole.classList.add("hovered")
+    }
+    if (highmag) {
+        hovered.push(highmag)
+        highmag.classList.add("hovered")
+    }
+}).on("mouseleave", ".holeCard", function () {
+    for (let i in hovered) {
+        hovered[i].classList.remove("hovered")
+    };
+    hovered = []
+}
+);
+
 // Square-level: circle id matches .holeCard's hole_id attribute
 $('#main').on('mouseenter', '#squareShapes circle', function () {
     highlightAndCenterHighMag($(this).attr('id'), 'hole_id')
@@ -773,9 +793,20 @@ $('#main').on('mouseenter', '#squareShapes circle', function () {
 })
 
 // Medium-mag: circle id matches .holeCard's own id attribute directly
-$('#main').on('mouseenter', '#holeShapes circle', function () {
-    highlightAndCenterHighMag($(this).attr('id'), 'id')
-}).on('mouseleave', '#holeShapes circle', function () {
+$('#main').on('mousemove', '#holeShapes', function () {
+    let hoveredCircle = document.querySelector('#holeShapes circle:hover')
+    let currentId = hoveredCircle ? hoveredCircle.id : null
+
+    if (currentId === lastHoveredHoleShapeId) return
+    lastHoveredHoleShapeId = currentId
+
+    if (currentId) {
+        highlightAndCenterHighMag(currentId, 'id')
+    } else {
+        clearHighMagHighlight()
+    }
+}).on('mouseleave', '#holeShapes', function () {
+    lastHoveredHoleShapeId = null
     clearHighMagHighlight()
 })
 
@@ -787,6 +818,7 @@ function highlightAndCenterHighMag(holeId, matchAttr) {
 
     if (matched.length === 0) return
 
+    cards.not(matched).removeClass('highmag-linked')
     matched.addClass('highmag-linked')
 
     let target = matched.get(0)
@@ -807,7 +839,7 @@ function highlightAndCenterHighMag(holeId, matchAttr) {
     let maxScroll = container.scrollWidth - container.clientWidth
     desiredScroll = Math.min(desiredScroll, maxScroll)
 
-    $(container).animate({ scrollLeft: desiredScroll }, 300)
+    $(container).stop(true).animate({ scrollLeft: desiredScroll }, 300)
 }
 
 function clearHighMagHighlight() {
