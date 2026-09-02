@@ -33,6 +33,29 @@
                             class="list-group-item sidebar-separator-title text-muted d-flex align-items-center menu-collapsed justify-content-between">
                             SESSIONS
                             <div class="d-flex align-items-center gap-2">
+                                <div class="dropdown">
+                                    <i class="bi bi-funnel text-muted" role="button" data-bs-toggle="dropdown"
+                                        data-bs-auto-close="outside" title="Filter by tags"></i>
+                                    <div class="dropdown-menu dropdown-menu-end p-2"
+                                        style="background:#2b2b2b;border-color:#555;min-width:200px;max-height:300px;overflow-y:auto;">
+                                        <div class="text-muted mb-1" style="font-size:.75rem;">Sample Types</div>
+                                        {% for t in sample_type_tags %}
+                                        <div class="form-check">
+                                            <input class="form-check-input filter-sample-type" type="checkbox" value="{{ t.pk }}" id="st{{ t.pk }}">
+                                            <label class="form-check-label text-light" style="font-size:.85rem;" for="st{{ t.pk }}">{{ t.name }}</label>
+                                        </div>
+                                        {% endfor %}
+                                        <div class="text-muted mt-2 mb-1" style="font-size:.75rem;">Projects</div>
+                                        {% for t in project_tags %}
+                                        <div class="form-check"> 
+                                            <input class="form-check-input filter-project" type="checkbox" value="{{ t.pk }}" id="pr{{ t.pk }}">
+                                            <label class="form-check-label text-light" style="font-size:.85rem;" for="pr{{ t.pk }}">{{ t.name }}</label>
+                                        </div>
+                                        {% endfor %}
+                                        <button type="button" class="btn btn-sm btn-primary w-100 mt-2" onclick="applyTagFilter()">Submit</button>
+                                    </div>
+                                </div>
+                                <i class="bi bi-x-circle text-muted" role="button" onclick="clearTagFilter()" title="Clear filters"></i>
                                 <label for="filterOwnSessions" class="text-muted mb-0" style="font-size: 0.75rem;">My sessions</label>
                                 <input type="checkbox" id="filterOwnSessions" class="form-check-input mt-0"
                                     data-bs-toggle="tooltip" data-bs-placement="right" title="Filter my sessions">

@@ -65,6 +65,13 @@ class AutoScreenViewer(LoginRequiredMixin, TemplateView):
     template_name = "autoscreenViewer/auto_screen_viewer.html"
     login_url = '/login'
     redirect_field_name = 'redirect_to'
+    def get_context_data(self, **kwargs):
+          context = super().get_context_data(**kwargs)
+          from Smartscope.core.models.tags import SampleTypeTag, ProjectTag
+          context['sample_type_tags'] = SampleTypeTag.objects.all()
+          context['project_tags'] = ProjectTag.objects.filter(
+              group_name__in=self.request.user.groups.values_list('name', flat=True))
+          return context
 
 class AutoScreenSetup(LoginRequiredMixin, TemplateView):
     template_name = "smartscopeSetup/run_setup.html"

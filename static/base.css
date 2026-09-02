@@ -78,6 +78,9 @@
   margin-bottom: 0.2rem;
 }
 
+.sidebar-section:has(.dropdown-menu.show) { overflow: visible; }
+#sideNav .dropdown-menu.show { z-index: 1060; }
+
 .mapCard {
   height: 100%;
   /* max-height: 90vh; */

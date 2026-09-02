@@ -4,6 +4,7 @@ from django.contrib.auth.models import User, Group
 from django.contrib.auth import login, logout
 from django.shortcuts import resolve_url
 from django.shortcuts import redirect
+from django.contrib.contenttypes.models import ContentType
 
 from rest_framework.views import APIView
 from rest_framework.response import Response
@@ -172,22 +173,44 @@ class SidePanel(APIView):
         field = None
 
         if group is not None and (user.is_staff or user.groups.filter(pk=group).exists()):
-            # if group is not None:
             group_obj = Group.objects.get(pk=group)
             if own_flag:
-                own_sessions = ScreeningSession.objects.filter(user=user.username, group=group_obj).order_by('-creation_time')
-                items = list(own_sessions)
+                sessions = ScreeningSession.objects.filter(user=user.username, group=group_obj)
             else:
-                items = list(ScreeningSession.objects.filter(group=group_obj).order_by('-creation_time'))
-                items.sort(key=lambda x: x.creation_time, reverse=True)
+                sessions = ScreeningSession.objects.filter(group=group_obj)
+                  
+            st = request.query_params.getlist('sample_type_tag')
+            pr = request.query_params.getlist('project_tag')
+            ct_st = ContentType.objects.get_for_model(SampleTypeTag)
+            for pk in st:
+                sessions = sessions.filter(autoloadergrid__taggrid__content_type=ct_st, autoloadergrid__taggrid__object_id=pk)
+            ct_pr = ContentType.objects.get_for_model(ProjectTag)
+            for pk in pr:
+                sessions = sessions.filter(autoloadergrid__taggrid__content_type=ct_pr, autoloadergrid__taggrid__object_id=pk)
+            if st or pr:
+                sessions = sessions.distinct()
+                  
+            items = list(sessions.order_by('-creation_time'))
+            items.sort(key=lambda x: x.creation_time, reverse=True)
             nextsection = 'sidebarGrids'
             field = 'session_id'
 
         if session is not None:
-
             session_obj = ScreeningSession.objects.get(pk=session)
             if user.is_staff or user.groups.filter(name=session_obj.group).exists():
-                items = list(AutoloaderGrid.objects.filter(session_id=session_obj).order_by('position'))
+                grids = AutoloaderGrid.objects.filter(session_id=session_obj)
+                st = request.query_params.getlist('sample_type_tag')
+                pr = request.query_params.getlist('project_tag')
+                ct_st = ContentType.objects.get_for_model(SampleTypeTag)
+                for pk in st:
+                    grids = grids.filter(taggrid__content_type=ct_st, taggrid__object_id=pk)
+                ct_pr = ContentType.objects.get_for_model(ProjectTag) 
+                for pk in pr:
+                    grids = grids.filter(taggrid__content_type=ct_pr, taggrid__object_id=pk)
+                if st or pr:
+                    grids = grids.distinct()
+                    
+                items = list(grids.order_by('position'))
                 nextsection = None
                 field = 'grid_id'
                 self.jsfunction = "loadReport"
