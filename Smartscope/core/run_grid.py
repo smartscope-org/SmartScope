@@ -174,7 +174,7 @@ def run_grid(
     # state from a previous interrupted run.
     for sq in grid.squaremodel_set.filter(status__in=[status.ACQUIRED,status.QUEUED_FOR_PROCESSING,status.PROCESSED]):
         logger.info(f'Re-dispatching processing task for previously acquired square {sq}')
-        process_square_image_task.delay(sq.square_id, grid.grid_id, microscope.microscope_id)
+        process_square_image_task.delay(sq.square_id, str(sq.working_dir), grid.grid_id, microscope.microscope_id)
         if sq.status != status.QUEUED_FOR_PROCESSING:
             update(sq, status=status.QUEUED_FOR_PROCESSING)
 
@@ -258,7 +258,7 @@ def run_grid(
                     square
                 )
                 square = update(square, status=status.ACQUIRED, completion_time=timezone.now())
-            process_square_image_task.delay(square.square_id, grid.grid_id, microscope.microscope_id)
+            process_square_image_task.delay(square.square_id, str(square.working_dir), grid.grid_id, microscope.microscope_id)
             square = update(square, status=status.QUEUED_FOR_PROCESSING)
         elif is_done:
             microscope_id = microscope.pk
