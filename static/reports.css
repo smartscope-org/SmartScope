@@ -581,9 +581,9 @@
 }
 
 .category-collection {
-    background-color: MediumAquaMarine;
-    color: rgb(78, 150, 126);
-    border-color: 0.5px solid rgb(78, 150, 126);
+    background-color: MediumAquaMarine; /* rgb(143 221 195) */
+    color: rgb(26 83 65);
+    border-color: 0.5px solid rgb(26 83 65);
 }
 
 .nav-tabs.card-header-tabs .nav-link {
@@ -730,4 +730,10 @@
     box-shadow: 0 0 8px rgba(0, 128, 1, 0.6);
     transition: outline-color 0.15s ease, box-shadow 0.15s ease;
     z-index: 5; /* lift slightly above sibling cards in case of overlap during scroll animation */
+}
+
+.holeCard.highmag-linked .card-header,
+.holeCard.highmag-linked .card-footer {
+    background-color: rgba(76, 175, 80, 0.15); /* #4CAF50 diluted */
+    transition: background-color 0.15s ease;
 }
