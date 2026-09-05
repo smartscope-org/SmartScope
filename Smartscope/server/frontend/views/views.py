@@ -122,7 +122,7 @@ class AutoScreenSetup(LoginRequiredMixin, TemplateView):
                 # multishot = form_params.cleaned_data.pop('multishot_per_hole')
                 multishot_per_hole_id = form_params.cleaned_data.pop('multishot_per_hole_id')
                 preprocessing_pipeline_id = form_preprocess.cleaned_data.pop('preprocessing_pipeline_id',False)
-                params, created = GridCollectionParams.objects.get_or_create(**form_params.cleaned_data)
+                params, created = GridCollectionParams.atomic_get_or_create(**form_params.cleaned_data)
                 if created:
                     logger.debug(f'{params} newly created')
 
