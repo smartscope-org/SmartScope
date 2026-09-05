@@ -14,7 +14,7 @@ def update_collection_params(grid, data):
             save_json_from_cache(multishot_per_hole_id, grid.directory, 'multishot')
         serializer = GridCollectionParamsSerializer(data=data, partial=True)
         if serializer.is_valid():
-            params, created = GridCollectionParams.objects.get_or_create(**serializer.validated_data)
+            params, created = GridCollectionParams.atomic_get_or_create(**serializer.validated_data)
             grid.params_id = params
             grid.save()
             return {'success': True}

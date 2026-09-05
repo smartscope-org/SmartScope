@@ -1,3 +1,5 @@
+from django.db import IntegrityError, transaction
+
 from .base_model import *
 
 
@@ -37,11 +39,60 @@ class GridCollectionParams(BaseModel):
 
     class Meta(BaseModel.Meta):
         db_table = 'gridcollectionparams'
+        constraints = [
+            models.UniqueConstraint(
+                fields=[
+                    'atlas_x',
+                    'atlas_y',
+                    'square_x',
+                    'square_y',
+                    'squares_num',
+                    'holes_per_square',
+                    'max_exposures_for_grid',
+                    'bis_max_distance',
+                    'min_bis_group_size',
+                    'afis',
+                    'target_defocus_min',
+                    'target_defocus_max',
+                    'step_defocus',
+                    'drift_crit',
+                    'tilt_angle',
+                    'save_frames',
+                    'force_process_from_average',
+                    'highmag_aperture_size',
+                    'objective_aperture_size',
+                    'offset_targeting',
+                    'offset_distance',
+                    'zeroloss_delay',
+                    'hardwaredark_delay',
+                    'coldfegflash_delay',
+                    'beam_centering_delay',
+                    'multishot_per_hole',
+                ],
+                name='unique_gridcollectionparams',
+            ),
+        ]
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         if not self.params_id:
             self.params_id = generate_unique_id()
+
+    @classmethod
+    def atomic_get_or_create(cls, defaults=None, **kwargs):
+        """Race-safe alternative to get_or_create.
+
+        get_or_create is not atomic by itself: concurrent requests can pass the
+        initial lookup and each insert a row, leaving duplicates in the table and
+        eventually raising MultipleObjectsReturned on subsequent lookups.
+        Combined with the unique constraint on the params fields, catching the
+        IntegrityError and re-fetching makes this safe.
+        """
+        try:
+            with transaction.atomic():
+                return cls.objects.get_or_create(defaults=defaults, **kwargs)
+        except IntegrityError:
+            return cls.objects.get(**kwargs), False
 
     def save(self, *args, **kwargs):
         super().save(*args, **kwargs)

@@ -239,7 +239,7 @@ class ExportMetaSerializer(ModelSerializer):
         logger.info(f'Session created: {created}')
         atlas = validated_data.pop('atlas')[0]
         params_id = validated_data.pop('params_id')
-        params_id_model,created = models.GridCollectionParams.objects.get_or_create(**params_id)
+        params_id_model,created = models.GridCollectionParams.atomic_get_or_create(**params_id)
         logger.info(f'Params created: {created}')
         grid_model = models.AutoloaderGrid(**validated_data, params_id=params_id_model, session_id=session_model)
         squares = atlas.pop('targets_export')
