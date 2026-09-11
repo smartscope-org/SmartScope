@@ -22,8 +22,7 @@ logger = logging.getLogger(__name__)
 class Websocket_update_decorator:
 
     def __init__(self,
-            f: Callable[[Any],
-            List[Any]] = None,
+            f: Callable[[Any], List[Any]] = None,
             grid: Union[models.AutoloaderGrid, None] = None
         ):
         self.f = f

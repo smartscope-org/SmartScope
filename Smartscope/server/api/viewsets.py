@@ -323,7 +323,7 @@ class ScreeningSessionsViewSet(viewsets.ModelViewSet, GeneralActionsMixin,):
                 send_to_worker(
                     self.object.microscope_id.worker_hostname,
                     self.object.microscope_id.executable,
-                    arguments=['stop_session', self.object.session_id]
+                    arguments=['stop_session', str(self.object.directory)]
                 )
 
             rounds = 0
@@ -383,7 +383,7 @@ class ScreeningSessionsViewSet(viewsets.ModelViewSet, GeneralActionsMixin,):
         data = request.data
         if 'pause' in data.keys():
             out, err = send_to_worker(self.object.microscope_id.worker_hostname, self.object.microscope_id.executable,
-                                      arguments=['toggle_pause', self.object.microscope_id.pk], communicate=True)
+                                      arguments=['toggle_pause', str(self.object.directory)], communicate=True)
             out = out.decode("utf-8").strip().split('\n')[-1]
             out_value = json.loads(out)
             broadcast_msg = 'pause_set' if out_value["pause"] else 'pause_unset'
@@ -396,7 +396,7 @@ class ScreeningSessionsViewSet(viewsets.ModelViewSet, GeneralActionsMixin,):
         data = request.data
         if 'continue' in data.keys():
             out, err = send_to_worker(self.object.microscope_id.worker_hostname, self.object.microscope_id.executable,
-                                      arguments=['continue_run', data['continue'], self.object.microscope_id.pk], communicate=True)
+                                      arguments=['continue_run', data['continue'], str(self.object.directory)], communicate=True)
             out = out.decode("utf-8").strip().split('\n')[-1]
             broadcast_session_status(self.object.session_id, 'signal_received', 'pause')
             return Response(json.loads(out))
