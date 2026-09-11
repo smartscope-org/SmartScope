@@ -79,6 +79,9 @@ def autoscreen(session_id:str, screening_mode: bool=False, skip_loading: bool=Fa
     except KeyboardInterrupt:
         logger.info('Stopping Smartscope.py autoscreen')
         status = 'stopped'
+        if 'grid' in locals():
+            update.grid = grid
+            update(grid, status=GridStatus.ABORTING)
     finally:
         os.remove(microscope_model.lockFile)
         term_time = timezone.now()

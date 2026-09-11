@@ -696,7 +696,7 @@ async function deleteHoles(square_id) {
     await loadSquare(currentState.square, false)
 }
 
-function populateReportHead() {
+function populateReportHead(fullmeta) {
     var date = new Date(fullmeta.last_update)
     $('#gridLastUpdate').html(date.toLocaleString('en-CA', { 'localeMatcher': 'lookup', 'hour12': false }))
     $('#gridStatus').html(`${fullmeta.status}`)
@@ -742,7 +742,7 @@ async function reportMain() {
     targetsSelection = []
     zoomedContentCln = document.getElementById('zoomedContent').cloneNode(true)
     fullmeta = await loadMeta()
-    populateReportHead()
+    populateReportHead(fullmeta)
     // renderCounts()
     if (fullmeta.status != null) {
         console.log(fullmeta.atlas[Object.keys(fullmeta.atlas)[0]].status)
@@ -1111,7 +1111,7 @@ function updateData(data) {
             console.log('UPDATING!!')
             let svgToUpdate = { ...data.fullmeta.squares, ...data.fullmeta.holes }
             svgUpdate(svgToUpdate)
-            populateReportHead()
+            populateReportHead(data.fullmeta)
             return
         } else if (data.fullmeta.atlas[Object.keys(data.fullmeta.atlas)[0]].status == 'completed') {
             reportMain()
