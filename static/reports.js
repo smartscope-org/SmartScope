@@ -697,6 +697,7 @@ async function deleteHoles(square_id) {
 }
 
 function populateReportHead(fullmeta) {
+    if (!fullmeta || !fullmeta.status) return;
     var date = new Date(fullmeta.last_update)
     $('#gridLastUpdate').html(date.toLocaleString('en-CA', { 'localeMatcher': 'lookup', 'hour12': false }))
     $('#gridStatus').html(`${fullmeta.status}`)
