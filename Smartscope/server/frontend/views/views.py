@@ -38,6 +38,7 @@ from Smartscope.core.models.grid import AutoloaderGrid
 from Smartscope.core.models.grid_collection_params import GridCollectionParams
 from Smartscope.core.models.screening_session import ScreeningSession
 from Smartscope.core.target_history import TargetHistory
+from Smartscope.core.utils.ws_channel_layer_msg import broadcast_session_status
 
 
 logger =logging.getLogger(__name__)
@@ -118,6 +119,7 @@ class AutoScreenSetup(LoginRequiredMixin, TemplateView):
                     date=datetime.today().strftime('%Y%m%d')
                 )
                 if created:
+                    write_sessionSetupFile(session)
                     logger.debug(f'{session} newly created')
 
                 # multishot = form_params.cleaned_data.pop('multishot_per_hole')
@@ -730,3 +732,13 @@ def form_auxiliary_update(form, extra_params):
     ))
 
     return form
+
+
+def write_sessionSetupFile(session):
+    path = session.setupFile
+    if path.exists():
+        previous_session = path.read_text().strip()
+        broadcast_session_status(previous_session, session.session_id, 'manage')
+        path.unlink(missing_ok=True)
+    with open(path, 'w') as f:
+        f.write(session.session_id)

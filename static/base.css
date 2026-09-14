@@ -288,3 +288,15 @@ body{
     animation: report-notification-pulse 1s ease-in-out 5;
     /* 1s per pulse cycle, repeated 5 times = 5 seconds total, then stops automatically */
 }
+
+.btn-link.text-secondary {
+        text-decoration: none;
+        background-color: rgba(0, 0, 0, 0.04);
+        padding: 0.2rem 0.45rem;
+        transition: background-color 0.15s ease-in-out;
+    }
+.btn-link.text-secondary:hover,
+.btn-link.text-secondary:focus {
+    background-color: rgba(0, 0, 0, 0.15);
+    color: #212529;
+}

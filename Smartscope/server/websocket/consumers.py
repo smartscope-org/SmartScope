@@ -102,11 +102,8 @@ class SessionConsumer(AsyncWebsocketConsumer):
         await self.accept()
         current_state = await self.get_status(self.session_id)
         if current_state:
-            await self.send(text_data=json.dumps(current_state['session_status']))
-            await self.send(text_data=json.dumps(current_state['pause_status']))
-            await self.send(text_data=json.dumps(current_state['pause_conf']))
-            await self.send(text_data=json.dumps(current_state['session_logs']))
-            await self.send(text_data=json.dumps(current_state['disk_status']))
+            for msg in current_state:
+                await self.send(text_data=json.dumps(msg))
 
     async def disconnect(self, close_code):
         await self.channel_layer.group_discard(
@@ -124,29 +121,35 @@ class SessionConsumer(AsyncWebsocketConsumer):
         }))
 
     async def session_pause(self, event):
-            await self.send(text_data=json.dumps({
-                "type": "pause_status",
-                "status": event["status"]
-            }))
+        await self.send(text_data=json.dumps({
+            "type": "pause_status",
+            "status": event["status"]
+        }))
 
     async def session_pause_conf(self, event):
-                await self.send(text_data=json.dumps({
-                    "type": "pause_conf",
-                    "status": event["status"]
-                }))
+        await self.send(text_data=json.dumps({
+            "type": "pause_conf",
+            "status": event["status"]
+        }))
+
+    async def session_manage(self, event):
+        await self.send(text_data=json.dumps({
+            "type": "session_manage",
+            "status": event["status"] # status is the new session's id that been set active
+        }))
 
     async def session_logs(self, event):
-            await self.send(text_data=json.dumps({
-                "type": "session_logs",
-                "line": event["line"],
-                "process_type": event["process_type"]
-            }))
+        await self.send(text_data=json.dumps({
+            "type": "session_logs",
+            "line": event["line"],
+            "process_type": event["process_type"]
+        }))
 
     async def disk_status(self, event):
-            await self.send(text_data=json.dumps({
-                "type": "disk_status",
-                "disk_usage": event["disk_usage"],
-            }))
+        await self.send(text_data=json.dumps({
+            "type": "disk_status",
+            "disk_usage": event["disk_usage"],
+        }))
 
     @database_sync_to_async
     def get_status(self, session_id):

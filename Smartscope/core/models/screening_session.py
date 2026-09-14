@@ -98,7 +98,7 @@ class ScreeningSession(BaseModel):
 
     @property
     def stop_file(self):
-        return os.path.join(os.getenv('TEMPDIR'), f'{self.session_id}.stop')
+        return os.path.join(str(self.directory), f'{self.session_id}.stop')
     
     @property
     def progress(self):
@@ -110,6 +110,16 @@ class ScreeningSession(BaseModel):
     def currentGrid(self):
         return self.autoloadergrid_set.all().order_by('position')\
             .exclude(status='complete').first()
+
+    @property
+    def setupFile(self):
+        return Path(settings.TEMPDIR, f'{self.microscope_id.microscope_id}.setup')
+    
+    @property
+    def isSetup(self):
+        if not self.setupFile.exists():
+            return False
+        return self.setupFile.read_text().strip() == self.session_id
 
     # @property
     # def storage(self):

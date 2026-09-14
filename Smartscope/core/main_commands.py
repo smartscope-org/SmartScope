@@ -134,6 +134,7 @@ def session_full_state(session_id: str):
 
     obj = ScreeningSession.objects.get(pk=session_id)
     process = obj.process_set.first()
+    # collecting state data
     state = {
                 'type': 'session_status', 
                 'status': None, 
@@ -150,24 +151,32 @@ def session_full_state(session_id: str):
             }
         )
 
-    check_output = check_pause(str(obj.directory))
-    pause_status = 'signal_send' if check_output['paused'] else 'signal_received'
-    pause_setup = 'pause_set' if check_output['pause'] else 'pause_unset'
     disk_status = disk_space(settings.AUTOSCREENDIR)
-
+    # collecting logs files
     backlog = []
     out = read_file_line(obj.directory, 'run.out', nline=100)
     backlog.extend({'line': l, 'process_type': 'run_out'} for l in out)
 
     proc = read_file_line(obj.directory, 'proc.out', nline=100)
     backlog.extend({'line': l, 'process_type': 'proc_out'} for l in proc)
-    return {
-        'session_status': state,
-        'pause_status': {'type': 'pause_status', 'status': pause_status},
-        'pause_conf': {'type': 'pause_conf', 'status': pause_setup}, 
-        'session_logs': {'type': 'log_batch', 'lines': backlog},
-        'disk_status': {'type': 'disk_status', 'disk_usage': disk_status}
-        }
+
+    full_state = [
+        state,
+        {'type': 'log_batch', 'lines': backlog},
+        {'type': 'disk_status', 'disk_usage': disk_status}
+    ]
+
+    # collecting pause state if session is still active
+    if obj.isSetup:
+        check_output = check_pause(str(obj.directory))
+        pause_status = 'signal_send' if check_output['paused'] else 'signal_received'
+        pause_setup = 'pause_set' if check_output['pause'] else 'pause_unset'
+        full_state.extend([
+            {'type': 'pause_status', 'status': pause_status},
+            {'type': 'pause_conf', 'status': pause_setup}
+        ])
+
+    return full_state
 
 
 def toggle_pause(session_path: str):

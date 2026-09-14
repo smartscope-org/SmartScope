@@ -22,6 +22,9 @@ $(document).ready(async function () {
                 case 'disk_status':
                     systemDiskUpdate(event);
                     break;
+                case 'session_manage':
+                    updateMicroscopeNewSessionAlert(event.status);
+                    break;
                 default:
                     console.warn('Unhandled message type:', event.type, event);
             }
@@ -260,7 +263,7 @@ function formatSessionDate(value) {
 }
 
 function updateMicroscopeBusyAlert(status) {
-    const alertContainer = document.getElementById('microscope-busy-alert');
+    const alertContainer = document.getElementById('microscope-busy-self-alert');
     if (!alertContainer) return;
     console.log("Banner update after new status received", status, TERMINAL_STATUSES.includes(status))
 
@@ -270,6 +273,26 @@ function updateMicroscopeBusyAlert(status) {
     } else {
         alertContainer.classList.remove('d-none');
         alertContainer.classList.add('d-flex');
+    }
+}
+
+function updateMicroscopeNewSessionAlert(newSessionId) {
+    const alertContainer = document.getElementById('microscope-busy-other-alert');
+    const actionButtonsContainer = document.getElementById('session-action-buttons');
+
+    // this page's session was just displaced by newSessionId -- show the busy banner
+    if (alertContainer) {
+        const link = alertContainer.querySelector('.alert-link');
+        if (link) {
+            link.href = `/run/session/${newSessionId}/`;
+        }
+        alertContainer.classList.remove('d-none');
+        alertContainer.classList.add('d-flex');
+    }
+
+    // this page is no longer "set up" -- hide the action buttons
+    if (actionButtonsContainer) {
+        actionButtonsContainer.classList.add('d-none');
     }
 }
 

@@ -78,74 +78,66 @@
         take a few minutes. </div>
 </div>
 
-{% if session.microscope_id.isLocked and session.microscope_id.currentSession is not None and session.microscope_id.currentSession.pk != session.session_id %}
-<div class="d-flex align-items-center justify-content-center px-2">
+<div id="microscope-busy-other-alert" class="d-flex align-items-center justify-content-center px-2
+     {% if session.isSetup or not session.microscope_id.isLocked %}d-none{% endif %}">
     <div class='alert alert-warning p-2 m-2' role="alert">
         Microscope {{ session.microscope_id }} is currently busy:
-        <a class="alert-link" href="{% url 'run_session' session.microscope_id.currentSession.pk %}">View current session</a>
+        <a class="alert-link" 
+        href="{% if session.microscope_id.currentSession %}{% url 'run_session' session.microscope_id.currentSession.pk %}{% endif %}">View current session</a>
     </div>
 </div>
-{% endif %}
 
-<div id="microscope-busy-alert" class="d-flex align-items-center justify-content-center px-2" style="display: none;">
+<div id="microscope-busy-self-alert" class="d-flex align-items-center justify-content-center px-2
+    {% if session.microscope_id.currentSession is not None and session.microscope_id.currentSession.pk != session.session_id %}d-none{% endif %}">
     <div class='alert alert-warning p-2 m-2' role="alert">
         Microscope {{ session.microscope_id }} is currently busy running this session.
     </div>
 </div>
 
 <!-- Session toggle with start annd stop button. Start button changes to stop and vice versa-->
-<div class="d-flex align-items-end justify-content-between gap-2 flex-wrap m-0 mb-2 px-2">
-    <div class="d-flex align-items-end justify-content-start gap-2 flex-wrap">
-        <div class="dropdown d-inline pb-1">
-            <button class="btn btn-sm btn-outline-primary dropdown-toggle session-toggle" type="button" id="start-button" data-bs-toggle="dropdown">
-                Start
-            </button>
-            <!-- Screening options full screening and atlas-only options are available as dropdown -->
-            <ul class="dropdown-menu" aria-labelledby="start-button">
-                <li>
-                    <button class="dropdown-item screening-type" id="full-screening" data-mode="false">
-                        Full Screening
-                    </button>
-                </li>
-                <li>
-                    <button class="dropdown-item screening-type" id="atlas-only" data-mode="true">
-                        Atlas Only
-                    </button>
-                </li>
-            </ul>
-        </div>
-    
+<div id="session-action-buttons" class="{% if not session.isSetup %}d-none{% endif %}">
+    <div class="d-flex align-items-end justify-content-between gap-2 flex-wrap m-0 mb-2 px-2">
+        <div class="d-flex align-items-end justify-content-start gap-2 flex-wrap">
+            <div class="dropdown d-inline pb-1">
+                <button class="btn btn-sm btn-outline-primary dropdown-toggle session-toggle" type="button" id="start-button" data-bs-toggle="dropdown">
+                    Start
+                </button>
+                <!-- Screening options full screening and atlas-only options are available as dropdown -->
+                <ul class="dropdown-menu" aria-labelledby="start-button">
+                    <li>
+                        <button class="dropdown-item screening-type" id="full-screening" data-mode="false">
+                            Full Screening
+                        </button>
+                    </li>
+                    <li>
+                        <button class="dropdown-item screening-type" id="atlas-only" data-mode="true">
+                            Atlas Only
+                        </button>
+                    </li>
+                </ul>
+            </div>
         
-        <!-- Pause session -->
-        <div class="d-inline pb-1">
-            <button id="pause" class="btn btn-sm active" type="button" value="pause">Pause between grids</button>
+            
+            <!-- Pause session -->
+            <div class="d-inline pb-1">
+                <button id="pause" class="btn btn-sm active" type="button" value="pause">Pause between grids</button>
+            </div>
         </div>
-
-        <!-- Dropdown for downloading logs of run.out and proc.out files -->
-        <div class="dropdown d-inline pb-1">
-            <button class="btn btn-sm btn-outline-primary dropdown-toggle" type="button" id="downloadLogs" data-bs-toggle="dropdown">
-                Download Logs
-            </button>
-            <div class="dropdown-menu" aria-labelledby="downloadLogs">
-                <a class="dropdown-item" href="/api/sessions/{{ session_id }}/download_logs/?file_type=run">run.out</a>
-                <a class="dropdown-item" href="/api/sessions/{{ session_id }}/download_logs/?file_type=proc">proc.out</a>
-            </div>    
-        </div>
+        {% if request.user.is_staff %}
+        <fieldset class="border border-danger rounded p-1 px-2 position-relative" id="staff-section">
+            <legend class="float-none w-auto px-1 text-danger m-0" style="font-size: 0.75rem;">
+                <i class="bi bi-shield-exclamation me-1"></i>Staff only — use carefully
+            </legend>
+            <div class="d-flex gap-2 flex-wrap">
+                <button id="force-start-button" class="btn btn-sm btn-outline-primary" type="button" value="start">Force Start</button>
+                <button id="removeLockButton" class="btn btn-sm btn-outline-primary" type="button" value="remove_lock">Remove Microscope Lock
+                    File</button>
+                <button id="forceKill" class="btn btn-sm btn-outline-primary" type="button" value="force_kill">Force-kill all session
+                    processes</button>
+            </div>
+        </fieldset>
+        {% endif %}
     </div>
-    {% if request.user.is_staff %}
-    <fieldset class="border border-danger rounded p-1 px-2 position-relative" id="staff-section">
-        <legend class="float-none w-auto px-1 text-danger m-0" style="font-size: 0.75rem;">
-            <i class="bi bi-shield-exclamation me-1"></i>Staff only — use carefully
-        </legend>
-        <div class="d-flex gap-2 flex-wrap">
-            <button id="force-start-button" class="btn btn-sm btn-outline-primary" type="button" value="start">Force Start</button>
-            <button id="removeLockButton" class="btn btn-sm btn-outline-primary" type="button" value="remove_lock">Remove Microscope Lock
-                File</button>
-            <button id="forceKill" class="btn btn-sm btn-outline-primary" type="button" value="force_kill">Force-kill all session
-                processes</button>
-        </div>
-    </fieldset>
-    {% endif %}
 </div>
 
 
@@ -165,7 +157,14 @@
     <div class="media">
         <div class="media-body">
             <div class="d-flex flex-row">
-                <h5 class="mt-0 flex-fill">Main Output</h5>
+                <div class="d-flex flex-row align-items-center gap-2">
+                    <h5 class="my-1 flex-fill">Main Output</h5>
+                    <!-- Dropdown for downloading logs of run.out and proc.out files -->
+                    <a id="download-run-log" class="a btn btn-link text-secondary border-0 align-self-center pb-0" 
+                        href="/api/sessions/{{ session_id }}/download_logs/?file_type=run" role="button" aria-haspopup="true">
+                        <i class="bi bi-download"></i>
+                    </a>
+                </div>
                 <p class="flex-wrap ms-auto text-secondary mb-1 align-self-end" style="font-size: 0.85rem">Showing last 100 lines — download for full log</p>
             </div>
             <div id="run_out" class="form-control z-depth-1 log-viewer" 
@@ -177,7 +176,14 @@
     <div class="media">
         <div class="media-body">
             <div class="d-flex flex-row">
-                <h5 class="mt-3 font-weight-bold blue-text">Processing Pipeline Output</h5>
+                <div class="d-flex flex-row align-items-center gap-2">
+                    <h5 class="mt-3 mb-1 font-weight-bold blue-text">Processing Pipeline Output</h5>
+                    <!-- Dropdown for downloading logs of run.out and proc.out files -->
+                    <a id="download-proc-log" class="a btn btn-link text-secondary border-0 align-self-center mt-2 pb-0" 
+                        href="/api/sessions/{{ session_id }}/download_logs/?file_type=proc" role="button" aria-haspopup="true">
+                        <i class="bi bi-download"></i>
+                    </a>
+                </div>
                 <p class="flex-wrap ms-auto text-secondary mb-1 align-self-end" style="font-size: 0.85rem">Showing last 100 lines — download for full log</p>
             </div>
             <div id="proc_out" class="form-control z-depth-1 log-viewer" 
