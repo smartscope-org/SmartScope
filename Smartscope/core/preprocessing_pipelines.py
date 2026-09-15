@@ -44,8 +44,10 @@ def load_preprocessing_pipeline(file:Path):
 def highmag_processing(grid_id: str, *args, **kwargs) -> None:
     try:
         grid = AutoloaderGrid.objects.get(grid_id=grid_id)
+        session = grid.session_id
         os.chdir(grid.directory)
-        add_log_handlers(directory=grid.session_id.directory, name='proc.out')
+        add_log_handlers(directory=grid.session_id.directory, name='proc.out', session_id=session.session_id)
+        logger.debug(f'SessionID: {session}')
         logger.debug(f'Log handlers:{logger.handlers}')
         preprocess_file = Path('preprocessing.json')
         cmd_data = load_preprocessing_pipeline(preprocess_file)

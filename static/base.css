@@ -240,3 +240,63 @@ body{
 .accordion-button:not(.collapsed) {
     color: #374c86;  /* or any color you want */
 }
+
+.report-notification-text {
+    text-transform: uppercase;
+    font-weight: 150;
+    font-size: 0.85rem;
+    letter-spacing: 0.02em;
+    line-height: 24px;
+    margin: 0;
+    padding: 0;
+}
+
+.report-notification-text-leading {
+    font-weight: 150;
+}
+
+.report-notification-text-bold {
+    font-weight: 500;
+}
+
+.report-notification-status {
+    color: #4dabf7; /* blue */
+}
+
+.report-notification-pause {
+    color: #ffd43b; /* yellow */
+}
+
+#reportNotifications {
+    border-color: #adb5bd; /* default/neutral, shown when empty */
+}
+
+#reportNotifications.report-notification-status {
+    border-color: #4dabf7; /* blue, matches text */
+}
+
+#reportNotifications.report-notification-pause {
+    border-color: #ffd43b; /* yellow, matches text */
+}
+
+@keyframes report-notification-pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.35; }
+}
+
+.report-notification-pulse {
+    animation: report-notification-pulse 1s ease-in-out 5;
+    /* 1s per pulse cycle, repeated 5 times = 5 seconds total, then stops automatically */
+}
+
+.btn-link.text-secondary {
+        text-decoration: none;
+        background-color: rgba(0, 0, 0, 0.04);
+        padding: 0.2rem 0.45rem;
+        transition: background-color 0.15s ease-in-out;
+    }
+.btn-link.text-secondary:hover,
+.btn-link.text-secondary:focus {
+    background-color: rgba(0, 0, 0, 0.15);
+    color: #212529;
+}

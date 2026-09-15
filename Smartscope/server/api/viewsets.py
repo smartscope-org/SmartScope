@@ -35,6 +35,8 @@ from Smartscope.core.models import *
 from Smartscope.core.settings.worker import PLUGINS_FACTORY
 from Smartscope.core.main_commands import check_pause
 from Smartscope.server.service.collection_params import update_collection_params
+from Smartscope.core.utils.ws_channel_layer_msg import broadcast_session_status
+from Smartscope.core.utils.file_manipulations import read_file
 
 logger = logging.getLogger(__name__)
 
@@ -304,7 +306,8 @@ class ScreeningSessionsViewSet(viewsets.ModelViewSet, GeneralActionsMixin,):
     def run_session(self, request, **kwargs):
         self.object = self.get_object()
         data = request.data
-        screening_mode = str(data.get('screening_mode', 'false')).lower() in ['true', '1']
+        screening_mode_value = data.get('screening_mode', 'false') if data.get('screening_mode', 'false') else 'false'
+        screening_mode = str(screening_mode_value).lower() in ['true', '1']
 
         if 'start' in data.keys() and not viewer_only(request.user):
             process_init = process = self.object.process_set.first()
@@ -320,7 +323,7 @@ class ScreeningSessionsViewSet(viewsets.ModelViewSet, GeneralActionsMixin,):
                 send_to_worker(
                     self.object.microscope_id.worker_hostname,
                     self.object.microscope_id.executable,
-                    arguments=['stop_session', self.object.session_id]
+                    arguments=['stop_session', str(self.object.directory)]
                 )
 
             rounds = 0
@@ -380,9 +383,12 @@ class ScreeningSessionsViewSet(viewsets.ModelViewSet, GeneralActionsMixin,):
         data = request.data
         if 'pause' in data.keys():
             out, err = send_to_worker(self.object.microscope_id.worker_hostname, self.object.microscope_id.executable,
-                                      arguments=['toggle_pause', self.object.microscope_id.pk], communicate=True)
+                                      arguments=['toggle_pause', str(self.object.directory)], communicate=True)
             out = out.decode("utf-8").strip().split('\n')[-1]
-            return Response(json.loads(out))
+            out_value = json.loads(out)
+            broadcast_msg = 'pause_set' if out_value["pause"] else 'pause_unset'
+            broadcast_session_status(self.object.session_id, broadcast_msg, 'pause.conf')
+            return Response(out_value)
 
     @ action(detail=True, methods=['put'])
     def continue_run(self, request, **kwargs):
@@ -390,8 +396,9 @@ class ScreeningSessionsViewSet(viewsets.ModelViewSet, GeneralActionsMixin,):
         data = request.data
         if 'continue' in data.keys():
             out, err = send_to_worker(self.object.microscope_id.worker_hostname, self.object.microscope_id.executable,
-                                      arguments=['continue_run', data['continue'], self.object.microscope_id.pk], communicate=True)
+                                      arguments=['continue_run', data['continue'], str(self.object.directory)], communicate=True)
             out = out.decode("utf-8").strip().split('\n')[-1]
+            broadcast_session_status(self.object.session_id, 'signal_received', 'pause')
             return Response(json.loads(out))
 
     @ action(detail=True, methods=['get'])
@@ -404,9 +411,9 @@ class ScreeningSessionsViewSet(viewsets.ModelViewSet, GeneralActionsMixin,):
         # check_output = json.loads(check_output.decode("utf-8").strip().split('\n')[-1])
         check_output = check_pause(self.object.microscope_id.pk, self.object.session_id)
         disk_status = disk_space(settings.AUTOSCREENDIR)
-        out = self.read_file('run.out')
-        proc = self.read_file('proc.out')
-        # queue = self.read_file('queue.txt', start_line=0)
+        out = read_file(self.object.directory, 'run.out', start_line=-100)
+        proc = read_file(self.object.directory, 'proc.out', start_line=-100)
+        # queue = read_file(self.object.directory, 'queue.txt')
 
         return Response(dict(out=out, proc=proc, disk=disk_status, **check_output))
 
@@ -414,7 +421,14 @@ class ScreeningSessionsViewSet(viewsets.ModelViewSet, GeneralActionsMixin,):
     def force_kill(self, request, **kwargs):
         self.object = self.get_object()
         logger.info('stopping')
+        broadcast_session_status(self.object.session_id, 'killed', 'update')
         out, err = send_to_worker(self.object.microscope_id.worker_hostname, 'pkill', arguments=['-f', self.object.pk])
+        term_time = timezone.now()
+        process = self.object.process_set.first()
+        process.status = 'killed'
+        process.end_time = term_time
+        process.save()
+        broadcast_session_status(self.object.session_id, 'stopped', 'update', term_time)
         return Response(dict(out=out, err=err))
 
     @ action(detail=True, methods=['post'], )
@@ -464,16 +478,6 @@ class ScreeningSessionsViewSet(viewsets.ModelViewSet, GeneralActionsMixin,):
             return FileResponse(open(file_path, 'rb'), as_attachment=True, filename=filename)
         else:
             raise Http404("File not found")
-        
-        
-
-    def read_file(self, name, start_line=-100):
-        try:
-            with open(os.path.join(self.object.directory, name), 'r') as f:
-                file = ''.join(f.readlines()[start_line:])
-            return file
-        except FileNotFoundError as err:
-            return ''
 
     def read_pid_file(self, timeout=10):
         timeout = time.time() + timeout

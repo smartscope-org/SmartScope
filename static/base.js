@@ -33,6 +33,16 @@ async function loadSidePanelState() {
         // console.log(`${key}, ${val}`)
         if (['group', 'session_id'].includes(key) && val !== undefined) {
             await loadSidePanel(key, val, push = false)
+            if ( key == 'session_id' ) {
+                const conn = createSessionSocket(val, {
+                    onMessage: function (event) {
+                        if (event.type !== 'session_logs' && event.type !== 'log_batch') {
+                            showNotification(event);
+                        }
+                    },
+                });
+                conn.connect();
+            }
         } else if (key == 'grid_id') {
             await loadReport(key, val, push = false)
         }
@@ -333,4 +343,71 @@ async function loadReport(requestfield = null, id = null, push = true) {
 // placeholder for no executed function
 function noop() {}
 
+// placeholder for no executed function
+function noop() {}
 
+function showNotification(event) {
+    const container = document.getElementById('reportNotifications');
+    if (!container) return;
+
+    let text = null;
+    let colorClass = null;
+
+    switch (event.type) {
+        case 'session_status':
+            if (event.replay) return; // only live status changes, not replay-on-connect
+            text = SESSION_STATUS_TEXT[event.status] || capitalize(event.status);
+            colorClass = 'report-notification-status';
+            break;
+
+        case 'pause_status':
+            text = PAUSE_STATUS_TEXT[event.status] || capitalize(event.status);
+            colorClass = 'report-notification-pause';
+            break;
+
+        case 'pause_conf':
+            text = PAUSE_CONF_TEXT[event.status] || capitalize(event.status);
+            colorClass = 'report-notification-pause';
+            break;
+
+        default:
+            return; // not a message type this element cares about
+    }
+
+    renderNotificationText(container, text, colorClass);
+}
+
+function capitalize(word) {
+    if (!word) return '';
+    return word.charAt(0).toUpperCase() + word.slice(1);
+}
+
+function renderNotificationText(container, text, colorClass) {
+    container.innerHTML = '';
+    container.classList.remove('report-notification-status', 'report-notification-pause');
+    container.classList.add(colorClass);
+
+    const item = document.createElement('span');
+    item.className = `report-notification-text ${colorClass} report-notification-pulse`;
+
+    const words = text.trim().split(' ');
+    const lastWord = words.pop();
+
+    const leading = document.createElement('span');
+    leading.className = 'report-notification-text-leading';
+    leading.textContent = words.length ? words.join(' ') + ' ' : '';
+
+    const trailing = document.createElement('span');
+    trailing.className = 'report-notification-text-bold';
+    trailing.textContent = lastWord;
+
+    item.appendChild(leading);
+    item.appendChild(trailing);
+    container.appendChild(item);
+    container.style.display = '';
+
+    // remove the pulse class once the animation finishes, so it stays still after
+    item.addEventListener('animationend', function () {
+        item.classList.remove('report-notification-pulse');
+    }, { once: true });
+}

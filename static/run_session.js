@@ -1,34 +1,42 @@
 const csrftoken = document.querySelector('[name=csrfmiddlewaretoken]').value
-var interval = null
 
-async function loadlogs() {
-    console.log('SENDING REQUEST!')
-    let url = `/api/sessions/${session_id}/get_logs`
-    data = await apifetchAsync(url, null, 'GET', 'Loading log files')
-    console.log(data)
-    if (data.reload === true) {
-        location.reload();
-    }
-    // queue = document.getElementById('queue')
-    // queue.innerHTML = data.queue
-    out = document.getElementById('out')
-    proc = document.getElementById('proc')
-    // proc.innerHTML = data.proc
-    // out.innerHTML = data.out
-    // elements = [out, proc]
-    for (const el of [out, proc]) {
-        console.log(el.id)
-        const atBottom = el.scrollHeight - el.clientHeight <= el.scrollTop + 8
-        const prevTop = el.scrollTop
+$(document).ready(async function () {
+    const conn = createSessionSocket(session_id, {
+        onMessage: function (event) {
+            switch (event.type) {
+                case 'session_logs':
+                case 'log_batch':
+                    loadlogs(event);
+                    break;
+                case 'session_status':
+                    updateSessionStatus(event);
+                    isStopFile(event.status === 'killed');
+                    updateMicroscopeBusyAlert(event.status);
+                    break;
+                case 'pause_status':
+                    isPaused(event.status === 'signal_send');
+                    break;
+                case 'pause_conf':
+                    setPause({ pause: event.status === 'pause_set' });
+                    break;
+                case 'disk_status':
+                    systemDiskUpdate(event);
+                    break;
+                case 'session_manage':
+                    updateMicroscopeNewSessionAlert(event.status);
+                    break;
+                default:
+                    console.warn('Unhandled message type:', event.type, event);
+            }
+        },
+    });
 
-        el.innerHTML = data[el.id]
-        el.scrollTop = atBottom ? el.scrollHeight : prevTop
-    }
-    disk.innerHTML = `Disk usage: ${data.disk[0]} GB total <wbr>| ${data.disk[1]} GB free <wbr>| ${data.disk[2]}% full`
-    isPaused(data.paused)
-    isStopFile(data.is_stop_file)
-    setPause(data)
-}
+    conn.connect();
+
+    window.addEventListener('beforeunload', function () {
+        conn.disconnect();
+    });
+});
 
 // start or stop the session
 async function startSession(start = true, screeningMode = false) {
@@ -96,6 +104,15 @@ function setPause(data) {
     }
 }
 
+function systemDiskUpdate(data) {
+    const disk = document.getElementById('disk');
+    if (!disk) return;
+
+    disk.innerHTML = `Disk usage: ${data.disk_usage[0]} GB total <wbr>| 
+                        ${data.disk_usage[1]} GB free <wbr>| 
+                        ${data.disk_usage[2]}% full`;
+}
+
 function isStopFile(data) {
     console.log('Is Stop File?', data)
 
@@ -104,10 +121,10 @@ function isStopFile(data) {
         return
     }
     $('#stopSignal').addClass('d-none')
-
 }
 
 function isPaused(paused) {
+    console.log('Pause message was received')
     paused_div = document.getElementById('paused')
     if (paused === true) {
         paused_div.classList.remove('hidden')
@@ -116,31 +133,70 @@ function isPaused(paused) {
     }
 }
 
- function autoRefresh(enable = true) {
-    if (enable === true){
-        console.log('Autorefresh enabled')
-        interval = setInterval(async function () {
-            console.log("Refreshing!");
-            await loadlogs();
-            await checkIsRunning(document.getElementById('start-button'))
-        }
-            , 10000);
-        return
-    }
-    console.log('Autorefresh disabled')
-    clearInterval(interval);
-};
+function appendLine(processType, line, isBacklog = false) {
+    const el = document.getElementById(processType); // 'out' or 'proc'
+    if (!el) return;
 
+    // clear the "Fetching Logs..." stub the first time real content arrives
+    if (el.dataset.stubCleared !== 'true') {
+        el.innerHTML = '';
+        el.dataset.stubCleared = 'true';
+    }
+
+    const atBottom = el.scrollHeight - el.clientHeight <= el.scrollTop + 8;
+
+    const lineEl = document.createElement('div');
+    if (isBacklog) lineEl.classList.add('log-backlog');
+    lineEl.textContent = '> ' + line;
+    el.appendChild(lineEl);
+
+    const MAX_LINES = 1000;
+    while (el.children.length > MAX_LINES) {
+        el.removeChild(el.firstChild);
+    }
+
+    if (atBottom) {
+        el.scrollTop = el.scrollHeight;
+    }
+}
+
+function loadlogs(data) {
+    if (data.type === 'session_logs') {
+        // single live line
+        appendLine(data.process_type, data.line, false);
+        return;
+    }
+
+    if (data.type === 'log_batch') {
+        // backlog array
+        for (const entry of data.lines) {
+            appendLine(entry.process_type, entry.line, true);
+        }
+    }
+    // out = document.getElementById('out')
+    // proc = document.getElementById('proc')
+    // for (const el of [out, proc]) {
+    //     console.log(el.id)
+    //     const atBottom = el.scrollHeight - el.clientHeight <= el.scrollTop + 8
+    //     const prevTop = el.scrollTop
+
+    //     el.innerHTML = data[el.id]
+    //     el.scrollTop = atBottom ? el.scrollHeight : prevTop
+    // }
+    // disk.innerHTML = `Disk usage: ${data.disk[0]} GB total <wbr>| ${data.disk[1]} GB free <wbr>| ${data.disk[2]}% full`
+}
 
 //checkIsRunning tracks staus of the session and changes the button from start to stop and vice versa
-
-async function checkIsRunning(element, response = null) {
-    const url = `/api/sessions/${session_id}/check_is_running/`;
-    if (!response) {
-        response = await apifetchAsync(url, null, 'GET', 'Checking if session is running');
+function updateSessionStatus(event) {
+    const element = document.getElementById('start-button');
+    if (!element) {
+        console.warn('start-button not found; skipping button state update');
+        updateSessionStatusPill(event); // still update the pill even if the button's missing
+        return;
     }
-    console.log('Response from checkIsRunning: ',response.status )
-    const isRunning = response.status === 'running';
+    console.log('Session status received:', event.status)
+
+    const isRunning = event.status === 'running';
 
     // Toggle button styles and update value/text
     element.classList.toggle('btn-outline-danger', isRunning);
@@ -152,19 +208,11 @@ async function checkIsRunning(element, response = null) {
     element.setAttribute("value", isRunning ? "stop" : "start");
 
     let dropdown = document.querySelector(".dropdown-menu");
-    if (element.value=="stop"){
+    if (element.value === "stop"){
             dropdown.style.display = "none";
     }
-    if (isRunning && interval == null) {
-        autoRefresh(isRunning);
-    }
-    if (!isRunning && interval != null) {
-        autoRefresh(isRunning)
-    }
 
-    updateSessionStatusPill(response)
-
-    return response;
+    updateSessionStatusPill(event);
 }
 
 function updateSessionStatusPill(data) {
@@ -198,10 +246,13 @@ function updateSessionStatusPill(data) {
         .css('border-color', color)
         .css('--pill-color', color);
 
-    $('#sessionPID').html(`PID: ${data.pid ?? '--'}`);
-    $('#sessionStartTime').html(`Start: ${formatSessionDate(data.start)}`);
-    $('#sessionEndTime').html(`End: ${formatSessionDate(data.end)}`);
-    $('#sessionInfoIcon').removeClass('bi-circle').addClass('bi-circle-fill');
+    if (data.status === 'running') {
+        $('#sessionPID').html(`PID: ${data.process_pid ?? '--'}`);
+        $('#sessionStartTime').html(`Start: ${formatSessionDate(data.update_time)}`);
+        $('#sessionInfoIcon').removeClass('bi-circle').addClass('bi-circle-fill');
+    } else {
+        $('#sessionEndTime').html(`End: ${formatSessionDate(data.update_time)}`);
+    }
 }
 
 function formatSessionDate(value) {
@@ -211,67 +262,67 @@ function formatSessionDate(value) {
     return date.toLocaleString('en-CA', { 'localeMatcher': 'lookup', 'hour12': false });
 }
 
-$(document).ready(async function () {
-    loadlogs(); run_status = await checkIsRunning(document.getElementById('start-button')); console.log(run_status)
-});
+function updateMicroscopeBusyAlert(status) {
+    const alertContainer = document.getElementById('microscope-busy-self-alert');
+    if (!alertContainer) return;
+    console.log("Banner update after new status received", status, TERMINAL_STATUSES.includes(status))
+
+    if (TERMINAL_STATUSES.includes(status)) {
+        alertContainer.classList.add('d-none');
+        alertContainer.classList.remove('d-flex');
+    } else {
+        alertContainer.classList.remove('d-none');
+        alertContainer.classList.add('d-flex');
+    }
+}
+
+function updateMicroscopeNewSessionAlert(newSessionId) {
+    const alertContainer = document.getElementById('microscope-busy-other-alert');
+    const actionButtonsContainer = document.getElementById('session-action-buttons');
+
+    // this page's session was just displaced by newSessionId -- show the busy banner
+    if (alertContainer) {
+        const link = alertContainer.querySelector('.alert-link');
+        if (link) {
+            link.href = `/run/session/${newSessionId}/`;
+        }
+        alertContainer.classList.remove('d-none');
+        alertContainer.classList.add('d-flex');
+    }
+
+    // this page is no longer "set up" -- hide the action buttons
+    if (actionButtonsContainer) {
+        actionButtonsContainer.classList.add('d-none');
+    }
+}
 
 $(document).ready(function () {
-    $(".screening-type").on("click", async function () {
-        let startButton = document.getElementById("start-button");
-        if (!startButton) {
-            console.error("Start button not found!");
-            return;
-        }
+    $(document).on("click", ".session-toggle, .screening-type", async function (e) {
+    const startButton = document.getElementById("start-button");
+    if (!startButton) {
+      console.error("Start button not found!");
+      return;
+    }
 
-        // set the button value to start
-        let isStarting = startButton.getAttribute("value") === "start";
-        console.log("Session Mode:", isStarting ? "Start" : "Stop");
+    const isStarting = startButton.getAttribute("value") === "start";
 
-        // select the screenig mode
-        let screeningMode = isStarting ? $(this).data("mode") === true : null;
-        console.log(`Screening Mode: ${screeningMode ? "Atlas Only" : "Full Screening"}`);
+    // If this click came from the toggle button while in "start" mode,
+    // it's just opening the dropdown — do nothing.
+    if ($(this).hasClass("session-toggle") && isStarting) {
+      return;
+    }
 
-        let dropdown = document.querySelector(".dropdown-menu");
-        if (!dropdown) {
-            console.error("Dropdown menu not found!");
-            return;
-        }
+    const screeningMode = isStarting ? $(this).data("mode") === true : null;
+    console.log("Mode:", isStarting ? "Start" : "Stop",
+      "Screening:", screeningMode ? "Atlas Only" : "Full Screening");
 
-        try {
-            // Call the startSession function
-            let run_status = await startSession(isStarting, screeningMode);
-            console.log("Session Status:", run_status);
-
-            // Call checkisRunning to check session and update UI
-            await checkIsRunning(startButton, run_status);
-        } catch (error) {
-            console.error("Error in session start/stop:", error);
-        }
-    });
-    $(".session-toggle").on("click", async function () {
-        let startButton = document.getElementById("start-button");
-        if (!startButton) {
-            console.error("Start button not found!");
-            return;
-        }
-
-        let isStarting = startButton.getAttribute("value") === "start";
-        console.log("Button Clicked - Mode:", isStarting ? "Start" : "Stop");
-        if (isStarting) {
-            return;
-        }
-
-        try {
-            // Call the startSession 
-            let run_status = await startSession(isStarting, null);
-            console.log("Run Status:", run_status);
-
-            // Call checkisRunning to check session and update UI
-            await checkIsRunning(startButton, run_status);
-        } catch (error) {
-            console.error("Error in session start/stop:", error);
-        }
-    });
+    try {
+      const run_status = await startSession(isStarting, screeningMode);
+      console.log("Session Status:", run_status);
+    } catch (error) {
+      console.error("Error in session start/stop:", error);
+    }
+  });
 });
 
 $('#force-start-button').on('click', async function () {

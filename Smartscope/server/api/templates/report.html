@@ -2,13 +2,16 @@
 {% load static %}
 <div id='report' class="container-fluid m-0 p-0">
     <div class="d-flex flex-row align-items-center justify-content-end gap-3 px-0" style="height: 35px; background-color: rgb(33 37 41)">
+        <div id="reportNotifications" class="d-flex flex-wrap align-items-center gap-2 px-2 m-2 me-auto"
+            style="border: 1px dashed; border-radius: 0.375rem; background-color: transparent; min-height: 24px; display: none;">
+            <!-- notification items get inserted/removed here via JS -->
+        </div>
         <button id="toggleHeaderFooterBtn" class="btn btn-sm btn-link text-light p-0 px-1" type="button"
             data-bs-toggle="collapse" data-bs-target=".gridHeaderFooterCollapse"
             aria-expanded="true" aria-controls="gridCardHeader gridCardFooter"
             data-bs-toggle-tooltip="tooltip" data-bs-placement="top" title="Collapse header/footer">
             <i class="bi bi-arrow-bar-down" id="toggleHeaderFooterIcon"></i>
         </button>
-
         {% if grid.collection_mode == "screening" %}
         <span class="badge rounded-3 category-screening px-4 py-1"
             data-bs-toggle="tooltip" data-bs-placement="top" title="Session Type">

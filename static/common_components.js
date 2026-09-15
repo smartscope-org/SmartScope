@@ -31,7 +31,7 @@ function initAdvancedToggle(toggleId, formContainerId) {
   }
 }
 
-const ADVANCED_TOGGLES = [
+var ADVANCED_TOGGLES = [
     { toggleId: 'advancedToggleColParams', targetId: 'formParams', containerId: 'formParams' },
     { toggleId: 'advancedToggleColParamsEdit', targetId: 'editCollectionParamsForm', containerId: 'formParamsEdit' },
 ];

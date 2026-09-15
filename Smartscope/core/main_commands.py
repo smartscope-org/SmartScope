@@ -3,11 +3,14 @@ import os
 import json
 from django.db import transaction
 from django.core.cache import cache
+from django.conf import settings
 
 #These imports expose functions from other files to the smartscope.py script. Not ideal but that's how the CLI works for now.
 from Smartscope.core.test_commands import *
 from Smartscope.core.utils.training_data import add_to_training_set
 from Smartscope.core.export_optics import export_optics
+from Smartscope.utils.system_monitor import disk_space
+from Smartscope.core.utils.file_manipulations import read_file_line
 from .autoscreen import autoscreen, run_protocol_command
 
 import numpy as np
@@ -118,16 +121,66 @@ def add_single_targets(id_, *args):
     cache.delete(cache_key)
 
 
-def check_pause(microscope_id: str, session_id: str):
-    pause = os.path.isfile(os.path.join(os.getenv('TEMPDIR'), f'.pause_{microscope_id}'))
-    paused = os.path.isfile(os.path.join(os.getenv('TEMPDIR'), f'paused_{microscope_id}'))
-    is_stop_file = os.path.isfile(os.path.join(os.getenv('TEMPDIR'), f'{session_id}.stop'))
+def check_pause(session_path: str):
+    pause = os.path.isfile(os.path.join(session_path, '.pause'))
+    paused = os.path.isfile(os.path.join(session_path, 'pause_state'))
+    is_stop_file = os.path.isfile(os.path.join(session_path, f'.stop'))
 
     return dict(pause=pause, paused=paused, is_stop_file=is_stop_file)
 
 
-def toggle_pause(microscope_id: str):
-    pause_file = os.path.join(os.getenv('TEMPDIR'), f'.pause_{microscope_id}')
+def session_full_state(session_id: str):
+    from Smartscope.core.models import ScreeningSession
+
+    obj = ScreeningSession.objects.get(pk=session_id)
+    process = obj.process_set.first()
+    # collecting state data
+    state = {
+                'type': 'session_status', 
+                'status': None, 
+                'process_pid': None, 
+                'update_time': None, 
+                'replay': True
+            }
+    if process is not None:
+        last_update_time = process.end_time if process.end_time else process.start_time
+        state.update(
+            {'status': process.status, 
+             'process_pid': process.PID, 
+             'update_time': last_update_time.isoformat()
+            }
+        )
+
+    disk_status = disk_space(settings.AUTOSCREENDIR)
+    # collecting logs files
+    backlog = []
+    out = read_file_line(obj.directory, 'run.out', nline=100)
+    backlog.extend({'line': l, 'process_type': 'run_out'} for l in out)
+
+    proc = read_file_line(obj.directory, 'proc.out', nline=100)
+    backlog.extend({'line': l, 'process_type': 'proc_out'} for l in proc)
+
+    full_state = [
+        state,
+        {'type': 'log_batch', 'lines': backlog},
+        {'type': 'disk_status', 'disk_usage': disk_status}
+    ]
+
+    # collecting pause state if session is still active
+    if obj.isSetup:
+        check_output = check_pause(str(obj.directory))
+        pause_status = 'signal_send' if check_output['paused'] else 'signal_received'
+        pause_setup = 'pause_set' if check_output['pause'] else 'pause_unset'
+        full_state.extend([
+            {'type': 'pause_status', 'status': pause_status},
+            {'type': 'pause_conf', 'status': pause_setup}
+        ])
+
+    return full_state
+
+
+def toggle_pause(session_path: str):
+    pause_file = os.path.join(session_path, '.pause')
     if os.path.isfile(pause_file):
         os.remove(pause_file)
         print(json.dumps(dict(pause=False)))
@@ -197,16 +250,16 @@ def regroup_bis_and_select(grid_id, square_id):
         select_areas('square', square.pk, grid.params_id.holes_per_square)
 
 
-def continue_run(next_or_continue, microscope_id):
+def continue_run(next_or_continue, session_path):
     if next_or_continue == "next":
-        open(os.path.join(os.getenv('TEMPDIR'), f'next_{microscope_id}'), 'w').close()
-    os.remove(os.path.join(os.getenv('TEMPDIR'), f'paused_{microscope_id}'))
+        open(os.path.join(session_path, '.next'), 'w').close()
+    os.remove(os.path.join(session_path, '.pause_state'))
 
     print(json.dumps({'continue': next_or_continue}))
 
 
-def stop_session(sessionid):
-    open(os.path.join(os.getenv('TEMPDIR'), f'{sessionid}.stop'), 'w').close()
+def stop_session(session_path):
+    open(os.path.join(session_path, '.stop'), 'w').close()
 
 
 def download_testfiles(overwrite=False):

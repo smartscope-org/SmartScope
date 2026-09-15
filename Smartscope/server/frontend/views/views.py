@@ -20,6 +20,7 @@ from django.utils.timezone import now
 from ..forms import *
 from Smartscope.core.db_manipulations import viewer_only
 from Smartscope.core.utils.plot_utils import plot_histogram
+from Smartscope.core.utils.file_manipulations import read_file
 from Smartscope.core.stats import get_hole_count
 from Smartscope.core.protocols import get_or_set_protocol
 from Smartscope.core.grid.grid_io import GridIO
@@ -37,6 +38,7 @@ from Smartscope.core.models.grid import AutoloaderGrid
 from Smartscope.core.models.grid_collection_params import GridCollectionParams
 from Smartscope.core.models.screening_session import ScreeningSession
 from Smartscope.core.target_history import TargetHistory
+from Smartscope.core.utils.ws_channel_layer_msg import broadcast_session_status
 
 
 logger =logging.getLogger(__name__)
@@ -117,6 +119,7 @@ class AutoScreenSetup(LoginRequiredMixin, TemplateView):
                     date=datetime.today().strftime('%Y%m%d')
                 )
                 if created:
+                    write_sessionSetupFile(session)
                     logger.debug(f'{session} newly created')
 
                 # multishot = form_params.cleaned_data.pop('multishot_per_hole')
@@ -228,9 +231,9 @@ class AutoScreenRun(LoginRequiredMixin, TemplateView):
                 pause = os.path.isfile(os.path.join(os.getenv('MOUNTLOC'), '.pause'))
                 paused = os.path.isfile(os.path.join(os.getenv('MOUNTLOC'), 'paused'))
                 try:
-                    out = self.read_file('run.out')
-                    err = self.read_file('run.err')
-                    queue = self.read_file('queue.txt')
+                    out = read_file(self.working_dir, 'run.out')
+                    err = read_file(self.working_dir, 'run.err')
+                    queue = read_file(self.working_dir, 'queue.txt')
                 except FileNotFoundError:
                     out = ''
                     err = ''
@@ -239,14 +242,6 @@ class AutoScreenRun(LoginRequiredMixin, TemplateView):
                 return JsonResponse(dict(out=out, err=err, queue=queue, reload=context['reload'], pause=pause, paused=paused))
 
         return render(request, self.template_name, context)
-
-    def read_file(self, name):
-        try:
-            with open(os.path.join(self.working_dir, name), 'r') as f:
-                file = f.read()
-            return file
-        except FileNotFoundError:
-            return ''
 
     def start_process(self):
         logger.debug(' '.join(['nohup', 'python',
@@ -737,3 +732,13 @@ def form_auxiliary_update(form, extra_params):
     ))
 
     return form
+
+
+def write_sessionSetupFile(session):
+    path = session.setupFile
+    if path.exists():
+        previous_session = path.read_text().strip()
+        broadcast_session_status(previous_session, session.session_id, 'manage')
+        path.unlink(missing_ok=True)
+    with open(path, 'w') as f:
+        f.write(session.session_id)

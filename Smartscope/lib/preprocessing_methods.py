@@ -215,6 +215,7 @@ def clear_queue(queue):
 def processing_worker_wrapper(logdir, queue, output_queue=None):
     logger.info(f"processing worker: {logdir}\t{queue}\t{output_queue}")
     logging.getLogger('Smartscope').handlers.pop()
+    logging.getLogger('Smartscope').handlers.pop()
     logger.debug(f'Log handlers:{logger.handlers}')
     add_log_handlers(directory=logdir, name='proc.out')
     logger.debug(f'Log handlers:{logger.handlers}')

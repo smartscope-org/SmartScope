@@ -30,6 +30,7 @@ from .db_manipulations import update, queue_atlas, add_targets
 from .selection.strategies import TARGET_SELECTION_STRATEGIES
 from .navigation import get_queue, get_target_priority, NAVIGATION_STRATEGIES, TargetPriority
 from .stats import count_completed
+from .utils.ws_channel_layer_msg import broadcast_session_status
 
 logger = logging.getLogger(__name__)
 
@@ -77,7 +78,7 @@ def run_grid(
     protocol = get_or_set_protocol(grid)
     preprocessing = load_preprocessing_pipeline(Path('preprocessing.json'))
     preprocessing.start(grid)
-    check_stop_flag(session_id)
+    check_stop_flag(str(session.directory), session_id)
     atlas = queue_atlas(grid)
 
     # scope
@@ -89,7 +90,7 @@ def run_grid(
             grid
         )
         update(grid, loading_time=timezone.now())
-    check_stop_flag(session_id)
+    check_stop_flag(str(session.directory), session_id)
 
     needs_reregistations = grid.unloading_time is not None and grid.loading_time > grid.unloading_time
     if needs_reregistations:
@@ -181,7 +182,7 @@ def run_grid(
     running = True
     is_done = False
     while running:
-        check_stop_flag(session_id)
+        check_stop_flag(str(session.directory), session_id)
         grid = update(grid, refresh_from_db=True, last_update=None)
         params = grid.params_id
         if params.max_exposures_for_grid > 0 and count_completed(grid) >= params.max_exposures_for_grid:
@@ -261,17 +262,17 @@ def run_grid(
             process_square_image_task.delay(square.square_id, str(square.working_dir), grid.grid_id, microscope.microscope_id)
             square = update(square, status=status.QUEUED_FOR_PROCESSING)
         elif is_done:
-            microscope_id = microscope.pk
-            tmp_file = os.path.join(settings.TEMPDIR, f'.pause_{microscope_id}')
+            tmp_file = os.path.join(str(session.directory), '.pause')
             if os.path.isfile(tmp_file) or scope.microscope.loaderSize == 1:
-                paused = os.path.join(settings.TEMPDIR, f'paused_{microscope_id}')
+                paused = os.path.join(str(session.directory), '.pause_state')
                 open(paused, 'w').close()
                 update(grid, status=GridStatus.PAUSED)
+                broadcast_session_status(session_id, 'signal_send', 'pause')
                 logger.info('SerialEM is paused')
                 while os.path.isfile(paused):
                     sys.stdout.flush()
                     time.sleep(3)
-                next_file = os.path.join(settings.TEMPDIR, f'next_{microscope_id}')
+                next_file = os.path.join(str(session.directory), f'.next')
                 if os.path.isfile(next_file):
                     os.remove(next_file)
                     running = False
@@ -321,22 +322,20 @@ def run_grid(
 #         order_by('square_id__completion_time', 'number').first()
 #     return square, hole#[h for h in holes if not h.bisgroup_acquired]
 
-def get_stop_file(session_id: str, default=None) -> Union[Path,None]:
-    stop_file = Path(settings.TEMPDIR, f'{session_id}.stop')
-    if stop_file.exists():
-        logger.debug(f'Stop file {stop_file} found.')
-        return stop_file
-    return default
 
-def clear_stop_file(session_id: str) -> bool:
-    stop_file = get_stop_file(session_id)
-    if stop_file is None:
+def clear_stop_file(session_path: str) -> bool:
+    stop_file = Path(session_path, '.stop')
+    if not stop_file.exists():
         return False
-    stop_file.unlink()
-    return True
+    else:
+        logger.debug(f'Stop file {stop_file} found.')
+        stop_file.unlink()
+        return True
 
-def check_stop_flag(session_id: str):
-    if clear_stop_file(session_id):
+
+def check_stop_flag(session_path: str, session_id: str):
+    if clear_stop_file(session_path):
+        broadcast_session_status(session_id, 'killed', 'update')
         raise KeyboardInterrupt()
 
 

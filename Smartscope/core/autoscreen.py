@@ -16,6 +16,7 @@ from .models import ScreeningSession, Process
 from .grid.grid_status import GridStatus
 from .db_manipulations import update
 from .run_grid import run_grid, clear_stop_file
+from .utils.ws_channel_layer_msg import broadcast_session_status
 
 from Smartscope.lib.logger import add_log_handlers
 
@@ -25,7 +26,7 @@ def autoscreen(session_id:str, screening_mode: bool=False, skip_loading: bool=Fa
     '''
     session = ScreeningSession.objects.get(session_id=session_id)
     microscope_model = session.microscope_id
-    add_log_handlers(directory=session.directory, name='run.out')
+    add_log_handlers(directory=session.directory, name='run.out', session_id=session_id)
     logger.debug(f'Main Log handlers:{logger.handlers}')
     process = create_process(session)
     clear_stop_file(session.session_id)
@@ -40,6 +41,7 @@ def autoscreen(session_id:str, screening_mode: bool=False, skip_loading: bool=Fa
         """)
         sys.exit(0)
     write_sessionLock(session, microscope_model.lockFile)
+    broadcast_session_status(session_id, process.status, 'update', process.start_time, process.PID)
 
     try:
         # grids = list(session.autoloadergrid_set.all().order_by('position'))
@@ -76,11 +78,16 @@ def autoscreen(session_id:str, screening_mode: bool=False, skip_loading: bool=Fa
             update(grid, status=GridStatus.ERROR)
     except KeyboardInterrupt:
         logger.info('Stopping Smartscope.py autoscreen')
-        status = 'killed'
+        status = 'stopped'
+        if 'grid' in locals():
+            update.grid = grid
+            update(grid, status=GridStatus.ABORTING)
     finally:
         os.remove(microscope_model.lockFile)
+        term_time = timezone.now()
+        broadcast_session_status(session_id, status, 'update', term_time)
         close_old_connections()
-        update(process, status=status, end_time=timezone.now())
+        update(process, status=status, end_time=term_time)
         logger.info('Done.')
 
 
@@ -107,7 +114,7 @@ def run_protocol_command(grid_id:str, command:str):
     session = grid.session_id
     microscope_model = session.microscope_id
     params = grid.params_id
-    add_log_handlers(directory=session.directory, name='run.out')
+    add_log_handlers(directory=session.directory, name='run.out', session_id=session)
     logger.debug(f'Main Log handlers:{logger.handlers}')
     clear_stop_file(session.session_id)
     if microscope_model.isLocked:

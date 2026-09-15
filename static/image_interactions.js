@@ -1,4 +1,4 @@
-const zoomState = {}
+var zoomState = {}
 let panZoomState = { enabled: false, svgId: null }
 
 function initZoomPan(svgId) {
