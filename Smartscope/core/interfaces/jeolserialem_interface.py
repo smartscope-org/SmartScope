@@ -87,7 +87,7 @@ class JEOLSerialemInterface(SerialemInterface):
         sem.SetSlitIn(0)
         sem.SetSpotSize(self.atlas_settings.spotSize)
         sem.SetPercentC2(self.atlas_settings.c2)
-        sem.PluginString("JEOL", "SetStdFocus")
+        sem.PluginString("JEOL", "SetStdFocus", "")
         self.load_lens_data(self.microscope.atlas_lens_file) ##Need to set this up
         sem.ResetDefocus()
         self.state.current_mag = 'atlas'
