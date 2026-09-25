@@ -41,6 +41,9 @@ class FakeScopeInterface(MicroscopeInterface):
 
     def eucentricity_by_focus(self):
         pass
+    
+    def delay(self, delay:int=1, units:str='s'):
+        pass
 
     def call(self, script):
         self.logger.info(f'Calling {script}')

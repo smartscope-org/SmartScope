@@ -454,6 +454,12 @@ def reregisterMediumMagFiducial(scope:MicroscopeInterface,params,instance, conte
         force_reprocess=True
     )
     ###NEED TO CONTINUE HERE.
+    
+def delay(scope:MicroscopeInterface,params,instance, content:Dict, *args, **kwargs):
+    delay = content.get('delay', 1)
+    units = content.get('units', 's')
+    logger.info(f'Delaying for {delay} {units}')
+    scope.delay(delay, units)
 
 
 def reregisterSearchMag(scope:MicroscopeInterface,params,instance, content:Dict, *args, **kwargs):

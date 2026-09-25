@@ -208,6 +208,10 @@ class SerialemInterface(MicroscopeInterface):
         self.logger.info(f'Resetting stage to center.')
         sem.TiltTo(0)
         sem.MoveStageTo(0,0,0)
+        
+    def delay(self, delay:int=1, units:str='s'):
+        self.logger.info(f'Delaying for {delay} {units}')
+        sem.Delay(delay, units)
 
     def remove_slit(self):
         if not self.detector.energyFilter:
