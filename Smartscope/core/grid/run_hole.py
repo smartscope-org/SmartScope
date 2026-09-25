@@ -43,9 +43,6 @@ class RunHole:
             logger.debug(f'Acquisition parameters: {params.params_id}')
             mutlishot_file = Path(grid.directory,'multishot.json')
             multishot = RunHole.load_multishot_from_file(mutlishot_file)
-            if multishot is not None:
-                logger.info(f'Multishot enabled: {params.multishot_per_hole}, ' + \
-                    'Shots: {multishot.shots}, File: {mutlishot_file}')
             montage = get_file_and_process(
                 hole.raw,
                 hole.name,
@@ -148,7 +145,7 @@ class RunHole:
     @staticmethod
     def load_multishot_from_file(file:Union[str,Path]) -> Union[MultiShot,None]:
         if Path(file).exists():
-            return MultiShot.parse_file(file)
+            return MultiShot.model_validate(file)
     
 
     @staticmethod

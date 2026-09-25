@@ -73,6 +73,15 @@ def run_grid(
     logger.info(f"Create and then enter into Grid directory={grid.directory}")
     os.chdir(grid.directory)
     params = grid.params_id
+    
+    if params.multishot_per_hole:
+        logger.debug('Multishot per hole enabled. Verifying multishot.json file exists.')
+        mutlishot_file = Path(grid.directory,'multishot.json')
+        multishot = RunHole.load_multishot_from_file(mutlishot_file)
+        if multishot is None:
+            logger.error('\n\n\tMultishot enabled but not configured.\n\tPlease configure multishot per hole in the Collection Parameters or disable it.\n\n')
+            update(grid, status=GridStatus.ERROR)
+            raise KeyboardInterrupt()
 
     protocol = get_or_set_protocol(grid)
     preprocessing = load_preprocessing_pipeline(Path('preprocessing.json'))
