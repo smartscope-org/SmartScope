@@ -413,8 +413,11 @@ class ScreeningSessionsViewSet(viewsets.ModelViewSet, GeneralActionsMixin,):
     @ action(detail=True, methods=['post'], )
     def force_kill(self, request, **kwargs):
         self.object = self.get_object()
+        process = self.object.process_set.first()
         logger.info('stopping')
         out, err = send_to_worker(self.object.microscope_id.worker_hostname, 'pkill', arguments=['-f', self.object.pk])
+        process.status = 'killed'
+        process.save()
         return Response(dict(out=out, err=err))
 
     @ action(detail=True, methods=['post'], )
