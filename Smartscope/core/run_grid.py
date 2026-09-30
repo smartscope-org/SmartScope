@@ -28,7 +28,7 @@ from .protocols import get_or_set_protocol
 from .preprocessing_pipelines import load_preprocessing_pipeline
 from .db_manipulations import update, queue_atlas, add_targets
 from .selection.strategies import TARGET_SELECTION_STRATEGIES
-from .navigation import get_queue, get_target_priority, NAVIGATION_STRATEGIES, TargetPriority
+from .navigation import get_queue, get_target_priority, load_navigation_strategy, NAVIGATION_STRATEGIES, TargetPriority
 from .stats import count_completed
 
 logger = logging.getLogger(__name__)
@@ -96,7 +96,8 @@ def run_grid(
         # reregister_grid(scope, grid, protocol)
 
     SELECTION_STRATEGY = TARGET_SELECTION_STRATEGIES['original']
-    NAVIGATION_STRATEGY = NAVIGATION_STRATEGIES['original']
+    navigation_strategy_name = load_navigation_strategy(Path('navigation.json'))
+    NAVIGATION_STRATEGY = NAVIGATION_STRATEGIES.get(navigation_strategy_name, NAVIGATION_STRATEGIES['original'])
     # run acquisition
     if atlas.status == status.QUEUED or atlas.status == status.STARTED:
         atlas = update(atlas, status=status.STARTED)

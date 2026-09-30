@@ -1,8 +1,12 @@
 from typing import Optional, Iterable, Tuple
+import json
 import logging
+import random
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from enum import Enum
+from itertools import groupby
+from pathlib import Path
 from .models import AutoloaderGrid
 from .status import status
 from Smartscope.core.models.high_mag import HighMagModel
@@ -47,7 +51,52 @@ class OriginalNavigationStrategy(NavigationStrategy):
         return self.grid.squaremodel_set.filter(selected=True).\
             exclude(status__in=[status.SKIPPED, status.COMPLETED, status.ERROR]+status().in_flight_statuses).\
             order_by('number')
-            
+
+
+@dataclass
+class RandomNavigationStrategy(NavigationStrategy):
+    verbose_name = 'Random'
+    description = 'Pick the next hole/square uniformly at random among the eligible targets.'
+
+    def get_hole_queue(self):
+        candidates = list(self.grid.holemodel_set.filter(selected=True, square_id__status=status.COMPLETED).
+            exclude(status__in=[status.SKIPPED, status.COMPLETED]))
+        random.shuffle(candidates)
+        return candidates
+
+    def get_square_queue(self):
+        candidates = list(self.grid.squaremodel_set.filter(selected=True).
+            exclude(status__in=[status.SKIPPED, status.COMPLETED, status.ERROR]+status().in_flight_statuses))
+        random.shuffle(candidates)
+        return candidates
+
+
+@dataclass
+class GreedyNavigationStrategy(NavigationStrategy):
+    verbose_name = 'Greedy (nearest neighbor)'
+    description = 'Visit the eligible target closest (by stage position) to the last completed one.'
+
+    @staticmethod
+    def _reference_coords(queryset):
+        last = queryset.filter(status=status.COMPLETED).order_by('-completion_time').first()
+        return last.stage_coords if last is not None else None
+
+    def get_hole_queue(self):
+        candidates = list(self.grid.holemodel_set.filter(selected=True, square_id__status=status.COMPLETED).
+            exclude(status__in=[status.SKIPPED, status.COMPLETED]))
+        reference = self._reference_coords(self.grid.holemodel_set)
+        if reference is None:
+            return sorted(candidates, key=lambda h: (h.square_id.completion_time, h.number))
+        return sorted(candidates, key=lambda h: np.linalg.norm(h.stage_coords - reference))
+
+    def get_square_queue(self):
+        candidates = list(self.grid.squaremodel_set.filter(selected=True).
+            exclude(status__in=[status.SKIPPED, status.COMPLETED, status.ERROR]+status().in_flight_statuses))
+        reference = self._reference_coords(self.grid.squaremodel_set)
+        if reference is None:
+            return sorted(candidates, key=lambda s: s.number)
+        return sorted(candidates, key=lambda s: np.linalg.norm(s.stage_coords - reference))
+
 
 def get_target_priority(grid:AutoloaderGrid, forced_priority:Optional[TargetPriority]=None):
     if grid.collection_mode == 'collection' or grid.session_id.microscope_id.vendor == 'JEOL':
@@ -61,23 +110,34 @@ def get_target_priority(grid:AutoloaderGrid, forced_priority:Optional[TargetPrio
 def get_queue(grid, target_priority: TargetPriority, navigation_strategy=None, attempts: int = 0) -> Tuple[Iterable, NavigationStrategy]:
     if attempts == 2:
         return None, navigation_strategy
-    
+
     if target_priority == TargetPriority.SQUARE:
         queue = navigation_strategy(grid).get_square_queue()
         if len(queue) ==  0:
             return get_queue(grid, TargetPriority.HOLE, navigation_strategy=navigation_strategy, attempts=attempts + 1)
-    
+
     if target_priority == TargetPriority.HOLE:
         queue = navigation_strategy(grid).get_hole_queue()
         if len(queue) == 0:
             return get_queue(grid, TargetPriority.SQUARE, navigation_strategy=navigation_strategy, attempts=attempts + 1)
-    
+
     logger.info(f'Queued => {target_priority}: {queue[0]}')
     return queue, target_priority
 
 NAVIGATION_STRATEGIES = {
     'original': OriginalNavigationStrategy,
+    'greedy': GreedyNavigationStrategy,
+    'random': RandomNavigationStrategy,
 }
+
+def load_navigation_strategy(file: Path) -> str:
+    """Read the navigation strategy name saved for a grid. Defaults to 'original' if missing/unreadable."""
+    if file.exists():
+        try:
+            return json.loads(file.read_text()).get('strategy', 'original')
+        except Exception:
+            logger.exception(f'Failed to parse navigation strategy file {file}, defaulting to original.')
+    return 'original'
 
 @dataclass
 class NextPYPNavigationStrategy(NavigationStrategy):
@@ -89,7 +149,7 @@ class NextPYPNavigationStrategy(NavigationStrategy):
 
     def get_square_queue(self):
         return OriginalNavigationStrategy(self.grid).get_square_queue()
-    
+
     def get_hole_queue(self):
         # Get list of all completed holes
         candidates = self.grid.holemodel_set.filter(
@@ -111,11 +171,11 @@ class NextPYPNavigationStrategy(NavigationStrategy):
         )
         if not good_hole_ids:
             return fallback
-        
+
         simsiam = SimSiamEmbedding()
         if not simsiam.is_embedding_data(self.grid, 'hole'):
             return fallback
-        
+
         # Retrieve SimSiam hole quality info
         # Dataframe indexed hole_id, column 'embeddings'
         embeddings_df = simsiam.load_data(self.grid, 'hole')
@@ -126,7 +186,7 @@ class NextPYPNavigationStrategy(NavigationStrategy):
 
         if not good_mask.any() or not cand_mask.any():
             return fallback
-        
+
         cand_df = embeddings_df[cand_mask]
         good_emb = np.array(embeddings_df[good_mask]['embeddings'].to_list())
         cand_emb = np.array(cand_df['embeddings'].to_list())
@@ -173,25 +233,30 @@ class NextPYPNavigationStrategy(NavigationStrategy):
         # Build BIS scores
         bis_radius = self.grid.params_id.bis_max_distance
         if bis_radius > 0:
-            stage_coords = np.array([
-                stage_by_id[hid]
-                if hid in stage_by_id else np.array([np.inf, np.inf])
-                for hid in cand_df.index
-            ])
-            dist_matrix = cdist(stage_coords, stage_coords) # Distance from hole to every other hole
+            bis_group_by_id = {
+                row['hole_id']: row['bis_group']
+                for row in candidates.filter(hole_id__in=list(cand_df.index)).values('hole_id', 'bis_group')
+            }
 
-            # Determine a neighborhood of BIS scores
-            neighbor_mask = (dist_matrix < bis_radius) & (dist_matrix > 0) # Exclude self
-            neighbor_count = neighbor_mask.sum(axis=1).astype(float)
-            avg_neighbor_visual = np.where(
-                neighbor_count > 0,
-                (neighbor_mask @ norm_visual) / neighbor_count,
-                1.0
-            )
+            id_to_idx = {hid: i for i, hid in enumerate(cand_df.index)}
+            bis_group_to_indices = {}
+            for hid in cand_df.index:
+                key = bis_group_by_id.get(hid) or hid  # None bis_group -> solo group
+                bis_group_to_indices.setdefault(key, []).append(id_to_idx[hid])
 
-            combined += self._normalize(avg_neighbor_visual) # Goodness of neighboring holes
-            combined -= self._normalize(neighbor_count) # More BIS holes is better
-            
+            bis_avg = np.full(len(cand_df), 1.0) # Default: each BIS group has the worst visual score
+            bis_count = np.ones(len(cand_df)) # Default: each BIS group contains only 1 hole
+
+            for indices in bis_group_to_indices.values():
+                avg_q = norm_visual[indices].mean()
+                count = len(indices)
+                for idx in indices:
+                    bis_avg[idx] = avg_q
+                    bis_count[idx] = float(count)
+
+            combined += self._normalize(bis_avg)    # lower avg quality in group = better
+            combined -= self._normalize(bis_count)  # more holes in group = better
+
         scores_by_id = dict(
             zip(cand_df.index, combined)
         )
