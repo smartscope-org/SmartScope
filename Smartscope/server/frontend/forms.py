@@ -9,6 +9,7 @@ from Smartscope.core.settings.worker import (SMARTSCOPE_CUSTOM_CONFIG,
                                              PROTOCOLS_FACTORY, 
                                              COLLECTION_PARAMETERS)
 from Smartscope.core.preprocessing_pipelines import PREPROCESSING_PIPELINE_FACTORY
+from Smartscope.core.navigation import NAVIGATION_STRATEGIES
 
 
 def read_config_legacy(filename = 'default_collection_params.yaml'):
@@ -305,9 +306,32 @@ class SelectProtocolForm(forms.Form):
 
 class SelectPeprocessingPipilelineForm(forms.Form):
     pipeline = forms.ChoiceField( choices=[('', '----')]+[(key,val.verbose_name) for key,val in PREPROCESSING_PIPELINE_FACTORY.items()], label='Pipeline', help_text='Select from the available preprocessing pipelines.')
-    
+
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.fields['pipeline'].widget.attrs.update({
             'class': 'form-select',
         })
+
+
+class SelectNavigationStrategyForm(forms.Form):
+    strategy = forms.ChoiceField(choices=[('', '----')]+[(key, getattr(val, 'verbose_name', key)) for key,val in NAVIGATION_STRATEGIES.items()],
+                                 label='Navigation Strategy',
+                                 help_text='Select the algorithm used to decide which hole/square to visit next.')
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields['strategy'].widget.attrs.update({
+            'class': 'form-select',
+        })
+
+
+class NavigationStrategyIDForm(forms.Form):
+    navigation_strategy = forms.BooleanField(label='Set up navigation strategy ', required=False, help_text='Check it to choose a custom navigation strategy (defaults to Original when unchecked)')
+    navigation_strategy_id = forms.CharField(label='Navigation strategy ID', required=False,
+                                            help_text='Applied automatically after choosing a navigation strategy')
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields['navigation_strategy'].widget = MyCheckBox()
+        self.fields['navigation_strategy_id'].widget.attrs['class'] = 'form-control'

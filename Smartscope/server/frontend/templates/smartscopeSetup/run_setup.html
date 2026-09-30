@@ -157,6 +157,28 @@
                             </div>
                         </div>
                     </div>
+                    <div class="accordion-item">
+                        <h2 class="accordion-header" id="headingNavigation"></h2>
+                            <button class="accordion-button" type="button"
+                                    data-bs-toggle="collapse" data-bs-target="#collapseNavigation"
+                                    aria-expanded="true" aria-controls="collapseNavigation">
+                                5. NAVIGATION STRATEGY
+                                <i class="bi bi-info-circle ms-1 text-muted"
+                                    data-bs-toggle="popover"
+                                    data-bs-placement="right"
+                                    data-bs-html="true"
+                                    data-bs-trigger="hover"
+                                    data-bs-content="Choose the algorithm used to decide which hole/square to visit next during acquisition.">
+                                </i>
+                            </button>
+                        </h2>
+                        <div id="collapseNavigation" class="accordion-collapse collapse show" aria-labelledby="headingNavigation">
+                            <div class="accordion-body">
+                                {% url 'navigationStrategy' as navigation_url %}
+                                {% include "forms/expand_form.html" with form=form_navigation row=True id='formNavigation' trigger='navigation_strategy' url=navigation_url %}
+                            </div>
+                        </div>
+                    </div>
                 </div>
             </div>
             <!-- <h3 class="col-auto px-2 mb-0 mt-1">AUTOLOADER</h3> -->

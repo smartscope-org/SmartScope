@@ -3,6 +3,7 @@ import json
 import subprocess as sub
 import psutil
 from datetime import datetime
+from pathlib import Path
 import logging
 import plotly.graph_objs as go
 
@@ -11,6 +12,7 @@ from django.shortcuts import render
 from django.contrib.auth import logout, authenticate, login
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.conf import settings
+from django.core.cache import cache
 from django.http import JsonResponse, HttpResponse
 from django.template.response import TemplateResponse
 from django.views.generic import TemplateView
@@ -29,6 +31,8 @@ from Smartscope.core.grid.run_hole import RunHole
 from Smartscope.core.cache import save_json_from_cache
 from Smartscope.core.protocols import load_protocol, set_protocol
 from Smartscope.core.preprocessing_pipelines import PREPROCESSING_PIPELINE_FACTORY, load_preprocessing_pipeline
+from Smartscope.core.navigation import NAVIGATION_STRATEGIES, load_navigation_strategy
+from Smartscope.lib.Datatypes.models import generate_unique_id
 from Smartscope.server.service.collection_params import update_collection_params, update_grid
 from Smartscope.core.settings.worker import COLLECTION_PARAMETERS
 from Smartscope.lib.Datatypes.base_collection_params import Property
@@ -86,10 +90,12 @@ class AutoScreenSetup(LoginRequiredMixin, TemplateView):
             extra_params, _ = COLLECTION_PARAMETERS.get_collection_params("")
             form_params = form_auxiliary_update(form_params, extra_params)
             form_preprocess = PreprocessingPipelineIDForm()
+            form_navigation = NavigationStrategyIDForm()
         else:
             form_general = kwargs['form_general']
             form_params = kwargs['form_params']
             form_preprocess = kwargs['form_preprocess']
+            form_navigation = kwargs['form_navigation']
 
         grids = []
         form = AutoloaderGridForm(prefix=1)
@@ -97,7 +103,7 @@ class AutoScreenSetup(LoginRequiredMixin, TemplateView):
 
         grids.append(form)
 
-        context = dict(form_general=form_general, form_params=form_params,form_preprocess=form_preprocess, grids=grids)
+        context = dict(form_general=form_general, form_params=form_params,form_preprocess=form_preprocess, form_navigation=form_navigation, grids=grids)
         sessions = ScreeningSession.objects.all().order_by('-date')[:10]
         context['sessions'] = sessions
         return context
@@ -107,9 +113,10 @@ class AutoScreenSetup(LoginRequiredMixin, TemplateView):
         form_general = ScreeningSessionForm(request.POST)
         form_params = GridCollectionParamsForm(request.POST)
         form_preprocess = PreprocessingPipelineIDForm(request.POST)
+        form_navigation = NavigationStrategyIDForm(request.POST)
         if not is_viewer_only:
             num_grids = set([k.split('-')[0] for k in request.POST.keys() if k.split('-')[0].isnumeric()])
-            if form_general.is_valid() and form_params.is_valid() and form_preprocess.is_valid():
+            if form_general.is_valid() and form_params.is_valid() and form_preprocess.is_valid() and form_navigation.is_valid():
                 mode = form_general.cleaned_data.pop('mode','screening')
                 preset = form_general.cleaned_data.pop('preset', '')
                 session, created = ScreeningSession.objects.get_or_create(
@@ -122,6 +129,7 @@ class AutoScreenSetup(LoginRequiredMixin, TemplateView):
                 # multishot = form_params.cleaned_data.pop('multishot_per_hole')
                 multishot_per_hole_id = form_params.cleaned_data.pop('multishot_per_hole_id')
                 preprocessing_pipeline_id = form_preprocess.cleaned_data.pop('preprocessing_pipeline_id',False)
+                navigation_strategy_id = form_navigation.cleaned_data.pop('navigation_strategy_id',False)
                 params, created = GridCollectionParams.objects.get_or_create(**form_params.cleaned_data)
                 if created:
                     logger.debug(f'{params} newly created')
@@ -145,6 +153,8 @@ class AutoScreenSetup(LoginRequiredMixin, TemplateView):
                                 save_json_from_cache(multishot_per_hole_id, grid.directory,'multishot')
                             if preprocessing_pipeline_id != '':
                                 save_json_from_cache(preprocessing_pipeline_id, grid.directory,'preprocessing')
+                            if navigation_strategy_id != '':
+                                save_json_from_cache(navigation_strategy_id, grid.directory,'navigation')
 
                 return redirect(f'../session/{session.session_id}')
 
@@ -606,6 +616,75 @@ class PreprocessingPipeline(TemplateView):
         context = self.get_grid_context_data(grid_id)
         context['pipeline_data'].stop(context['grid'])
         return self.get_grid_pipeline(request, grid_id=grid_id)
+
+
+class NavigationStrategyView(TemplateView):
+    template_name = "smartscopeSetup/navigation/navigation_strategy.html"
+
+    def get(self,request, *args, **kwargs):
+        context = self.get_context_data(**kwargs)
+        return render(request,self.template_name, context)
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context['form'] = SelectNavigationStrategyForm()
+        return context
+
+    def get_grid_context_data(self,grid_id):
+        context = dict()
+        grid = AutoloaderGrid.objects.get(pk=grid_id)
+        strategy_name = load_navigation_strategy(Path(grid.directory, 'navigation.json'))
+        strategy = NAVIGATION_STRATEGIES[strategy_name]
+        context['grid'] = grid
+        context['form'] = SelectNavigationStrategyForm(data={'strategy':strategy_name})
+        context['strategy'] = strategy_name
+        context['description'] = getattr(strategy, 'description', '')
+        return context
+
+    def get_grid_strategy(self, request, grid_id, success=False, **kwargs):
+        context = self.get_grid_context_data(grid_id)
+        context["success"] = success
+        return render(request,self.template_name, context)
+
+    def get_strategy(self, request, *args, **kwargs,):
+        try:
+            context = {}
+            strategy = request.GET.get('strategy',None)
+            strategy_obj = NAVIGATION_STRATEGIES[strategy]
+            context['strategy'] = strategy
+            context['description'] = getattr(strategy_obj,'description','')
+            context['grid_id'] = request.GET.get('grid_id', None)
+            return TemplateResponse(request=request,template="smartscopeSetup/navigation/navigation_strategy_form.html",context=context)
+        except Exception as err:
+            logger.exception(err)
+
+    def set_strategy(self, request,strategy, *args, grid_id=None, **kwargs):
+        try:
+            if strategy not in NAVIGATION_STRATEGIES:
+                raise ValueError(f'Unknown navigation strategy {strategy}')
+            data = json.dumps({'strategy': strategy})
+            if grid_id is None or not grid_id:
+                cache_id = generate_unique_id()
+                cache.set(cache_id,data,timeout=30*60)
+                return TemplateResponse(request=request,
+                                        template='forms/expand_form.html',
+                                        context=dict(form=NavigationStrategyIDForm(data=dict(navigation_strategy=True, navigation_strategy_id=cache_id)),
+                                                    row=True,
+                                                    id='formNavigation',
+                                                    trigger='navigation_strategy',
+                                                    url=reverse('navigationStrategy')
+                                                    ))
+            grid = AutoloaderGrid.objects.get(pk=grid_id)
+            Path(grid.directory,'navigation.json').write_text(data)
+            logger.info('Updated navigation strategy for existing grid')
+            response = self.get_grid_strategy(request, grid_id=grid_id, success=True)
+            response["HX-Trigger"] = json.dumps({
+                                                'navigationStrategySelected': {'label': getattr(NAVIGATION_STRATEGIES[strategy],'verbose_name',strategy)},
+                                            })
+            return response
+        except Exception as err:
+            logger.exception(err)
+
 
 class CollectionStatsView(TemplateView):
     template_name = "autoscreenViewer/collection_stats.html"

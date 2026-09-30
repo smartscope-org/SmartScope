@@ -222,7 +222,15 @@
                     data-bs-toggle="modal" data-bs-placement="top" 
                     data-bs-target="#modalShell" data-modal-title="Preprocessing Pipeline"
                     title="View/Edit preprocessing pipeline">
-                    <i class="bi bi-pencil text-secondary"></i><span id="gridPreprocessingLabel">{{ pipeline|default:"Preprocessing" }}</span> 
+                    <i class="bi bi-pencil text-secondary"></i><span id="gridPreprocessingLabel">{{ pipeline|default:"Preprocessing" }}</span>
+                </button>
+                <button id='gridNavigationBtn' class="btn btn-sm btn-ghost" type="button"
+                    hx-get="{% url 'navigationStrategy' %}{{grid.grid_id}}"
+                    hx-target="#modalShellBody" hx-swap="innerHTML"
+                    data-bs-toggle="modal" data-bs-placement="top"
+                    data-bs-target="#modalShell" data-modal-title="Navigation Strategy"
+                    title="View/Edit navigation strategy">
+                    <i class="bi bi-pencil text-secondary"></i><span id="gridNavigationLabel">{{ navigation_strategy|default:"Navigation" }}</span>
                 </button>
                 <button id='gridProtocolBtn' class="btn btn-sm btn-ghost" type="button"
                     hx-get="{% url 'protocol' grid_id=grid.grid_id %}" 

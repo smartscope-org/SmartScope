@@ -483,6 +483,11 @@ document.addEventListener("pipelineSelected", (e) => {
     if (label) document.getElementById("gridPreprocessingLabel").textContent = label;
 });
 
+document.addEventListener("navigationStrategySelected", (e) => {
+    const label = e.detail?.label;
+    if (label) document.getElementById("gridNavigationLabel").textContent = label;
+});
+
 document.addEventListener("protocolSelected", (e) => {
     const label = e.detail?.label;
     if (label) document.getElementById("gridProtocolLabel").textContent = label;
