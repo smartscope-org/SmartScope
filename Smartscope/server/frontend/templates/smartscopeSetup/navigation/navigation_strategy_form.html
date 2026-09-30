@@ -1,0 +1,37 @@
+<hr>
+<div class="col justify-content-center">
+    {% if saved %}
+    <div class="alert alert-success py-1 px-2 mb-2" role="alert">
+        <i class="bi bi-check-circle"></i> Saved
+    </div>
+    {% elif error %}
+    <div class="alert alert-danger py-1 px-2 mb-2" role="alert">
+        <i class="bi bi-exclamation-circle"></i> Failed to save navigation strategy. Check the logs and try again.
+    </div>
+    {% endif %}
+    <span><b>Description:</b> {{description}}</span>
+    <form  method="post">
+        {% csrf_token %}
+        <div class="d-flex flex-row align-content-center">
+            <button type="submit" class="btn btn-primary"
+                hx-post="{% url 'setNavigationStrategy' strategy=strategy grid_id=grid_id %}"
+                hx-indicator="#spinner"
+                {% if not grid_id %}
+                hx-target="#formNavigation"
+                {% else %}
+                hx-target="#rightSidebarMenu"
+                hx-swap="outerHTML"
+                {% endif %}
+                >
+                Save
+            </button>
+            <div id="spinner" class="my-indicator spinner-border text-primary" role="status">
+                <span class="sr-only"></span>
+            </div>
+        </div>
+    </form>
+</div>
+
+<script>
+    $("img[id$='_help']").tooltip();
+</script>

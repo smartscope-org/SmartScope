@@ -4,6 +4,7 @@ from django.urls import reverse
 from Smartscope.core.models import *
 from Smartscope.core.settings.worker import SMARTSCOPE_CUSTOM_CONFIG, SMARTSCOPE_DEFAULT_CONFIG, PROTOCOLS_FACTORY 
 from Smartscope.core.preprocessing_pipelines import PREPROCESSING_PIPELINE_FACTORY
+from Smartscope.core.navigation import NAVIGATION_STRATEGIES
 import yaml
 from django.urls import reverse
 
@@ -292,9 +293,29 @@ class SelectProtocolForm(forms.Form):
 
 class SelectPeprocessingPipilelineForm(forms.Form):
     pipeline = forms.ChoiceField( choices=[('', '----')]+[(key,val.verbose_name) for key,val in PREPROCESSING_PIPELINE_FACTORY.items()], label='Pipeline', help_text='Select from the available preprocessing pipelines.')
-    
+
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.fields['pipeline'].widget.attrs.update({
             'class': 'form-control',
         })
+
+
+class SelectNavigationStrategyForm(forms.Form):
+    strategy = forms.ChoiceField(choices=[('', '----')]+[(key, getattr(val, 'verbose_name', key)) for key,val in NAVIGATION_STRATEGIES.items()],
+                                 label='Navigation Strategy',
+                                 help_text='Select the algorithm used to decide which hole/square to visit next.')
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields['strategy'].widget.attrs.update({
+            'class': 'form-control',
+        })
+
+
+class NavigationStrategyIDForm(forms.Form):
+    navigation_strategy_id = forms.CharField(label='Navigation strategy ID', required=False, widget=forms.HiddenInput())
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields['navigation_strategy_id'].widget.attrs['hidden'] = True

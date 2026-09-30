@@ -1,0 +1,27 @@
+{% extends "general/right_sidebar.html" %}
+{% block title %}Navigation Strategy{% endblock %}
+
+{% block sidebar_content %}
+<div class="col justify-content-center">
+    <form   method="get"
+            hx-get="{% url 'getNavigationStrategy' %}"
+            hx-target="#navigationStrategyForm"
+            hx-indicator="#spinner"
+            hx-trigger="change">
+        {% include "forms/formFieldsBase.html" with form=form row=false %}
+        <div id="spinner" class="my-indicator spinner-border text-primary" role="status">
+            <span class="sr-only"></span>
+        </div>
+    </form>
+</div>
+
+<div id="navigationStrategyForm">
+    {% if grid %}
+    {% include "./navigation_strategy_form.html" with description=description strategy=strategy grid_id=grid.grid_id saved=saved error=error %}
+    {% endif %}
+</div>
+
+<script>
+    $("img[id$='_help']").tooltip();
+</script>
+{% endblock %}

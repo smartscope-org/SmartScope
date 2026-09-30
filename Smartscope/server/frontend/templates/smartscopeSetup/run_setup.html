@@ -20,6 +20,15 @@
     
     </button>
     {% include "forms/formFieldsBase.html" with form=form_preprocess row=True id='formPreprocess' %}
+
+    <h3 class="col-auto pr-1 mb-0">NAVIGATION STRATEGY</h3>
+    <button class="btn btn-outline-secondary"
+    hx-get="{% url 'navigationStrategy' %}{{grid_id}}" hx-target="#main" hx-swap="beforeend"
+    data-bs-toggle="tooltip" data-bs-placement="top" title="Show/Edit navigation strategy.">
+        <i class="bi bi-pencil-square"></i>
+
+    </button>
+    {% include "forms/formFieldsBase.html" with form=form_navigation row=True id='formNavigation' %}
     <h3 class="col-auto pr-1 mb-0">AUTOLOADER</h3>
     <div class="form-group">
         <input id="autoloaderForm" class="form-control" type="hidden"></input>

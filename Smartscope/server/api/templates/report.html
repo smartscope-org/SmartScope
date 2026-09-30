@@ -64,6 +64,10 @@
             data-bs-toggle="tooltip" data-bs-placement="top" title="Show/Edit preprocessingpipeline." class="btn btn-sm btn-outline-primary col-3 col-md-auto" type="button">
                 Preprocessing
             </button>
+            <button id='gridNavigationBtn' hx-get="{% url 'navigationStrategy' %}{{grid.grid_id}}" hx-target="#main" hx-swap="beforeend"
+            data-bs-toggle="tooltip" data-bs-placement="top" title="Show/Edit navigation strategy." class="btn btn-sm btn-outline-primary col-3 col-md-auto" type="button">
+                Navigation
+            </button>
             <button id='gridStatsBtn' hx-get="{% url 'collectionStats' grid_id=grid.grid_id %}" hx-target="#main" hx-swap="beforeend" class="btn btn-sm btn-outline-primary col-3 col-md-auto" type="button"
                 data-bs-toggle="collapse" data-bs-target="#collapseGridStats" aria-expanded="false"
                 aria-controls="collapseExample">
