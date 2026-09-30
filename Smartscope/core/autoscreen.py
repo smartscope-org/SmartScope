@@ -38,6 +38,7 @@ def autoscreen(session_id:str, screening_mode: bool=False, skip_loading: bool=Fa
             remove the lock file and restart.
             Exiting.
         """)
+        status = "error"
         sys.exit(0)
     write_sessionLock(session, microscope_model.lockFile)
 
