@@ -1,0 +1,36 @@
+<hr>
+<div class="col justify-content-center">
+    <span><b>Description:</b> {{description}}</span>
+    <form method="post">
+        {% csrf_token %}
+        <div class="d-flex flex-row align-content-center">
+            <div class="d-flex align-items-center gap-2 mt-2">
+                <button type="submit" class="btn btn-sm btn-outline-primary" style="background-color: #dfeefc"
+                    hx-post="{% url 'setNavigationStrategy' strategy=strategy grid_id=grid_id %}"
+                    hx-indicator="#spinner"
+                    {% if not grid_id %}
+                    hx-target="#formNavigation"
+                    hx-swap="outerHTML"
+                    {% else %}
+                    hx-target="#modalShellBody"
+                    hx-swap="innerHTML"
+                    {% endif %}
+                    >
+                    Save
+                </button>
+                <div id="spinner" class="my-indicator spinner-border text-primary" role="status">
+                    <span class="sr-only"></span>
+                </div>
+                {% if success %}
+                <div class="alert alert-success py-1 px-2 mb-0 flex-grow-1 small">
+                    Navigation strategy saved successfully!
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </form>
+</div>
+
+<script>
+    $("img[id$='_help']").tooltip();
+</script>
