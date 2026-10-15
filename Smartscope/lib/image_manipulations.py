@@ -217,6 +217,8 @@ def mrc_to_png(mrc_file, ):
 
 
 def fourier_crop(img, height=500):
+    if img.shape[0] < height:
+        return img
     ch, cw = np.array(img.shape) // 2
     width = math.floor(height * cw / ch)
 
