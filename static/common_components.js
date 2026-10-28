@@ -34,6 +34,7 @@ function initAdvancedToggle(toggleId, formContainerId) {
 const ADVANCED_TOGGLES = [
     { toggleId: 'advancedToggleColParams', targetId: 'formParams', containerId: 'formParams' },
     { toggleId: 'advancedToggleColParamsEdit', targetId: 'editCollectionParamsForm', containerId: 'formParamsEdit' },
+    { toggleId: 'advancedToggleNextpypEdit', targetId: 'nextpypPipeline', containerId: 'nextpypPipeline' },
 ];
 
 // Re-run after any htmx swap, matching whichever container was actually swapped

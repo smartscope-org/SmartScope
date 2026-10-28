@@ -23,6 +23,7 @@ from Smartscope.core.models.models_actions import update_fields
 from Smartscope.core.models.high_mag import HighMagModel
 from Smartscope.core.models.hole import HoleModel
 from Smartscope.core.frames import get_smartscope_frames_dir
+from Smartscope.core.settings.worker import NEXTPYP_CONTAINER_ROOT, NEXTPYP_HOST_ROOT 
 
 from .preprocessing_pipeline import PreprocessingPipeline
 from .nextpyp_preprocessing_cmd_kwargs import NextPYPPreprocessingCmdKwargs
@@ -62,6 +63,13 @@ from nextpyp.client.gen import (
 
 logger = logging.getLogger(__name__)
 
+
+def resolve_session_path(host_path: str) -> str:
+    if host_path.startswith(NEXTPYP_HOST_ROOT):
+        return host_path.replace(NEXTPYP_HOST_ROOT, NEXTPYP_CONTAINER_ROOT, 1)
+    raise ValueError(f"Session path {host_path!r} is not under expected nextPYP root {NEXTPYP_HOST_ROOT!r}")
+
+
 class NextPYPPreprocessingPipeline(PreprocessingPipeline):
     verbose_name = 'NextPYP Preprocessing Pipeline'
     name = 'nextpypPipeline'
@@ -92,6 +100,8 @@ class NextPYPPreprocessingPipeline(PreprocessingPipeline):
             self.token = f.read().strip()
             
         self.frames_directory = self.cmd_data.frames_directory
+        self.scp_transfer = self.cmd_data.scp_copy
+        self.remote_key = self.cmd_data.remote_key
         self.remote_user = self.cmd_data.remote_user
         self.remote_host = self.cmd_data.remote_host
 
@@ -108,7 +118,6 @@ class NextPYPPreprocessingPipeline(PreprocessingPipeline):
         self.bad_micrographs = []
         self.path_to_filter = None
         self.frame_file_extension = None
-        
         
         
     def initialize_client(self):
@@ -193,7 +202,8 @@ class NextPYPPreprocessingPipeline(PreprocessingPipeline):
             group_id=self.cmd_data.group_id,
             values=self.pyp_args.write(),
         )
-        self.session_path = path
+        
+        self.session_path = path if self.scp_transfer else resolve_session_path(path)
 
         self.session = self.client.services.single_particle_sessions.create(args)
         assert self.session is not None, "Session not created"
@@ -275,7 +285,8 @@ class NextPYPPreprocessingPipeline(PreprocessingPipeline):
                                 star_src_path = Path(self.session_path, filter_path, f"{session_name}.star")
                                 grid_dir = await asyncio.to_thread(lambda: self.grid.directory)
                                 star_dest_path = os.path.join(grid_dir, f"{session_name}.star")
-                                ok = await asyncio.to_thread(self.scp_file, star_src_path, star_dest_path, timeout=60)
+                                transfer_func = self.output_transfer()
+                                ok = await asyncio.to_thread(transfer_func, star_src_path, star_dest_path, timeout=60)
                                 if not ok:
                                     logger.warning(f".star file copy failed: {star_dest_path}")
                                 
@@ -333,8 +344,9 @@ class NextPYPPreprocessingPipeline(PreprocessingPipeline):
             os.makedirs(os.path.dirname(png_path), exist_ok=True)
             os.makedirs(os.path.dirname(ctf_path), exist_ok=True)
 
-            img_ok  = await asyncio.to_thread(self.scp_file, micrograph_source_path, png_path, timeout=60)
-            ctf_ok  = await asyncio.to_thread(self.scp_file, ctf_source_path, ctf_path, timeout=60)
+            transfer_func = self.output_transfer()
+            img_ok  = await asyncio.to_thread(transfer_func, micrograph_source_path, png_path, timeout=60)
+            ctf_ok  = await asyncio.to_thread(transfer_func, ctf_source_path, ctf_path, timeout=60)
             if not img_ok:
                 logger.warning(f"Micrograph image copy failed for {movie.name}")
             if not ctf_ok:
@@ -347,9 +359,30 @@ class NextPYPPreprocessingPipeline(PreprocessingPipeline):
                     update_fields(parent, dict(status='completed'))
                 ]
 
+    def output_transfer(self):
+        return self.scp_file if self.scp_transfer else self.copy_file
+
+    def copy_file(self, src_path, dest_path, timeout=60):
+        """
+        Copies a file that's already visible on this container's filesystem
+        (via bind mount). Returns True on success, False on failure.
+        :timeout left for compatibility reasons
+        """
+        try:
+            if not os.path.exists(src_path):
+                logger.warning(f"Source path does not exist: {src_path}")
+                return False
+            shutil.copy2(src_path, dest_path)
+            logger.info(f"Copied {src_path} → {dest_path}")
+            return True
+        except Exception as e:
+            logger.error(f"Copy failed for {src_path} → {dest_path}: {e}")
+            return False     
+
     def copy_file_from_remote(self, remote_path, local_path):
         cmd = [
             "scp",
+            "-i", f"{self.remote_key}",
             '-o', 'StrictHostKeyChecking=no',
             '-o', 'UserKnownHostsFile=/dev/null',
             f"{self.remote_user}@{self.remote_host}:{remote_path}",

@@ -1,13 +1,24 @@
 <hr>
 <div class="col justify-content-center">
     <span><b>Description:</b> {{description}}</span>
+    {% if pipeline != 'smartscopePipeline' %}
+    <div class="d-flex justify-content-end flex-grow-1 mt-0 pe-2" onclick="event.stopPropagation();">
+        <div class="form-check form-switch tab-switchers position-relative mb-0">
+            <input class="form-check-input" type="checkbox" role="switch" id="advancedTogglePipelineEdit">
+            <label class="form-check-label small text-nowrap" for="advancedTogglePipelineEdit">Advanced</label>
+        </div>
+    </div>
+    {% endif %}
     <form  method="post">
         {% csrf_token %}
-
-        {% if grid_id %}
+        {% if grid_id and pipeline != 'smartscopePipeline' %}
+        {% include "forms/formFieldsBase.html" with id='customePipeline' form=form row=false col_width=8 input_ratio=40 %}
+        {% elif grid_id %}
         {% include "forms/formFieldsBase.html" with form=form row=false col_width=8 input_ratio=40 %}
+        {% elif pipeline != 'smartscopePipeline' %}
+        {% include "forms/formFieldsBase.html" with id='customePipeline' form=form row=True %}
         {% else %}
-        {% include "forms/formFieldsBase.html" with form=form row=false%}
+        {% include "forms/formFieldsBase.html" with form=form row=false %}
         {% endif %}
         <div class="d-flex flex-row align-content-center">
             <div class="d-flex align-items-center gap-2 mt-2">
@@ -42,4 +53,5 @@
 
 <script>
     $("img[id$='_help']").tooltip();
+    initAdvancedToggle('advancedTogglePipelineEdit', 'customePipeline');
 </script>

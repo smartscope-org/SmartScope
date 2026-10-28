@@ -1,7 +1,17 @@
-
 from django import forms
+from .nextpyp_preprocessing_cmd_kwargs import NextpypClientConfigure
+
+
+class MyCheckBox(forms.CheckboxInput):
+    template_name = 'general/mycheckbox.html'
+
 
 class NextPYPPreprocessingPipelineForm(forms.Form):
+    # Names of fields that originate from NextpypClientConfigure.
+    # Derived from the Pydantic model itself so the two stay in sync.
+    CONFIG_FIELD_NAMES = set(NextpypClientConfigure.model_fields.keys())
+
+
     frames_directory = forms.CharField(
         label="Frames Directory",
         help_text="Path (from nextPYP perspective) to the frame data"
@@ -34,6 +44,12 @@ class NextPYPPreprocessingPipelineForm(forms.Form):
         help_text="ID of the nextPYP group to create sessions under"
     )
 
+    scp_copy = forms.BooleanField(
+        label="Use SSH for ouput transfer",
+        widget=MyCheckBox,
+        help_text="Use SCP file tranfer if checked and local copy otherwise"
+    )
+
     remote_user = forms.CharField(
         label="Remote SSH Username",
         help_text="Username for SCP file transfer from the HPC cluster"
@@ -43,6 +59,11 @@ class NextPYPPreprocessingPipelineForm(forms.Form):
         label="Remote SSH Hostname",
         help_text="Hostname of the HPC cluster for SCP file transfer"
     )
+
+    remote_key = forms.CharField(
+            label="Remote SSH Key",
+            help_text="SSH key for SCP file transfer"
+        )
 
     # gain_reference = forms.CharField(
     #     label="Gain Reference Path",
@@ -110,5 +131,12 @@ class NextPYPPreprocessingPipelineForm(forms.Form):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         for visible in self.visible_fields():
-            visible.field.widget.attrs['class'] = 'form-control'
+            if isinstance(visible.field.widget, MyCheckBox):
+                visible.field.widget.attrs['class'] = 'form-check-input'
+            else:
+                visible.field.widget.attrs['class'] = 'form-control'
             visible.field.required = False
+
+            if visible.name in self.CONFIG_FIELD_NAMES:
+                visible.field.widget.attrs['data_advanced'] = 'true'
+        

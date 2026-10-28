@@ -31,10 +31,11 @@ from Smartscope.core.grid.run_hole import RunHole
 from Smartscope.core.cache import save_json_from_cache
 from Smartscope.core.protocols import load_protocol, set_protocol
 from Smartscope.core.preprocessing_pipelines import PREPROCESSING_PIPELINE_FACTORY, load_preprocessing_pipeline
+from Smartscope.core.pipelines import PreprocessingPipelineCmd
 from Smartscope.core.navigation import NAVIGATION_STRATEGIES, load_navigation_strategy
 from Smartscope.lib.Datatypes.models import generate_unique_id
 from Smartscope.server.service.collection_params import update_collection_params, update_grid
-from Smartscope.core.settings.worker import COLLECTION_PARAMETERS
+from Smartscope.core.settings.worker import COLLECTION_PARAMETERS, DEFAULT_PREPROCESSING_PIPELINE, NEXTPYP_PREPROCESSING_PIPELINE
 from Smartscope.lib.Datatypes.base_collection_params import Property
 
 from Smartscope.core.models.grid import AutoloaderGrid
@@ -559,18 +560,12 @@ class PreprocessingPipeline(TemplateView):
         try:
             context = {}
             pipeline = request.GET.get('pipeline',None)
-            # form = SelectPeprocessingPipilelineForm(request.POST)
-            # is_valid = form.is_valid()
-            # if not is_valid:
-            #     return HttpResponse('Form invalid')
-            # if is_valid: 
-            #     logger.debug(form.cleaned_data)
-            #     data = form.cleaned_data
+            initial = get_preprocess_default(pipeline)
             pipeline_obj = PREPROCESSING_PIPELINE_FACTORY[pipeline]
             logger.debug(pipeline)
             context['pipeline'] = pipeline
             context['description'] = pipeline_obj.description
-            context['form'] = pipeline_obj.form()
+            context['form'] = pipeline_obj.form(initial=initial)
             context['grid_id'] = request.GET.get('grid_id', None)
             return TemplateResponse(request=request,template="smartscopeSetup/preprocessing/preprocessing_pipeline_form.html",context=context)
         except Exception as err:
@@ -580,9 +575,13 @@ class PreprocessingPipeline(TemplateView):
         try:
             logger.debug(request.POST)
             pipeline_obj = PREPROCESSING_PIPELINE_FACTORY[pipeline]
-            form = pipeline_obj.form(request.POST)
+            form = pipeline_obj.form(data=request.POST)
             logger.debug(f'Updating pipeline for {grid_id}')
             if form.is_valid():
+                # initial = get_preprocess_default(pipeline)
+                # logger.info(f"initial data {initial}")
+                # full_data = initial | form.cleaned_data
+                # logger.info(f"new input data {full_data}")
                 pipeline_data = pipeline_obj.pipeline_data(form.cleaned_data)
                 if grid_id is None or not grid_id:
                     cache.set(pipeline_data.cache_id,pipeline_data.json(exclude={'cache_id'}),timeout=30*60)
@@ -604,6 +603,8 @@ class PreprocessingPipeline(TemplateView):
                                                     'pipelineSelected': {'label': PREPROCESSING_PIPELINE_FACTORY[pipeline].verbose_name},
                                                 })
                 return response
+            else:
+                logger.info(form.errors.as_json())
         except Exception as err:
             logger.exception(err)
 
@@ -793,7 +794,7 @@ def deleteSquares(request, grid_id):
     squares.delete()
 
 
-def form_auxiliary_update(form, extra_params):
+def form_auxiliary_update(form: forms.Form, extra_params: dict):
     for field, data in extra_params.items():
         if field not in form.fields:
             continue
@@ -816,3 +817,16 @@ def form_auxiliary_update(form, extra_params):
     ))
 
     return form
+
+def get_preprocess_default(pipeline: str) -> dict:
+    initial = None
+
+    if pipeline == 'nextpypPipeline': 
+        files = NEXTPYP_PREPROCESSING_PIPELINE
+    else:
+        files = DEFAULT_PREPROCESSING_PIPELINE
+    for f in files:
+        if f.exists():
+            initial = PreprocessingPipelineCmd.parse_file(f).kwargs
+            break
+    return initial

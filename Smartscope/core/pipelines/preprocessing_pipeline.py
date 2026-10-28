@@ -26,8 +26,11 @@ class PreprocessingPipeline(ABC):
         self.directory = grid.directory
 
     @classmethod
-    def form(cls,data:Union[Mapping,None]=None):
-        return cls.pipeline_form(data=data)
+    def form(cls, initial:Union[Mapping,None]=None, data:Union[Mapping,None]=None):
+        if initial:
+            return cls.pipeline_form(initial=initial)
+        else:
+            return cls.pipeline_form(data=data)
     
     @classmethod
     def pipeline_data(cls,data:Dict):

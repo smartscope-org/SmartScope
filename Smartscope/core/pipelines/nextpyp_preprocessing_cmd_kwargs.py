@@ -6,9 +6,7 @@ import logging
 logger = logging.getLogger(__name__)
 
 
-class NextPYPPreprocessingCmdKwargs(BaseModel):
-    frames_directory:str = ""
-    n_processes:int = 1
+class NextpypClientConfigure(BaseModel):
     path_to_token:str = "/root/nextpyp_token"
     nextpyp_userid:str = ""
 
@@ -17,8 +15,15 @@ class NextPYPPreprocessingCmdKwargs(BaseModel):
     group_id:str = ""
 
     # Remote file transfer settings (SCP)
+    scp_copy: bool = False
     remote_user:str = ""
     remote_host:str = ""
+    remote_key: str = ""
+
+
+class NextPYPPreprocessingCmdKwargs(NextpypClientConfigure):
+    frames_directory:str = ""
+    n_processes:int = 1
 
     # Dataset settings
     # gain_reference:str = ""
