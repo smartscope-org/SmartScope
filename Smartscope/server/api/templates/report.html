@@ -209,26 +209,22 @@
             <div class='d-flex align-items-center gap-1'>
                 <button id='gridParamBtn' class="btn btn-sm btn-ghost" type="button"
                     hx-get="{% url 'collectionParams' grid_id=grid.grid_id %}" 
-                    hx-target="#modalShellBody" hx-swap="innerHTML"
-                    data-bs-toggle="modal" data-bs-placement="top" 
-                    data-bs-target="#modalShell" data-modal-title="Collection Parameters"
-                    data-modal-size="modal-xl"
+                    hx-target="#modalShell" hx-swap="innerHTML"
+                    data-bs-toggle="modal" data-bs-target="#modalShell" 
                     title="View/Edit collection parameters">
                     <i class="bi bi-pencil text-secondary"></i>Collection Parameters
                 </button>
                 <button id='gridPreprocessingBtn' class="btn btn-sm btn-ghost" type="button"
                     hx-get="{% url 'preprocessingPipeline' %}{{grid.grid_id}}" 
-                    hx-target="#modalShellBody" hx-swap="innerHTML"
-                    data-bs-toggle="modal" data-bs-placement="top" 
-                    data-bs-target="#modalShell" data-modal-title="Preprocessing Pipeline"
+                    hx-target="#modalShell" hx-swap="innerHTML"
+                    data-bs-toggle="modal" data-bs-target="#modalShell"
                     title="View/Edit preprocessing pipeline">
                     <i class="bi bi-pencil text-secondary"></i><span id="gridPreprocessingLabel">{{ pipeline|default:"Preprocessing" }}</span> 
                 </button>
                 <button id='gridProtocolBtn' class="btn btn-sm btn-ghost" type="button"
                     hx-get="{% url 'protocol' grid_id=grid.grid_id %}" 
-                    hx-target="#modalShellBody" hx-swap="innerHTML"
-                    data-bs-toggle="modal" data-bs-placement="top" 
-                    data-bs-target="#modalShell" data-modal-title="Protocol Details"
+                    hx-target="#modalShell" hx-swap="innerHTML"
+                    data-bs-toggle="modal" data-bs-target="#modalShell"
                     title="View/Edit session protocol">
                     <i class="bi bi-pencil text-secondary"></i><span id="gridProtocolLabel">{{ protocol|default:"Protocol" }}</span>
                 </button>
@@ -242,7 +238,7 @@
             <div class="ms-auto">
                 <button id='gridTargetHistory' class="btn btn-sm btn-ghost" type="button"
                     hx-get="{% url 'targetHistory' grid_id=grid.grid_id %}" 
-                    hx-target="#offcanvasShellBody" hx-swap="innerHTML"
+                    hx-target="#offcanvasShell" hx-swap="innerHTML"
                     data-bs-toggle="offcanvas" data-bs-placement="top" 
                     data-bs-target="#offcanvasShell" data-offcanvas-title="History / Queue"
                     onclick="document.getElementById('offcanvasShellTitle').textContent = this.dataset.offcanvasTitle"
@@ -323,8 +319,6 @@
 </style>
 
 {% block script %}
-<script src="{% static 'common_components.js' %}"></script>
-<script src="{% static 'image_interactions.js' %}"></script>
 <script>
     var reportscript = "{% static 'reports.js' %}";
     var websocketscript = "{% static 'websocket.js' %}";
