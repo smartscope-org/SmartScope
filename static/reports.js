@@ -1,6 +1,6 @@
 
 const csrftoken = document.querySelector('[name=csrfmiddlewaretoken]').value
-let lastHoveredHoleShapeId = null
+let lastSelectedHoleShapeId = null
 
 function escapeRegExp(string) {
     return string.match(/(\d+)$/g); // $& means the whole matched string
@@ -471,12 +471,6 @@ $('#main').on('submit', '#editNotesForm', function (e) {
 //     apifetchAsync(url, data, "PATCH", message=`Changing grid collection parameters`)
 // });
 
-document.querySelectorAll('[data-bs-target="#modalShell"]').forEach(btn => {
-    btn.addEventListener('click', function() {
-        document.getElementById('modalShellTitle').textContent = this.dataset.modalTitle;
-        document.querySelector('#modalShell .modal-dialog').className = `modal-dialog ${this.dataset.modalSize || 'modal-lg'}`;
-    });
-});
 
 document.addEventListener("pipelineSelected", (e) => {
     const label = e.detail?.label;
@@ -793,20 +787,23 @@ $('#main').on('mouseenter', '#squareShapes circle', function () {
 })
 
 // Medium-mag: circle id matches .holeCard's own id attribute directly
-$('#main').on('mousemove', '#holeShapes', function () {
-    let hoveredCircle = document.querySelector('#holeShapes circle:hover')
-    let currentId = hoveredCircle ? hoveredCircle.id : null
+$('#main').on('click', '#holeShapes circle', function (e) {
+    // let hoveredCircle = document.querySelector('#holeShapes circle:hover')
+    let currentId = this.id
+    if (!currentId) return
 
-    if (currentId === lastHoveredHoleShapeId) return
-    lastHoveredHoleShapeId = currentId
-
-    if (currentId) {
-        highlightAndCenterHighMag(currentId, 'id')
-    } else {
+    if (currentId === lastSelectedHoleShapeId) {
+        lastSelectedHoleShapeId = null
         clearHighMagHighlight()
+        return
     }
-}).on('mouseleave', '#holeShapes', function () {
-    lastHoveredHoleShapeId = null
+    lastSelectedHoleShapeId = currentId
+    highlightAndCenterHighMag(currentId, 'id')
+})
+
+$('#main').on('click', '#holeShapes', function(e) {
+    if ($(e.target).closest('circle').length) return
+    lastSelectedHoleShapeId = null
     clearHighMagHighlight()
 })
 
