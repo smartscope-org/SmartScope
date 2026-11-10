@@ -1,6 +1,6 @@
 
 const csrftoken = document.querySelector('[name=csrfmiddlewaretoken]').value
-let lastHoveredHoleShapeId = null
+let lastClickedHoleShapeId = null
 
 function escapeRegExp(string) {
     return string.match(/(\d+)$/g); // $& means the whole matched string
@@ -255,6 +255,7 @@ async function loadHole(id, metaonly = false) {
     $("#mmHole").html(data.card)
     hm_data = await fetchAsync(`/api/holes/${id}/highmag/?squareMethod=${currentState['squareMethod']}`, message=`Loading high mag data.`)
     $('#Hole').html(hm_data)
+    lastClickedHoleShapeId = null
     grabCuration()
 };
 
@@ -792,22 +793,18 @@ $('#main').on('mouseenter', '#squareShapes circle', function () {
     clearHighMagHighlight()
 })
 
-// Medium-mag: circle id matches .holeCard's own id attribute directly
-$('#main').on('mousemove', '#holeShapes', function () {
-    let hoveredCircle = document.querySelector('#holeShapes circle:hover')
-    let currentId = hoveredCircle ? hoveredCircle.id : null
-
-    if (currentId === lastHoveredHoleShapeId) return
-    lastHoveredHoleShapeId = currentId
-
-    if (currentId) {
-        highlightAndCenterHighMag(currentId, 'id')
-    } else {
+// Medium-mag: click a circle to center/highlight the matching high-mag card (circle id matches .holeCard id)
+$('#main').on('click', '#holeShapes circle', function (e) {
+    e.stopPropagation()
+    let id = this.id
+    if (!id) return
+    if (id === lastClickedHoleShapeId) {   // clicking the same circle again toggles off
+        lastClickedHoleShapeId = null
         clearHighMagHighlight()
+        return
     }
-}).on('mouseleave', '#holeShapes', function () {
-    lastHoveredHoleShapeId = null
-    clearHighMagHighlight()
+    lastClickedHoleShapeId = id
+    highlightAndCenterHighMag(id, 'id')
 })
 
 function highlightAndCenterHighMag(holeId, matchAttr) {
