@@ -551,9 +551,44 @@ class SerialemInterface(MicroscopeInterface):
             """
         )
         sem.ConnectToSEM(self.microscope.port, self.microscope.ip)
+        self.start_live_view()
         sem.SetDirectory(self.microscope.directory)
         sem.ClearPersistentVars()
         sem.AllowFileOverwrite(1)
+
+    def start_live_view(self):
+        """Has SerialEM share each new image and start the watcher that publishes
+        them for the web UI. Set live_view to false in the microscope's settings
+        file to leave it off.
+
+        Never raises: the live view must not keep a session from starting.
+        """
+        try:
+            from Smartscope.core.live_view import install_watcher
+            settings = self.additional_settings or {}
+            enabled = settings.get('live_view', True) if isinstance(settings, dict) else getattr(settings, 'live_view', True)
+            if not enabled:
+                return
+            # Older versions answer an unknown property with a message box.
+            if not sem.IsVersionAtLeast('40300', '20260304'):
+                logger.info('Live view is off: it needs a SerialEM 4.3 beta built on or after 4 March 2026.')
+                return
+            # SerialEM writes its image list where it was started, which is only
+            # readable before SetDirectory and is usually where the settings file is.
+            started_in = [sem.ReportDirectory()]
+            try:
+                settings_file = sem.ReportSettingsFile()
+                if not isinstance(settings_file, str):
+                    settings_file = settings_file[0]
+                started_in.append(str(PureWindowsPath(settings_file).parent))
+            except Exception as err:
+                logger.debug(f'Could not read the SerialEM settings file location: {err}')
+            watcher = install_watcher(self.microscope.scopePath, self.microscope.directory, started_in)
+            sem.SetProperty('SaveNewImageToShrMem', 1)
+            sem.CreateProcess(watcher)
+            logger.info(f'Live view started with {watcher}')
+        except Exception as err:
+            logger.warning(f'Could not start the live view: {err}')
 
     def setup(self, saveframes:bool, frames_dir:str='', framesName=None):
         if saveframes:

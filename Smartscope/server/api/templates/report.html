@@ -41,6 +41,13 @@
         </div>
         {% endif %}
     </div>
+    <div id="scopeLivePanel" class="d-none">
+        <div class="scope-live-header">
+            <span><i class="bi bi-camera-video"></i> SerialEM live view</span>
+            <button type="button" class="btn-close btn-close-white" aria-label="Close" onclick="document.getElementById('scopeLiveToggle').click()"></button>
+        </div>
+        <div id="scopeLiveBody"></div>
+    </div>
     <div class="card full-page-card d-flex p-0 m-0">
         <div id="gridCardHeader" class="card-header p-0 collapse show gridHeaderFooterCollapse">
             <div class="row gx-3 m-0">
@@ -239,7 +246,13 @@
                 </button>
                 {% endif %}
             </div>
-            <div class="ms-auto">
+            <div class="ms-auto d-flex align-items-center gap-1">
+                <button id="scopeLiveToggle" class="btn btn-sm btn-ghost" type="button"
+                    onclick="const panel = document.getElementById('scopeLivePanel'), body = document.getElementById('scopeLiveBody'), open = !panel.classList.toggle('d-none'); this.classList.toggle('active', open); body.innerHTML = open ? '<div hx-get=&quot;' + this.dataset.url + '&quot; hx-trigger=&quot;load&quot; hx-swap=&quot;outerHTML&quot;></div>' : ''; if (open) htmx.process(body);"
+                    data-url="{% url 'microscopeLiveView' grid_id=grid.grid_id %}"
+                    title="Show each image as SerialEM acquires it">
+                    <i class="bi bi-camera-video text-secondary"></i> Live view
+                </button>
                 <button id='gridTargetHistory' class="btn btn-sm btn-ghost" type="button"
                     hx-get="{% url 'targetHistory' grid_id=grid.grid_id %}" 
                     hx-target="#offcanvasShellBody" hx-swap="innerHTML"
@@ -320,6 +333,59 @@
         display: flex !important;
         align-items: center;
     }
+    #scopeLiveToggle.active, #scopeLiveToggle.active i {
+        color: var(--bs-primary) !important;
+    }
+    #scopeLivePanel {
+        position: fixed;
+        right: 16px;
+        /* Clears the footer the button sits in. */
+        bottom: 56px;
+        z-index: 1040;
+        width: min(460px, calc(100vw - 32px));
+        background-color: rgb(33 37 41);
+        color: var(--bs-light);
+        border: 1px solid rgba(255, 255, 255, 0.2);
+        border-radius: 0.5rem;
+        box-shadow: 0 0.5rem 1.5rem rgba(0, 0, 0, 0.5);
+        font-size: 0.75rem;
+        overflow: hidden;
+    }
+    .scope-live-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 6px 10px;
+    }
+    .scope-live-header .btn-close { font-size: 0.6rem; }
+    .scope-live-image {
+        display: block;
+        width: 100%;
+        max-height: 60vh;
+        object-fit: contain;
+        background-color: black;
+    }
+    .scope-live-caption {
+        display: flex;
+        justify-content: space-between;
+        gap: 0.75rem;
+        padding: 4px 10px;
+    }
+    .scope-live-strip {
+        display: flex;
+        gap: 4px;
+        padding: 0 10px 8px;
+    }
+    .scope-live-strip img {
+        flex: 1 1 0;
+        min-width: 0;
+        aspect-ratio: 1;
+        object-fit: cover;
+        cursor: pointer;
+        border: 1px solid rgba(255, 255, 255, 0.2);
+    }
+    .scope-live-empty { padding: 24px 10px; text-align: center; color: var(--bs-secondary); }
+    .scope-live-dot { font-size: 0.5rem; color: #28a745; }
 </style>
 
 {% block script %}
