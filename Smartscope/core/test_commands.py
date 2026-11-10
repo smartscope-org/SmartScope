@@ -379,3 +379,148 @@ def export_image_pairs(object_id, output_dir='.', final_height=1024, diagnostic_
         diag_path = output / f'{hole.name}_diagnostic.png'
         cv2.imwrite(str(diag_path), diag_img)
         logger.info(f'Diagnostic image saved to {diag_path}')
+
+
+def _simulate_anchor_reregistration(hole_id, register_fn, describe, output_dir='.', offsets='0,0',
+                                    content=None, anchor_x=None, anchor_y=None, fov_pitches=8):
+    """Offline test harness of the medium mag re-registration methods (no microscope needed).
+
+    The hole's existing medium mag image is used as a source of real medium mag data. For each
+    junk anchor detected on the square (or the one given by anchor_x/anchor_y, full resolution
+    square pixels) and each injected offset, a mini-montage "acquired at the anchor" is simulated:
+    the real-data part of a window of ``fov_pitches`` hole pitches is cut from the hole image,
+    centered where the anchor plus the offset would be. ``register_fn`` (register_medium_to_square
+    or register_medium_to_square_xcorr) is then run exactly as on the microscope (expected
+    position = anchor).
+
+    The window center truly lies at anchor + offset + d, where d is the unknown error of the
+    hole's recorded square position (e.g. a real reload shift). The recovered shift minus the
+    injected offset therefore estimates d and must be the same for every offset and anchor.
+
+    offsets: 'x,y;x,y;...' in full resolution square pixels.
+    describe: result -> short quality string for the summary.
+    """
+    import json
+    import types
+    import numpy as np
+    from Smartscope.core.models import HoleModel
+    from Smartscope.lib.image.montage import Montage
+    from Smartscope.core.protocol_commands import find_square_junk_anchors
+    from Smartscope.core.reregistration.xcorr_register import rotation_matrix, medium_to_square_rotation
+
+    content = json.loads(content) if isinstance(content, str) else (content or {})
+    offsets = [tuple(float(v) for v in o.split(',')) for o in str(offsets).split(';') if o.strip()]
+    output_dir = Path(output_dir)
+    output_dir.mkdir(parents=True, exist_ok=True)
+
+    hole = HoleModel.objects.get(pk=hole_id)
+    square = hole.square_id
+    finder = hole.finders.order_by('-created_at').first()
+    square_montage = Montage(square.name, working_dir=square.working_dir)
+    square_montage.load_or_process()
+    medium_montage = Montage(hole.name, working_dir=hole.working_dir)
+    medium_montage.load_or_process()
+    pitch_um = square.grid_id.holeType.pitch
+    pitch_px = pitch_um * 1e4 / square_montage.pixel_size
+
+    med = medium_montage.image
+    mh, mw = med.shape[:2]
+    c_med = np.array([mw / 2.0, mh / 2.0])
+    s = medium_montage.pixel_size / square_montage.pixel_size
+    R_inv = rotation_matrix(-medium_to_square_rotation(medium_montage.rotation_angle, square_montage.rotation_angle))
+    recorded_px = np.array([finder.x, finder.y], dtype=float)
+    fov = int(round(fov_pitches * pitch_um * 1e4 / medium_montage.pixel_size))
+
+    def medium_px_of(square_px):
+        """Medium pixel showing a square pixel, assuming the hole is at its recorded position."""
+        return c_med + R_inv @ (np.asarray(square_px, dtype=float) - recorded_px) / s
+
+    def simulated_acquisition(center_med):
+        """Real-data part of a fov x fov window centered at center_med (no padding), and the
+        pixel of that crop corresponding to the acquisition (stage) position."""
+        x0, y0 = int(round(center_med[0] - fov / 2)), int(round(center_med[1] - fov / 2))
+        sx0, sy0 = max(0, x0), max(0, y0)
+        sx1, sy1 = min(mw, x0 + fov), min(mh, y0 + fov)
+        if sx1 - sx0 < 0.25 * fov or sy1 - sy0 < 0.25 * fov:
+            return None, None, None
+        crop = med[sy0:sy1, sx0:sx1]
+        exact_center = np.array([x0 + fov / 2.0, y0 + fov / 2.0])
+        return crop, exact_center - np.array([sx0, sy0]), exact_center
+
+    if anchor_x is not None and anchor_y is not None:
+        anchors = [dict(square_px=np.array([float(anchor_x), float(anchor_y)]), confidence=None,
+                        stage_xyz=(finder.stage_x, finder.stage_y, finder.stage_z))]
+    else:
+        anchors = find_square_junk_anchors(square, content, square_montage=square_montage)
+    if not anchors:
+        logger.info('No anchors to test.')
+        return
+
+    rows = []
+    for k, anchor in enumerate(anchors):
+        A = np.asarray(anchor['square_px'], dtype=float)
+        m_anchor = medium_px_of(A)
+        in_image = (0 <= m_anchor[0] < mw) and (0 <= m_anchor[1] < mh)
+        conf = anchor.get('confidence')
+        logger.info(f'Anchor {k}: square px {np.round(A, 1)}, conf={conf}, at medium px {np.round(m_anchor, 0)} '
+                    f'if the hole were at its recorded position ({"inside" if in_image else "outside"} the hole image; '
+                    f'the real position differs by the unknown d)')
+        for o in offsets:
+            o = np.array(o)
+            center_med = medium_px_of(A + o)
+            crop, center_in_crop, exact_center = simulated_acquisition(center_med)
+            if crop is None:
+                logger.info(f'  offset {o}: simulated acquisition does not overlap the hole image enough, skipping')
+                continue
+            # correct the injected offset for the integer crop placement
+            o_eff = o + (R_inv.T @ (exact_center - center_med)) * s
+            fake = types.SimpleNamespace(image=crop, pixel_size=medium_montage.pixel_size,
+                                         rotation_angle=medium_montage.rotation_angle, center_px=center_in_crop,
+                                         name=f'{hole.name}_anchor{k}_off{int(o[0])}_{int(o[1])}')
+            try:
+                pair, result = register_fn(
+                    square, fake, expected_px=A, old_stage=anchor['stage_xyz'], content=content,
+                    diagnostics_dir=output_dir, name=fake.name, square_montage=square_montage,
+                    return_result=True)
+            except ValueError as err:
+                logger.info(f'  offset {o}: {err}')
+                rows.append((k, o, None, None))
+                continue
+            rows.append((k, o, o_eff, result if pair is not None else None, result))
+
+    um_per_px = square_montage.pixel_size / 1e4
+    logger.info('Summary (d = recovered shift - injected offset; should be the same for all rows):')
+    for row in rows:
+        k, o = row[0], row[1]
+        if len(row) == 4:
+            logger.info(f'  anchor {k} offset {o}: no valid search position')
+            continue
+        _, _, o_eff, accepted, result = row
+        d_px = result['shift_px'] - o_eff
+        status = 'accepted' if accepted is not None else 'REJECTED'
+        logger.info(f'  anchor {k} offset {o} px: shift {np.round(result["shift_px"], 1)} px, '
+                    f'd = {np.round(d_px, 1)} px = {np.round(d_px * um_per_px, 2)} um '
+                    f'({np.linalg.norm(d_px) / pitch_px:.2f} pitch) | {describe(result)} {status}')
+
+
+def test_reregister_yolo(hole_id, output_dir='.', offsets='0,0', content=None,
+                         anchor_x=None, anchor_y=None, fov_pitches=8):
+    """Offline test of the v1 'yolo' re-registration (YOLO keypoint matching at a junk anchor).
+    See _simulate_anchor_reregistration. Requires the SmartscopeAI celery worker."""
+    from Smartscope.core.protocol_commands import register_medium_to_square
+    _simulate_anchor_reregistration(
+        hole_id, register_medium_to_square,
+        lambda r: (f'{r["quality"]} ({r["transform_used"]}) det {r["n_detections_h"]}/{r["n_detections_sq"]} '
+                   f'matches {r["n_matches"]} inliers {r["n_inliers"]}'),
+        output_dir, offsets, content, anchor_x, anchor_y, fov_pitches)
+
+
+def test_reregister_xcorr(hole_id, output_dir='.', offsets='0,0', content=None,
+                          anchor_x=None, anchor_y=None, fov_pitches=8):
+    """Offline test of the v2 'junk_xcorr' re-registration (cross-correlation at a junk anchor).
+    See _simulate_anchor_reregistration. Requires the SmartscopeAI celery worker for anchors."""
+    from Smartscope.core.protocol_commands import register_medium_to_square_xcorr
+    _simulate_anchor_reregistration(
+        hole_id, register_medium_to_square_xcorr,
+        lambda r: f'peak {r["peak"]:.3f} margin {r["margin"]:.3f}',
+        output_dir, offsets, content, anchor_x, anchor_y, fov_pitches)

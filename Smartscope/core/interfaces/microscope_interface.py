@@ -214,6 +214,11 @@ class MicroscopeInterface(ABC):
     def medium_mag_hole(self, file: str = ""):
         pass
 
+    def set_medium_mag_size_mini_montage(self, hole_pitch_um: float = 2.5, n_pitches: float = 4):
+        """Returns the number of medium mag tiles (x, y) needed to cover n_pitches * hole_pitch_um.
+        Default implementation for interfaces without camera area reporting: single tile."""
+        return 1, 1
+
     @abstractmethod
     def load_hole_ref(self):
         pass

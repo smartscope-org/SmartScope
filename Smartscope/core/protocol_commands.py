@@ -4,6 +4,7 @@ import os
 import numpy as np
 import logging
 from Smartscope.core.interfaces.microscope_interface import MicroscopeInterface
+from Smartscope.core.grid.diagnostics import save_reregistration_diagnostics
 
 
 logger = logging.getLogger(__name__)
@@ -435,26 +436,394 @@ def reregisterMediumMag(scope:MicroscopeInterface,params,instance, content:Dict,
     new_stage_y = t.stage_y
     return(new_stage_x, new_stage_y)
 
-def reregisterMediumMagFiducial(scope:MicroscopeInterface,params,instance, content:Dict, *args, **kwargs):
+def register_medium_to_square(square, medium_montage, expected_px, old_stage, content:Dict=None,
+                              diagnostics_dir=None, name:str=None, square_montage=None,
+                              return_result:bool=False):
+    """[v1] Locates a medium mag image (or mini-montage) in the original square image by matching
+    YOLO junk/contaminant detections on both images (reregister_yolo.register).
+    ``expected_px`` is the full resolution square pixel where the medium image center was
+    targeted in the pre-reload frame, and ``old_stage`` the stage position it was acquired at.
+
+    Returns (old_equiv, new): ``new`` is ``old_stage`` and ``old_equiv`` is the pre-reload stage
+    position of what was actually imaged. None if the registration was unreliable.
+    With return_result, returns (pair_or_None, result) where result also holds ``shift_px``
+    (found - expected, full resolution square pixels) and ``accepted``.
+    """
+    from Smartscope.lib.image.montage import Montage
+    from Smartscope.lib.image.target import Target
+    from Smartscope.lib.image_manipulations import convert_to_png, auto_contrast, auto_contrast_sigma, to_8bits
+    from Smartscope.tasks.base_tasks import send_find_junk
+    from Smartscope.core.reregistration.reregister_yolo import register
+
+    content = content or {}
+    name = name or medium_montage.name
+    final_height = content.get('final_height', 1024)
+    junk_kwargs = dict(
+        imgsz=content.get('imgsz', final_height),
+        conf_thres=content.get('conf_thres', 0.25),
+        iou_thres=content.get('iou_thres', 0.45),
+    )
+    expected_px = np.asarray(expected_px, dtype=float)
+    old_stage = np.asarray(old_stage[:2], dtype=float)
+
+    if square_montage is None:
+        square_montage = Montage(square.name, working_dir=square.working_dir)
+        square_montage.load_or_process()
+
+    scale_hole = final_height / medium_montage.image.shape[0]
+    scale_square = final_height / square_montage.image.shape[0]
+    normalizations = {'auto_contrast': auto_contrast, 'auto_contrast_sigma': auto_contrast_sigma, 'none': to_8bits}
+    hole_img = convert_to_png(medium_montage.image, height=final_height,
+                              normalization=normalizations[content.get('hole_normalization', 'auto_contrast_sigma')])
+    square_img = convert_to_png(square_montage.image, height=final_height,
+                                normalization=normalizations[content.get('square_normalization', 'auto_contrast')])
+
+    meta = {
+        'hole': {
+            'pixel_size': medium_montage.pixel_size / scale_hole,
+            'rotation_angle': medium_montage.rotation_angle,
+        },
+        'square': {
+            'pixel_size': square_montage.pixel_size / scale_square,
+            'rotation_angle': square_montage.rotation_angle,
+        },
+        'hole_coords_on_square': {'x': expected_px[0] * scale_square, 'y': expected_px[1] * scale_square},
+    }
+    logger.debug(f'Re-registration metadata for {name}: {meta}')
+
+    det_hole = send_find_junk(
+        hole_img, weights=content.get('weights_hole', 'junk_detection/junk_medium_mag.pt'),
+        classes=content.get('classes_hole', None),
+        **{**junk_kwargs, 'conf_thres': content.get('conf_thres_hole', junk_kwargs['conf_thres'])})
+    det_square = send_find_junk(
+        square_img, weights=content.get('weights_square', 'junk_detection/junk_square_norm.pt'),
+        classes=content.get('classes_square', None),
+        **{**junk_kwargs, 'conf_thres': content.get('conf_thres_square', junk_kwargs['conf_thres'])})
+
+    hole_h, hole_w = hole_img.shape[:2]
+    medium_center = getattr(medium_montage, 'center_px', None)
+    if medium_center is None:
+        medium_center = medium_montage.center
+    hole_center = np.asarray(medium_center, dtype=float) * scale_hole
+    result = register(
+        hole_img_path=None,
+        hole_shape=(hole_h, hole_w),
+        meta=meta,
+        hole_coords=np.array([hole_center], dtype=float),
+        detections_hole=det_hole,
+        detections_square=det_square,
+        match_dist_px=content.get('match_dist_px', 15.0),
+        ransac_thresh=content.get('ransac_thresh', 3.0),
+        min_inliers=content.get('min_inliers', 3),
+        verbose=False,
+    )
+    q = result['hole_coords_sq'][0] / scale_square
+    result['shift_px'] = q - expected_px
+    result['accepted'] = result['quality'] == 'good'
+    logger.info(
+        f'YOLO re-registration {name} on {square}: quality={result["quality"]}, transform={result["transform_used"]}, '
+        f'det={result["n_detections_h"]}/{result["n_detections_sq"]}, '
+        f'matches={result["n_matches"]}, inliers={result["n_inliers"]}, shift={np.round(result["shift_px"], 1)} px'
+    )
+
+    if diagnostics_dir is not None:
+        save_reregistration_diagnostics(diagnostics_dir, name, hole_img, square_img, result,
+                                        np.array([hole_center]), det_hole, det_square)
+
+    if not result['accepted']:
+        logger.warning(f'YOLO re-registration of {name} unreliable ({result["quality"]}), discarding.')
+        return (None, result) if return_result else None
+
+    t_new = Target(q, from_center=True)
+    t_new.convert_image_coords_to_stage(square_montage)
+    t_exp = Target(expected_px, from_center=True)
+    t_exp.convert_image_coords_to_stage(square_montage)
+    delta = t_new.stage_coords - t_exp.stage_coords
+    old_equiv = old_stage + delta
+    logger.info(f'Re-registration pair for {name}: old={np.round(old_equiv, 3)}, new={np.round(old_stage, 3)} '
+                f'(stage delta {np.round(delta, 3)} um)')
+    if return_result:
+        return (old_equiv, old_stage), result
+    return old_equiv, old_stage
+
+
+def _acquire_medium_mag_at(scope:MicroscopeInterface, grid, stage_xyz, name:str, content:Dict):
+    """Moves to stage_xyz and acquires a medium mag image, or a mini-montage covering
+    ``content['n_pitches']`` (default 4) hole pitches. Returns the processed Montage."""
     from Smartscope.core.grid.run_io import get_file_and_process
-    grid = instance.grid_id
-    pitch = grid.holeType.pitch
-    num_tiles_x, num_tiles_y = scope.set_medium_mag_size_mini_montage(hole_pitch_um=pitch)
-    im_file = f'raw/register_fiducial_{instance.pk}.mrc'
+    stage_x, stage_y, stage_z = stage_xyz
+    scope.moveStage(stage_x, stage_y, stage_z=stage_z)
+    num_tiles_x, num_tiles_y = scope.set_medium_mag_size_mini_montage(
+        hole_pitch_um=grid.holeType.pitch, n_pitches=content.get('n_pitches', 4))
+    im_file = f'raw/{name}.mrc'
     if max(num_tiles_x, num_tiles_y) == 1:
-        scope.acquire_medium_mag(file=im_file)
+        scope.medium_mag_hole(file=im_file)
     else:
         scope.medium_mag_montage((num_tiles_x, num_tiles_y), file=im_file)
-
-    microscope_id = grid.session_id.microscope_id
-    montage = get_file_and_process(
+    return get_file_and_process(
         raw=im_file,
-        name=f'medium_mag_fiducial_{instance.pk}',
-        directory=microscope_id.scope_path,
+        name=name,
+        directory=grid.session_id.microscope_id.scope_path,
         force_reprocess=True
     )
-    ###NEED TO CONTINUE HERE.
-    
+
+
+def find_square_junk_anchors(square, content:Dict=None, square_montage=None):
+    """Finds anchors on the (pre-reload) square image for medium mag re-registration (v1 and v2).
+
+    1. YOLO junk detection. With ``content['crop_to_square']`` (default True) detection runs on a
+       crop of the illuminated part of the square, which gives the model more pixels on small or
+       partially covered squares. Detections are always mapped back to full resolution,
+       uncropped square image pixels before converting to stage coordinates.
+       Detections below ``min_anchor_conf`` (default 0.2) are discarded. Ranking: confidence,
+       then isolation from other detections.
+    2. If no YOLO anchor is usable and ``content['structure_fallback']`` (default True), up to
+       ``n_structure_anchors`` (default 3) model-free candidates are added: places with the
+       strongest non-periodic structure after hole suppression (see ``find_structure_anchors``).
+
+    Returns a list of dicts sorted best first, each with:
+        square_px  : (x, y) full resolution square image pixel (uncropped)
+        stage_xyz  : stage position of the anchor in the pre-reload frame (microns)
+        source     : 'yolo' or 'structure'
+        confidence : YOLO confidence (None for structure anchors or if the AI worker does not
+                     return it)
+        score      : structure score (structure anchors only)
+        isolation_pitches : distance to the nearest other YOLO detection, in hole pitches
+    """
+    from Smartscope.lib.image.montage import Montage
+    from Smartscope.lib.image.target import Target
+    from Smartscope.lib.image_manipulations import convert_to_png, auto_contrast, auto_contrast_sigma, to_8bits
+    from Smartscope.tasks.base_tasks import send_find_junk
+    from Smartscope.core.reregistration.xcorr_register import (
+        illuminated_mask, square_crop_box, find_structure_anchors)
+
+    content = content or {}
+    final_height = content.get('final_height', 1024)
+    if square_montage is None:
+        square_montage = Montage(square.name, working_dir=square.working_dir)
+        square_montage.load_or_process()
+    image = square_montage.image
+    h, w = image.shape[:2]
+    pitch_px = square.grid_id.holeType.pitch * 1e4 / square_montage.pixel_size
+
+    mask = illuminated_mask(image)
+    if content.get('crop_to_square', True):
+        x0, y0, side = square_crop_box(mask)
+    else:
+        x0, y0, side = 0, 0, min(h, w)
+    crop = image[y0:y0 + side, x0:x0 + side] if content.get('crop_to_square', True) else image
+    scale = final_height / crop.shape[0]
+    logger.debug(f'Junk detection on {square}: crop origin ({x0}, {y0}), size {crop.shape}, binning scale {scale:.3f}')
+
+    normalizations = {'auto_contrast': auto_contrast, 'auto_contrast_sigma': auto_contrast_sigma, 'none': to_8bits}
+    square_img = convert_to_png(crop, height=final_height,
+                                normalization=normalizations[content.get('square_normalization', 'auto_contrast')])
+    detections, confidences = send_find_junk(
+        square_img,
+        weights=content.get('weights_square', 'junk_detection/junk_square_norm.pt'),
+        imgsz=content.get('imgsz', final_height),
+        conf_thres=content.get('conf_thres_square', 0.1),
+        iou_thres=content.get('iou_thres', 0.45),
+        classes=content.get('classes_square', None),
+        return_confidence=True,
+    )
+    # binned crop pixels -> full resolution, uncropped square pixels
+    detections = detections / scale + np.array([x0, y0], dtype=float) if len(detections) else detections
+
+    min_conf = content.get('min_anchor_conf', 0.2)
+    if content.get('xcorr_mode', 'full') == 'anchor_patch':
+        margin_px = content.get('patch_pitch', 0.75) * pitch_px + 2
+    else:
+        margin_px = 0.0  # the search window is padded where it extends beyond the square image
+
+    def to_stage(p):
+        t = Target(np.asarray(p, dtype=float), from_center=True)
+        t.convert_image_coords_to_stage(square_montage)
+        return (float(t.stage_x), float(t.stage_y), float(square_montage.stage_z))
+
+    anchors = []
+    for i, p in enumerate(detections):
+        conf = float(confidences[i]) if confidences is not None else None
+        if conf is not None and conf < min_conf:
+            logger.debug(f'Junk at {np.round(p, 1)} below minimum anchor confidence ({conf:.2f} < {min_conf}), skipping.')
+            continue
+        if not (margin_px <= p[0] <= w - margin_px and margin_px <= p[1] <= h - margin_px):
+            logger.debug(f'Junk at {np.round(p, 1)} too close to the square image border, skipping.')
+            continue
+        others = np.delete(detections, i, axis=0)
+        isolation = np.min(np.linalg.norm(others - p, axis=1)) / pitch_px if len(others) else np.inf
+        anchors.append(dict(square_px=np.asarray(p, dtype=float), source='yolo', confidence=conf,
+                            score=None, isolation_pitches=float(isolation), stage_xyz=to_stage(p)))
+    anchors.sort(key=lambda a: (-(a['confidence'] if a['confidence'] is not None else 0.0),
+                                -min(a['isolation_pitches'], 3.0)))
+
+    if not anchors and content.get('structure_fallback', True):
+        candidates = find_structure_anchors(
+            image, pitch_px, n=content.get('n_structure_anchors', 3),
+            separation_px=content.get('n_pitches', 8) / 2 * pitch_px, mask=mask)
+        logger.info(f'No usable YOLO anchor on {square}; using {len(candidates)} structure-based anchor(s).')
+        for x, y, sc in candidates:
+            anchors.append(dict(square_px=np.array([x, y]), source='structure', confidence=None,
+                                score=sc, isolation_pitches=float('inf'), stage_xyz=to_stage((x, y))))
+
+    def describe(a):
+        quality = f"conf={a['confidence']:.2f}" if a['confidence'] is not None else (
+            f"score={a['score']:.1f}" if a['score'] is not None else 'conf=n/a')
+        return f"{a['source']} px={np.round(a['square_px'], 1)} {quality} stage={np.round(a['stage_xyz'][:2], 2)}"
+    if anchors:
+        logger.info(f'Found {len(anchors)} anchor(s) on {square}: ' + ', '.join(describe(a) for a in anchors))
+    else:
+        logger.info(f'No anchor found on {square}.')
+    return anchors
+
+
+def register_medium_to_square_xcorr(square, medium_montage, expected_px, old_stage, content:Dict=None,
+                                    diagnostics_dir=None, name:str=None, square_montage=None, anchor_px=None,
+                                    return_result:bool=False):
+    """[v2] Locates a medium mag image in the original square image by cross-correlation.
+    ``expected_px`` is the full resolution square pixel where the medium image center was
+    targeted in the pre-reload frame.
+
+    Modes (``content['xcorr_mode']``):
+        'full' (default): the whole medium image, scaled and rotated from the image metadata, is
+            the template; it is searched for in a square image window centered on ``expected_px``
+            (the junk anchor) and larger than the medium field of view by ``max_shift_pitches``
+            on each side.
+        'anchor_patch': a small square patch around ``anchor_px`` is searched for inside the
+            medium image.
+
+    Returns (old_equiv, new): ``new`` is ``old_stage`` (where the image was acquired) and
+    ``old_equiv`` is the pre-reload stage position of what was actually imaged. None if the
+    correlation was ambiguous or weak.
+    """
+    from pathlib import Path
+    from Smartscope.lib.image.montage import Montage
+    from Smartscope.lib.image.target import Target
+    from Smartscope.core.reregistration.xcorr_register import register_xcorr, locate_anchor_in_medium, save_diagnostics
+
+    content = content or {}
+    if square_montage is None:
+        square_montage = Montage(square.name, working_dir=square.working_dir)
+        square_montage.load_or_process()
+    pitch_um = square.grid_id.holeType.pitch
+    max_shift_um = content.get('max_shift_um', content.get('max_shift_pitches', 4) * pitch_um)
+
+    mode = content.get('xcorr_mode', 'full')
+    if mode == 'anchor_patch':
+        if anchor_px is None:
+            anchor_px = expected_px  # the medium image was acquired at the anchor
+        result = locate_anchor_in_medium(
+            medium_montage.image, medium_montage.pixel_size, medium_montage.rotation_angle,
+            square_montage.image, square_montage.pixel_size, square_montage.rotation_angle,
+            anchor_px=anchor_px, expected_px=expected_px, pitch_um=pitch_um,
+            patch_pitch=content.get('patch_pitch', 0.75), lowpass_pitch=content.get('lowpass_pitch', 0.1),
+            max_shift_pitches=content.get('max_shift_pitches', 4.0),
+            medium_valid=getattr(medium_montage, 'valid_mask', None),
+            medium_center_px=getattr(medium_montage, 'center_px', None),
+            min_ncc=content.get('min_ncc', 0.2), min_margin=content.get('min_margin', 0.05),
+        )
+    else:
+        result = register_xcorr(
+            medium_montage.image, medium_montage.pixel_size, medium_montage.rotation_angle,
+            square_montage.image, square_montage.pixel_size, square_montage.rotation_angle,
+            expected_px=expected_px, pitch_um=pitch_um, max_shift_um=max_shift_um,
+            min_ncc=content.get('min_ncc', 0.3), min_margin=content.get('min_margin', 0.05),
+            suppress=content.get('suppress_holes', True), dilate_px=content.get('dilate_px', 1),
+            lowpass_pitch=content.get('lowpass_pitch', 0.1),
+            medium_center_px=getattr(medium_montage, 'center_px', None),
+            refine=content.get('refine', False),
+            refine_radius_pitch=content.get('refine_radius_pitch', 0.4),
+            refine_lowpass_pitch=content.get('refine_lowpass_pitch', 0.02),
+            local_threshold=content.get('local_hole_threshold', False),
+        )
+    name = name or medium_montage.name
+    logger.info(
+        f'Cross-correlation ({mode}) re-registration {name} on {square}: shift={np.round(result["shift_px"], 2)} px '
+        f'({result["shift_pitches"]:.2f} pitch), peak={result["peak"]:.3f}, second={result["second_peak"]:.3f}, '
+        f'margin={result["margin"]:.3f}, accepted={result["accepted"]}'
+    )
+    if result.get('refinement') is not None:
+        ref = result['refinement']
+        logger.info(f'Refinement {"used" if ref["used"] else "NOT used (peak on search boundary)"}: '
+                    f'correction {np.round(ref["correction_px"], 2)} px, peak {ref["peak"]:.3f}')
+    if diagnostics_dir is not None:
+        try:
+            Path(diagnostics_dir).mkdir(parents=True, exist_ok=True)
+            save_diagnostics(result, Path(diagnostics_dir, f'{name}_xcorr.png'))
+        except Exception as err:
+            logger.warning(f'Could not save cross-correlation diagnostics for {name}: {err}')
+
+    if not result['accepted']:
+        logger.warning(f'Cross-correlation re-registration of {name} rejected (weak or ambiguous peak).')
+        return (None, result) if return_result else None
+
+    t_found = Target(result['found_px'], from_center=True)
+    t_found.convert_image_coords_to_stage(square_montage)
+    t_exp = Target(np.asarray(expected_px, dtype=float), from_center=True)
+    t_exp.convert_image_coords_to_stage(square_montage)
+    delta = t_found.stage_coords - t_exp.stage_coords
+    old_stage = np.asarray(old_stage[:2], dtype=float)
+    old_equiv = old_stage + delta
+    logger.info(f'Re-registration pair for {name}: old={np.round(old_equiv, 3)}, new={np.round(old_stage, 3)} '
+                f'(stage delta {np.round(delta, 3)} um)')
+    if return_result:
+        return (old_equiv, old_stage), result
+    return old_equiv, old_stage
+
+
+def _reregister_square_at_anchor(scope:MicroscopeInterface, square, content:Dict, prefix:str, register_fn):
+    """Shared driver of the medium mag re-registration commands.
+
+    Picks an anchor on the original square image (``content['anchor']`` or the best of
+    find_square_junk_anchors), moves to its pre-reload stage position, acquires a medium mag
+    image/mini-montage of ``n_pitches`` (default 8) hole pitches and hands it to ``register_fn``
+    (register_medium_to_square or register_medium_to_square_xcorr).
+    Returns an (old, new) stage coordinate pair or None.
+    """
+    from pathlib import Path
+    from Smartscope.lib.image.montage import Montage
+    content = content or {}
+    grid = square.grid_id
+    square_montage = Montage(square.name, working_dir=square.working_dir)
+    square_montage.load_or_process()
+
+    anchor = content.get('anchor')
+    if anchor is None:
+        anchors = find_square_junk_anchors(square, content, square_montage=square_montage)
+        if not anchors:
+            return None
+        anchor = anchors[0]
+    name = f'{prefix}_{square.pk}'
+    # The field of view must cover the expected reload shift around the anchor
+    acq_content = {**content, 'n_pitches': content.get('n_pitches', 8)}
+    medium_montage = _acquire_medium_mag_at(scope, grid, anchor['stage_xyz'], name=name, content=acq_content)
+    return register_fn(
+        square, medium_montage, expected_px=anchor['square_px'], old_stage=anchor['stage_xyz'],
+        content=content, diagnostics_dir=Path(grid.directory, 'reregistration'), name=name,
+        square_montage=square_montage,
+    )
+
+
+def reregisterMediumMagFiducial(scope:MicroscopeInterface,params,instance, content:Dict, *args, **kwargs):
+    """[v1, method 'yolo'] Re-registers a square after grid reloading without going back to low mag.
+
+    Images a junk anchor of the square at medium mag and registers the image onto the original
+    square image by matching YOLO junk detections on both images.
+    Returns an (old, new) stage coordinate pair or None.
+    """
+    return _reregister_square_at_anchor(scope, instance, content, 'reregister_fiducial', register_medium_to_square)
+
+
+def reregisterMediumMagJunkXcorr(scope:MicroscopeInterface,params,instance, content:Dict, *args, **kwargs):
+    """[v2, method 'junk_xcorr'] Re-registers a square after grid reloading without going back to low mag.
+
+    Images a junk anchor of the square at medium mag and locates the image in the original
+    square image by hole-suppressed cross-correlation.
+    Returns an (old, new) stage coordinate pair or None.
+    """
+    return _reregister_square_at_anchor(scope, instance, content, 'reregister_xcorr', register_medium_to_square_xcorr)
+
+
 def delay(scope:MicroscopeInterface,params,instance, content:Dict, *args, **kwargs):
     delay = content.get('delay', 1)
     units = content.get('units', 's')
@@ -554,6 +923,8 @@ protocolCommandsFactory = dict(
     resetState=resetState,
     reregisterMediumMag=reregisterMediumMag,
     reregisterSearchMag=reregisterSearchMag,
+    reregisterMediumMagFiducial=reregisterMediumMagFiducial,
+    reregisterMediumMagJunkXcorr=reregisterMediumMagJunkXcorr,
     openColumnValve=openColumnValve,   
     callOnModeChange=callOnModeChange, 
     setupSerialEM=setupSerialEM,

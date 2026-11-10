@@ -270,7 +270,7 @@ def nearest_neighbor_match(pts_hole_in_sq: np.ndarray,
 # Registration
 # ---------------------------------------------------------------------------
 
-def register(hole_img_path: str,
+def register(hole_img_path: Optional[str],
              meta: dict,
              hole_coords: np.ndarray,
              detections_hole: Optional[np.ndarray] = None,
@@ -278,7 +278,8 @@ def register(hole_img_path: str,
              match_dist_px: float = 15.0,
              ransac_thresh: float = 3.0,
              min_inliers: int = 3,
-             verbose: bool = True) -> dict:
+             verbose: bool = True,
+             hole_shape: Optional[tuple] = None) -> dict:
     """
     Re-register hole-image coordinates onto the square image.
 
@@ -286,6 +287,7 @@ def register(hole_img_path: str,
     ----------
     hole_img_path
         Path to the hole image (used to read image dimensions).
+        Ignored when ``hole_shape`` is given.
     meta
         Parsed metadata dict with pixel_size, rotation_angle, and
         hole_coords_on_square.
@@ -303,6 +305,9 @@ def register(hole_img_path: str,
         Reprojection threshold (square pixels) for RANSAC inlier scoring.
     min_inliers
         Minimum RANSAC inliers required to accept the refined transform.
+    hole_shape
+        Optional (height, width) of the hole image. When provided, the image
+        is not read from disk, allowing in-memory usage.
 
     Returns
     -------
@@ -320,10 +325,13 @@ def register(hole_img_path: str,
         if verbose:
             print(f"[reregister] {msg}")
 
-    hole_img = cv2.imread(hole_img_path, cv2.IMREAD_GRAYSCALE)
-    if hole_img is None:
-        raise FileNotFoundError(hole_img_path)
-    hole_h, hole_w = hole_img.shape
+    if hole_shape is not None:
+        hole_h, hole_w = int(hole_shape[0]), int(hole_shape[1])
+    else:
+        hole_img = cv2.imread(hole_img_path, cv2.IMREAD_GRAYSCALE)
+        if hole_img is None:
+            raise FileNotFoundError(hole_img_path)
+        hole_h, hole_w = hole_img.shape
 
     # --- Physics-based initial transform ------------------------------------
     M_init = build_initial_transform(meta, hole_w, hole_h)

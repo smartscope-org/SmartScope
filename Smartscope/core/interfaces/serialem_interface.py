@@ -794,9 +794,9 @@ class SerialemInterface(MicroscopeInterface):
         y_size_um = y_size * pixel_size / 1000
         return x_size_um, y_size_um
     
-    def set_medium_mag_size_mini_montage(self, hole_pitch_um:float=2.5):
+    def set_medium_mag_size_mini_montage(self, hole_pitch_um:float=2.5, n_pitches:float=4):
         x_size_um, y_size_um = self.check_medium_mag_size(hole_pitch_um)
-        size_to_set_um = hole_pitch_um * 4
+        size_to_set_um = hole_pitch_um * n_pitches
         num_tiles_x = max(1, math.ceil(size_to_set_um / x_size_um))
         num_tiles_y = max(1, math.ceil(size_to_set_um / y_size_um))
         self.logger.info(f'Medium mag FoV is {x_size_um:.2f} x {y_size_um:.2f} um. Mini montage size: {num_tiles_x} x {num_tiles_y} tiles.')

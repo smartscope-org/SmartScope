@@ -103,7 +103,7 @@ def run_grid(
     needs_reregistations = grid.unloading_time is not None and grid.loading_time > grid.unloading_time
     if needs_reregistations:
         logger.info('Re-registering grid after re-loading')
-        reregister_grid(scope, grid, protocol)
+        reregister_grid(scope, grid, protocol, method=os.getenv('REREGISTRATION_METHOD', 'search_mag'))
 
     SELECTION_STRATEGY = TARGET_SELECTION_STRATEGIES['original']
     NAVIGATION_STRATEGY = NAVIGATION_STRATEGIES['original']
@@ -376,7 +376,49 @@ def runScopeProtocolSteps(
             instance = output
     return output
 
-def reregister_grid(scope, grid, protocol, rotation:bool=True):
+def _reregister_pairs_search_mag(scope, grid, squares):
+    old_positions, new_positions = [], []
+    for square in squares:
+        new_pos = PROTOCOL_COMMANDS_FACTORY['reregisterSearchMag'](scope, grid.params_id, square, {})
+        if new_pos is not None:
+            new_positions.append(new_pos)
+            old_positions.append(square.stage_coords)
+    return old_positions, new_positions
+
+
+def _reregister_pairs_medium_mag(scope, grid, squares, command:str, content:dict):
+    """Runs a medium mag re-registration command (reregisterMediumMagFiducial or
+    reregisterMediumMagJunkXcorr) on squares in order until content['n_anchors'] (default 3)
+    reliable pairs are collected. Squares without anchors or with unreliable matches are skipped."""
+    old_positions, new_positions = [], []
+    n_anchors = content.get('n_anchors', 3)
+    for square in squares:
+        if len(old_positions) >= n_anchors:
+            break
+        try:
+            pair = PROTOCOL_COMMANDS_FACTORY[command](scope, grid.params_id, square, content)
+        except Exception as err:
+            logger.exception(f'{command} re-registration failed on {square}: {err}')
+            continue
+        if pair is not None:
+            old_positions.append(pair[0])
+            new_positions.append(pair[1])
+    scope.zero_image_shift()
+    return old_positions, new_positions
+
+
+def reregister_grid(scope, grid, protocol, rotation:bool=True, method:str='search_mag', content:Union[dict,None]=None):
+    """Re-registers all targets of a grid after reloading.
+
+    method:
+        'search_mag': re-centers selected squares at Search mag (low mag).
+        'yolo' and 'junk_xcorr': find a junk anchor on each square image, acquire a medium mag
+                image at its pre-reload stage position and locate it in the square image,
+                'yolo' by matching YOLO junk detections on both images (v1) and 'junk_xcorr' by
+                hole-suppressed cross-correlation (v2). Squares are tried in order (the 3 most
+                spread out first) until content['n_anchors'] (default 3) pairs are found.
+        'yolo' and 'junk_xcorr' fall back to 'search_mag' if fewer than 2 reliable pairs are obtained.
+    """
     from itertools import combinations
     from Smartscope.lib.mesh_operations import calculate_transformation_matrix, apply_transform
     import matplotlib.pyplot as plt
@@ -404,13 +446,25 @@ def reregister_grid(scope, grid, protocol, rotation:bool=True):
         selected = completed_squares
 
 
-    old_positions = []
-    new_positions = []
-    for square in selected:
-        new_pos = PROTOCOL_COMMANDS_FACTORY['reregisterSearchMag'](scope, grid.params_id, square,{})
-        if new_pos is not None:
-            new_positions.append(new_pos)
-            old_positions.append(square.stage_coords)
+    content = content or {}
+    old_positions, new_positions = [], []
+    medium_mag_methods = {
+        'yolo': ('reregisterMediumMagFiducial', 'square junk anchors and YOLO keypoint matching'),
+        'junk_xcorr': ('reregisterMediumMagJunkXcorr', 'square junk anchors and medium mag cross-correlation'),
+    }
+    if method in medium_mag_methods:
+        command, description = medium_mag_methods[method]
+        logger.info(f'Re-registering using {description}')
+        ordered = selected + [sq for sq in completed_squares if sq not in selected]
+        old_positions, new_positions = _reregister_pairs_medium_mag(scope, grid, ordered, command, content)
+        if len(old_positions) < 2:
+            logger.warning(f'{method} re-registration produced {len(old_positions)} reliable pair(s), falling back to search mag re-registration.')
+            method = 'search_mag'
+    elif method != 'search_mag':
+        logger.warning(f'Unknown re-registration method {method}, using search_mag.')
+        method = 'search_mag'
+    if method == 'search_mag':
+        old_positions, new_positions = _reregister_pairs_search_mag(scope, grid, selected)
 
     if len(old_positions) == 0:
         logger.warning('Cannot re-register grid: no valid positions returned from re-imaging squares')

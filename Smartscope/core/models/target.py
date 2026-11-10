@@ -84,6 +84,12 @@ class Target(BaseModel):
         return self.grid_id.session_id.group
 
     @property
+    def latest_finder(self):
+        """Most recent finder. Iterates finders.all() so prefetch_related('finders') is used
+        instead of issuing a query per target."""
+        return max(self.finders.all(), key=lambda f: f.created_at, default=None)
+
+    @property
     def stage_coords(self) -> np.ndarray:
         finder = self.finders.order_by('-created_at').first()
         return np.array([finder.stage_x, finder.stage_y])
