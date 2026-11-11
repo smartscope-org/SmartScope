@@ -708,6 +708,62 @@ def targetHistory(request, grid_id):
     target_history.get_next_targets()
     return render(request, "autoscreenViewer/target_history.html", {"target_history": target_history})
 
+def _live_view_microscope(request, grid_id):
+    """The microscope a grid was collected on, for users allowed to see that grid."""
+    user = request.user
+    if not user.is_authenticated:
+        return None
+    grid = AutoloaderGrid.objects.select_related('session_id__microscope_id', 'session_id__group').filter(pk=grid_id).first()
+    if grid is None:
+        return None
+    if not user.is_staff and not user.groups.filter(pk=grid.session_id.group.pk).exists():
+        return None
+    return grid.session_id.microscope_id
+
+
+def microscopeLiveView(request, grid_id):
+    from Smartscope.core import live_view
+
+    microscope = _live_view_microscope(request, grid_id)
+    if microscope is None:
+        return HttpResponse(status=403)
+    live = live_view.read_frames(microscope.pk, microscope.scope_path)
+    frames = live['frames'] if live else []
+    latest = frames[-1] if frames else None
+    idle_minutes = int(live['age'] // 60) if live and live['age'] is not None else 0
+    stopped = live is not None and live['running'] is False
+    # The panel polls with what it is showing; leaving it alone avoids redrawing the same image.
+    shown = f"{latest['sequence'] if latest else ''}.{idle_minutes}.{int(stopped)}"
+    if request.GET.get('shown') == shown:
+        return HttpResponse(status=204)
+    context = dict(
+        grid_id=grid_id,
+        latest=latest,
+        previous=frames[-2:-8:-1],
+        idle_minutes=idle_minutes,
+        stopped=stopped,
+        shown=shown,
+        watcher_found=live is not None,
+    )
+    return render(request, "autoscreenViewer/microscope_live_view.html", context)
+
+
+def microscopeLiveFrame(request, grid_id, name):
+    from django.http import FileResponse
+    from Smartscope.core import live_view
+
+    microscope = _live_view_microscope(request, grid_id)
+    if microscope is None:
+        return HttpResponse(status=403)
+    frame = live_view.frame_file(microscope.scope_path, name)
+    if frame is None:
+        return HttpResponse(status=404)
+    response = FileResponse(open(frame, 'rb'), content_type='image/jpeg')
+    # Frame names are never reused.
+    response['Cache-Control'] = 'private, max-age=3600, immutable'
+    return response
+
+
 def deleteSquares(request, grid_id):
     if request.method != 'POST':
         return HttpResponse('Invalid request method')
