@@ -55,6 +55,17 @@ class SimSiamEmbedding(Embedding):
         clusters = self.cluster_file(grid, mag_level)
         return not clusters.is_file() or clusters.stat().st_mtime < embeddings.stat().st_mtime
 
+    def run_with_clustering(self, grid_id, mag_level):
+        """Synchronous inference + clustering, for once-per-grid levels (the atlas) where we
+        want results right away rather than debounced."""
+        from Smartscope.tasks.base_tasks import sim_siam_clustering
+        from Smartscope.tasks.long_actions_tasks import _sim_siam_cluster_keys, _SIMSIAM_LOCK_TIMEOUT_S
+        from Smartscope.core.utils.cache_lock import cache_lock
+        self.run(mag_level=mag_level, grid_id=grid_id)
+        _, _, lock_key = _sim_siam_cluster_keys(grid_id, mag_level)
+        with cache_lock(lock_key, ttl=_SIMSIAM_LOCK_TIMEOUT_S, wait=600):
+            sim_siam_clustering(mag_level=mag_level, grid_id=grid_id)
+
     def request_clustering(self, grid_id, mag_level, delay: Optional[int] = None):
         """Ask for a (re)clustering without blocking. Requests are debounced per grid/mag_level:
         only the last request in a burst runs, bounded by SIMSIAM_CLUSTER_MAX_WAIT_S."""

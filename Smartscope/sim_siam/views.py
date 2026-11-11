@@ -38,7 +38,11 @@ def suggest_similar(request):
     similar_to_ids = request_data.get('similar_to_ids').split(',')
     number_of_suggestions = request_data.get('number_of_suggestions', 3)
     mag_level = request_data.get('mag_level', 'square')
-    
+
+    simsiam = SimSiamEmbedding()
+    if not simsiam.is_embedding_data(AutoloaderGrid.objects.get(grid_id=grid_id), mag_level):
+        logger.warning(f'No SimSiam {mag_level} embeddings for grid {grid_id}; no suggestions.')
+        return Response({'suggestions': [], 'detail': f'No SimSiam {mag_level} embeddings for this grid yet.'}, status=200, content_type='application/json')
     suggestions = SimSiamEmbedding().suggest_similar(grid_id=grid_id, mag_level=mag_level, similar_to_ids=similar_to_ids)
     
     return Response({'suggestions':suggestions}, status=200, content_type='application/json')

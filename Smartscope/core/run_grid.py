@@ -158,7 +158,10 @@ def run_grid(
             montage = Montage(name=atlas.name)
             montage.load_or_process()
         selector_wrapper(protocol.atlas.targets.selectors, atlas, montage=montage)
-        # SimSiamEmbedding().run(mag_level='square', grid_id=grid.grid_id)
+        try:  # once per grid, so run inference + clustering synchronously
+            SimSiamEmbedding().run_with_clustering(grid.grid_id, 'square')
+        except Exception:
+            logger.exception(f'SimSiam square inference/clustering failed for {grid}')
         selection_strategy = SELECTION_STRATEGY(n_targets=params.squares_num)
         selected = selection_strategy.select(atlas)
         print(f'Selected {len(selected)} targets from atlas')
@@ -189,6 +192,13 @@ def run_grid(
 
     # Recovery: SimSiam clustering is debounced and async, so an interrupted run (or a failed
     # clustering) can leave it behind the embeddings. Re-request it; display-only, never blocks the run.
+    try:
+        simsiam = SimSiamEmbedding()
+        if not simsiam.is_embedding_data(grid, 'square') or simsiam.is_clustering_stale(grid, 'square'):
+            logger.info(f'SimSiam square embeddings/clustering missing or stale for {grid}, running now')
+            simsiam.run_with_clustering(grid.grid_id, 'square')
+    except Exception:
+        logger.exception(f'SimSiam square inference/clustering failed for {grid}')
     try:
         simsiam = SimSiamEmbedding()
         if simsiam.is_clustering_stale(grid, 'hole'):
