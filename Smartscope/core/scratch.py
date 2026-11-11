@@ -166,7 +166,16 @@ class Scratch(BaseModel):
             raise FileNotFoundError(f"File {file} does not exist in scratch.")
         if not output_directory.exists():
             output_directory.mkdir(parents=True, exist_ok=True)
-        shutil.copy(file, output_directory / file.name)
+        # Copy to a temp name in the destination dir, then atomically swap it in, so readers
+        # (navigation, WebUI) see either the old or the new file, never a partial one.
+        destination = output_directory / file.name
+        tmp = destination.with_name(f'.{file.name}.{os.getpid()}.tmp')
+        try:
+            shutil.copy(file, tmp)
+            os.replace(tmp, destination)
+        finally:
+            if tmp.exists():
+                tmp.unlink()
 
     def copy_directory_from_scratch(self, directory_name: str, output_directory: Path):
         """

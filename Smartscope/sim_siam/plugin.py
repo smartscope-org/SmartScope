@@ -1,4 +1,4 @@
-from typing import Dict, Any, Optional, List, Tuple
+from typing import Dict, Any, Optional, List, Tuple, ClassVar
 import pandas as pd
 import numpy as np
 from django.db import transaction
@@ -25,10 +25,41 @@ class SimSiamEmbedding(Embedding):
     kwargs: Optional[Dict[str, Any]] = dict(mag_level='square')
     grid_related_kwargs: Optional[Dict[str, Any]] = dict(grid_id='grid_id')
     colors: List = []
+    UNCLUSTERED: ClassVar[int] = -1  # sorter value for targets embedded but not yet clustered
     # importPaths: Union[str,List] = Field(default_factory=list)
 
     def is_embedding_data(self, grid, mag_level) -> bool:
         return (grid.directory / f'sim_siam_embeddings_{mag_level}.parquet.zip').is_file()
+
+    @staticmethod
+    def cluster_file(grid, mag_level):
+        return grid.directory / f'sim_siam_clusters_{mag_level}.parquet.zip'
+
+    def load_clusters(self, grid, mag_level) -> Optional[pd.DataFrame]:
+        """Cluster assignments/projections (index = pk). Written asynchronously by the debounced
+        clustering task. Falls back to the legacy layout where they lived in the embeddings file."""
+        file = self.cluster_file(grid, mag_level)
+        if file.is_file():
+            return pd.read_parquet(file)
+        if self.is_embedding_data(grid, mag_level):
+            df = self.load_data(grid, mag_level)
+            if 'assignments' in df.columns:
+                return df
+        return None
+
+    def is_clustering_stale(self, grid, mag_level) -> bool:
+        """True if there are embeddings newer than the last clustering (or no clustering yet)."""
+        embeddings = grid.directory / f'sim_siam_embeddings_{mag_level}.parquet.zip'
+        if not embeddings.is_file():
+            return False
+        clusters = self.cluster_file(grid, mag_level)
+        return not clusters.is_file() or clusters.stat().st_mtime < embeddings.stat().st_mtime
+
+    def request_clustering(self, grid_id, mag_level, delay: Optional[int] = None):
+        """Ask for a (re)clustering without blocking. Requests are debounced per grid/mag_level:
+        only the last request in a burst runs, bounded by SIMSIAM_CLUSTER_MAX_WAIT_S."""
+        from Smartscope.tasks.long_actions_tasks import request_sim_siam_clustering
+        return request_sim_siam_clustering(grid_id, mag_level, delay=delay)
 
 
     def load_data(self, grid, mag_level, *args, **kwargs) -> pd.DataFrame:
@@ -119,20 +150,22 @@ class SimSiamEmbedding(Embedding):
         Args:
         grid_id (str): The ID of the grid to be processed.
         mag_level (str): The magnification level, either 'square' or 'hole'.
+        Returns (None, 0) if no clustering is available yet. Targets not yet clustered get
+        UNCLUSTERED (outside the sorter limits).
         """
         if isinstance(grid_id, str):
             grid = AutoloaderGrid.objects.get(grid_id=grid_id)
         else:
             grid = grid_id
-        data = self.load_data(grid, mag_level)
-        clusters = data['assignments'].tolist()
+        data = self.load_clusters(grid, mag_level)
+        if data is None:
+            return None, 0
         pks = [obj.pk for obj in queryset]
-        data = data[data.index.isin(pks)]
-        data = data.reindex(pks)
-        
-
-        
-        return clusters, len(set(clusters))
+        assignments = data['assignments'].reindex(pks)
+        if assignments.isna().all():
+            return None, 0
+        clusters = assignments.fillna(self.UNCLUSTERED).astype(int).tolist()
+        return clusters, int(data['assignments'].nunique())
 
 
     def run(self, *args, **kwargs):

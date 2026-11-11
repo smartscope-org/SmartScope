@@ -187,6 +187,16 @@ def run_grid(
         if sq.status != status.QUEUED_FOR_PROCESSING:
             update(sq, status=status.QUEUED_FOR_PROCESSING)
 
+    # Recovery: SimSiam clustering is debounced and async, so an interrupted run (or a failed
+    # clustering) can leave it behind the embeddings. Re-request it; display-only, never blocks the run.
+    try:
+        simsiam = SimSiamEmbedding()
+        if simsiam.is_clustering_stale(grid, 'hole'):
+            logger.info(f'SimSiam hole clustering is stale for {grid}, requesting a refresh')
+            simsiam.request_clustering(grid.grid_id, 'hole', delay=0)
+    except Exception:
+        logger.exception(f'Could not check/request SimSiam clustering for {grid}')
+
     running = True
     is_done = False
     while running:

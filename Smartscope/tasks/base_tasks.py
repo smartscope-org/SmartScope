@@ -237,8 +237,22 @@ def find_holes_with_lattice(montage, hole_spacing:float, hole_size:float, lattic
     return filtered_lattice_from_center, True, {'rotation': rotation, 'spacing': spacing}
 
 def sim_siam_inference(mag_level:Literal['square','hole'], grid_id:str, **kwargs):
-    # Example usage
+    """
+    Serialized per grid/mag_level: concurrent square tasks share the scratch dataset dir and the
+    embeddings parquet. Waiting is usually cheap, since the first run embeds every processed
+    square so later runs hit the microservice's 'already processed' early return.
+    """
+    from Smartscope.core.utils.cache_lock import cache_lock, CacheLockTimeout
+    from Smartscope.tasks.settings import SIMSIAM_INFERENCE_LOCK_TTL_S, SIMSIAM_INFERENCE_LOCK_WAIT_S
+    lock_key = f'simsiam_infer:{grid_id}:{mag_level}'
+    try:
+        with cache_lock(lock_key, ttl=SIMSIAM_INFERENCE_LOCK_TTL_S, wait=SIMSIAM_INFERENCE_LOCK_WAIT_S):
+            return _sim_siam_inference(mag_level, grid_id, **kwargs)
+    except CacheLockTimeout:
+        logger.warning(f'[grid={grid_id}] Timed out after {SIMSIAM_INFERENCE_LOCK_WAIT_S}s waiting for SimSiam {mag_level} inference lock; skipping this run.')
+        return None
 
+def _sim_siam_inference(mag_level:Literal['square','hole'], grid_id:str, **kwargs):
     """
     Sends a task to the Celery queue to process data for SimSiam training.
     Parameters:
@@ -294,6 +308,37 @@ def sim_siam_inference(mag_level:Literal['square','hole'], grid_id:str, **kwargs
     logger.debug(f'sim_siam inference result: {final_result}')
     
     sim_siam_copy_output_file_from_scratch(final_result, grid.directory, scratch_dir=scratch_dir)
+
+def sim_siam_clustering(mag_level:Literal['square','hole'], grid_id:str, timeout:int=1800, **kwargs):
+    """
+    Cluster + UMAP/PCA over all embeddings of a grid. Display-only, so it is run off the
+    acquisition critical path (see long_actions_tasks.sim_siam_cluster_debounced).
+    Writes sim_siam_clusters_{mag_level}.parquet.zip to the grid directory.
+    """
+    import shutil
+    if mag_level not in ['square','hole']:
+        raise ValueError(f"Invalid magnification level: {mag_level}. Must be 'square' or 'hole'.")
+    grid = AutoloaderGrid.objects.get(grid_id=grid_id)
+    embeddings_file = Path(grid.directory) / f'sim_siam_embeddings_{mag_level}.parquet.zip'
+    if not embeddings_file.is_file():
+        logger.warning(f'[grid={grid_id}] No SimSiam embeddings at {embeddings_file}, skipping clustering.')
+        return None
+
+    queue, scratch_dir = get_queue()
+    dataset_name = f'{grid_id}_{mag_level}'
+    # Snapshot the embeddings under a dedicated name so we never overwrite the file inference writes to.
+    scratch_root = Path(scratch_dir) if scratch_dir is not None else SCRATCH_DIR
+    cluster_input = scratch_root / dataset_name / 'output' / f'sim_siam_cluster_input_{mag_level}.parquet.zip'
+    cluster_input.parent.mkdir(parents=True, exist_ok=True)
+    shutil.copyfile(embeddings_file, cluster_input)
+
+    data = json.dumps(dict(dataset_name=dataset_name, mag_level=mag_level, checkpoint_path='None'))
+    result = app.send_task('SmartscopeAI.interfaces.celery.tasks.sim_siam_cluster', args=[data], queue=queue)
+    logger.info(f'[grid={grid_id}] dispatched sim_siam_cluster -> task_id={result.id}')
+    final_result = AsyncResult(result.id, app=app).get(interval=1, timeout=timeout)
+    sim_siam_copy_output_file_from_scratch(final_result, grid.directory, scratch_dir=scratch_dir)
+    logger.info(f'[grid={grid_id}] SimSiam clustering for {mag_level} written to {grid.directory}')
+    return final_result
 
 def sim_siam_training(mag_level:Literal['square','hole'], grid_id:str, related_grids:list = [], dataset_name=None,**kwargs):
     """

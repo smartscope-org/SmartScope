@@ -248,7 +248,15 @@ def initialize_selector_from_embeddings(grid: models.AutoloaderGrid, selector:st
         logger.warning(f'No embedding data found for selector {selector} on grid {grid.grid_id} at magnification level {mag_level}. Reverting to lagacy sorting.')
         return None
     values,n_classes = plugin.sorter_data(grid,mag_level,queryset)
+    if values is None:
+        logger.warning(f'No cluster data yet for selector {selector} on grid {grid.grid_id} at magnification level {mag_level}. Reverting to lagacy sorting.')
+        return None
     selector_sorter = SelectorSorter(selector_name=selector,fractional_limits=[0,1], n_classes=n_classes)
 
     selector_sorter.values = values
+    clustered = [v for v in values if v >= 0]
+    if len(clustered) < len(values):
+        # Targets embedded after the last clustering run carry a negative sentinel; pin limits to the
+        # clustered range so they fall outside it (class 0) instead of shifting every cluster's color.
+        selector_sorter.limits = [min(clustered), max(clustered)]
     return selector_sorter

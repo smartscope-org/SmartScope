@@ -174,3 +174,70 @@ def extend_lattice_global(job_id: str, grid_id: str):
 
 
 
+
+
+# ---------------------------------------------------------------------------
+# SimSiam clustering: debounced, single-flight, non-blocking.
+#
+# Every request (one per processed square) stores a fresh token and schedules a task
+# `delay` seconds later. When a task fires it only runs if its token is still the latest
+# (trailing-edge debounce: the burst has gone quiet) or the oldest unserviced request is
+# older than SIMSIAM_CLUSTER_MAX_WAIT_S (so a steady stream of squares can't starve it).
+# A cache lock keeps a single clustering per grid/mag_level at a time.
+# ---------------------------------------------------------------------------
+_SIMSIAM_LOCK_TIMEOUT_S = 2400
+_SIMSIAM_LOCK_RETRY_S = 60
+
+
+def _sim_siam_cluster_keys(grid_id: str, mag_level: str):
+    base = f'simsiam_cluster:{grid_id}:{mag_level}'
+    return f'{base}:token', f'{base}:first_request', f'{base}:lock'
+
+
+def request_sim_siam_clustering(grid_id: str, mag_level: str, delay: int = None) -> str:
+    from uuid import uuid4
+    from django.core.cache import cache
+    from .settings import SIMSIAM_CLUSTER_DEBOUNCE_S
+
+    delay = SIMSIAM_CLUSTER_DEBOUNCE_S if delay is None else delay
+    token_key, first_key, _ = _sim_siam_cluster_keys(grid_id, mag_level)
+    token = uuid4().hex
+    cache.set(token_key, token, timeout=None)
+    cache.add(first_key, time.time(), timeout=None)  # no-op if an older request is still pending
+    sim_siam_cluster_debounced.apply_async(args=[grid_id, mag_level, token], countdown=delay)
+    logger.info(f'[grid={grid_id}] SimSiam {mag_level} clustering requested, runs in {delay}s unless superseded')
+    return token
+
+
+@app.task
+def sim_siam_cluster_debounced(grid_id: str, mag_level: str, token: str):
+    from django.core.cache import cache
+    from .settings import SIMSIAM_CLUSTER_MAX_WAIT_S
+    from .base_tasks import sim_siam_clustering
+    from Smartscope.core.utils.cache_lock import acquire_cache_lock, release_cache_lock
+    from celery.result import allow_join_result
+
+    token_key, first_key, lock_key = _sim_siam_cluster_keys(grid_id, mag_level)
+    first_request = cache.get(first_key)
+    if first_request is None:
+        return 'already serviced'
+    overdue = (time.time() - first_request) >= SIMSIAM_CLUSTER_MAX_WAIT_S
+    if cache.get(token_key) != token and not overdue:
+        return 'superseded'
+    lock_token = acquire_cache_lock(lock_key, ttl=_SIMSIAM_LOCK_TIMEOUT_S)
+    if lock_token is None:
+        # Another clustering is running; it snapshotted embeddings before our request may have
+        # landed, so try again later instead of dropping it.
+        sim_siam_cluster_debounced.apply_async(args=[grid_id, mag_level, token], countdown=_SIMSIAM_LOCK_RETRY_S)
+        return 'locked, retrying'
+    try:
+        # Clear before snapshotting the embeddings so requests arriving mid-run schedule a new run.
+        cache.delete(first_key)
+        with allow_join_result():  # we wait on the microservice task's result from inside a task
+            sim_siam_clustering(mag_level=mag_level, grid_id=grid_id)
+        return 'clustered'
+    except Exception:
+        logger.exception(f'[grid={grid_id}] SimSiam {mag_level} clustering failed')
+        raise
+    finally:
+        release_cache_lock(lock_key, lock_token)

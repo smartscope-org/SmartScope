@@ -290,6 +290,9 @@ class SvgSerializer(RESTserializers.Serializer):
 
         if self.display_type == 'embeddings':
             sorter = initialize_selector_from_embeddings(self.instance.grid_id, self.method, self.instance.targets)
+            if sorter is None:
+                # No embeddings/clusters yet (clustering is debounced): plain targets instead of erroring.
+                return self.instance.svg(display_type=self.display_type, method=None).as_svg()
             return drawAtlasNew(self.instance, sorter).as_svg()
         return self.instance.svg(display_type=self.display_type, method=self.method,).as_svg()
         

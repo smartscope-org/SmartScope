@@ -91,6 +91,10 @@ class FakeScopeInterface(MicroscopeInterface):
     def realign_to_square(self):
         return super().realign_to_square()
 
+    def find_square_center_microns(self):
+        # No real stage: the square is always where we left it, so re-registration sees zero shift.
+        return 0.0, 0.0
+
     def atlas(self, size, file=''):
         self.logger.info('Running atlas.')
         Fake.generate_fake_file(

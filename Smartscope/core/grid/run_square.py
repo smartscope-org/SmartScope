@@ -71,7 +71,10 @@ class RunSquare:
                     montage = Montage(name=square.name)
                     montage.load_or_process()
                 selector_wrapper(protocol.selectors, square, montage=montage)
-                SimSiamEmbedding().run(mag_level='hole', grid_id=grid.grid_id)
+                simsiam = SimSiamEmbedding()
+                # Embeddings are needed now (navigation); clustering is display-only -> debounced, async.
+                simsiam.run(mag_level='hole', grid_id=grid.grid_id)
+                simsiam.request_clustering(grid.grid_id, 'hole')
                 square = update(square, status=status.TARGETS_SELECTED)
                 transaction.on_commit(lambda: logger.debug('Selectors added'))
             if square.status == status.TARGETS_SELECTED:
