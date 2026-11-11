@@ -1,4 +1,5 @@
-
+{% extends 'general/base_modal_content.html' %}
+{% block modal_body %}
 <form id='editGridForm' 
     hx-post="{% url 'collectionParams' grid_id=grid.grid_id %}"
     hx-target="#editGridForm"
@@ -30,3 +31,4 @@
     $("img[id$='_help']").tooltip();
     initAdvancedToggle('advancedToggleColParamsEdit', 'formParamsEdit');
 </script>
+{% endblock %}

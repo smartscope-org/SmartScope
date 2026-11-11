@@ -1,6 +1,7 @@
 
 const csrftoken = document.querySelector('[name=csrfmiddlewaretoken]').value
-let lastClickedHoleShapeId = null
+let lastSelectedHoleShapeId = null
+
 
 function escapeRegExp(string) {
     return string.match(/(\d+)$/g); // $& means the whole matched string
@@ -472,12 +473,6 @@ $('#main').on('submit', '#editNotesForm', function (e) {
 //     apifetchAsync(url, data, "PATCH", message=`Changing grid collection parameters`)
 // });
 
-document.querySelectorAll('[data-bs-target="#modalShell"]').forEach(btn => {
-    btn.addEventListener('click', function() {
-        document.getElementById('modalShellTitle').textContent = this.dataset.modalTitle;
-        document.querySelector('#modalShell .modal-dialog').className = `modal-dialog ${this.dataset.modalSize || 'modal-lg'}`;
-    });
-});
 
 document.addEventListener("pipelineSelected", (e) => {
     const label = e.detail?.label;

@@ -381,6 +381,7 @@ class ProtocolView(TemplateView):
         context['protocol'] = protocol
         context['protocolDetails'] = yaml.dump(context['protocol'].dict())
         context['form'] = SelectProtocolForm(dict(protocol=protocol.name))
+        context['modal_title'] = "Protocol Details"
         return context
     
     def get(self,request, grid_id, *args, **kwargs):
@@ -444,6 +445,8 @@ class CollectionParams(TemplateView):
         # logger.debug(f"Collection parameters {extra_params}")
         context['gridCollectionParamsForm'] = form_auxiliary_update(collection_params_form, extra_params)
         context['values'] = json.dumps({'grid_id': grid_id})
+        context['modal_title'] = "Collection Parameters"
+        context['modal_size'] = "modal-xl"
         return context
     
     def get(self, request, grid_id, **kwargs):
@@ -517,6 +520,7 @@ class CollectionParams(TemplateView):
     
 class PreprocessingPipeline(TemplateView):
     template_name= "smartscopeSetup/preprocessing/preprocessing_pipeline.html"
+    template_name_modal = "smartscopeSetup/preprocessing/preprocessing_pipeline_modal.html"
 
     def get(self,request, *args, **kwargs):
         context = self.get_context_data(**kwargs)
@@ -538,12 +542,13 @@ class PreprocessingPipeline(TemplateView):
         context['pipeline'] = pipeline_data.pipeline
         context['description'] = pipeline.description
         context['pipeline_data'] = pipeline_data
+        context['modal_title'] = "Preprocessing Pipeline"
         return context
 
     def get_grid_pipeline(self, request, grid_id, success=False, **kwargs):
         context = self.get_grid_context_data(grid_id)
         context["success"] = success
-        return render(request,self.template_name, context)
+        return render(request,self.template_name_modal, context)
     
     def get_pipeline(self, request, *args, **kwargs,):
         try:
