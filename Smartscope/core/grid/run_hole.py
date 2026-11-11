@@ -145,7 +145,7 @@ class RunHole:
     @staticmethod
     def load_multishot_from_file(file:Union[str,Path]) -> Union[MultiShot,None]:
         if Path(file).exists():
-            return MultiShot.model_validate(file)
+            return MultiShot.model_validate_json(Path(file).read_text())
     
 
     @staticmethod

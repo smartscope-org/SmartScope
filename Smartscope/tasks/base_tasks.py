@@ -93,6 +93,64 @@ def send_find_squares_from_montage(montage, class_map:Dict[str,BaseModel], **kwa
     logger.debug(f'find_squares coords: {coords}, labels: {labels_converted}')
     return (coords,labels_converted), True, dict()
 
+def send_find_junk(image: np.ndarray, weights: str = 'junk_detection/junk_medium_mag.pt', imgsz: int = 1024,
+                   conf_thres: float = 0.25, iou_thres: float = 0.45, timeout: int = 120,
+                   classes: List[int] = None, return_confidence: bool = False, **kwargs):
+    """Runs the YOLO junk/contaminant detector on an already-binned 8-bit image.
+
+    Reuses the AI microservice ``find_squares`` task, which returns all detected boxes
+    regardless of class, with the junk detection weights.
+
+    classes: optional list of class indices to keep (e.g. [0] to drop the 'hole' class of
+        junk_medium_mag.pt). None keeps all classes.
+    return_confidence: also return the YOLO confidence of each detection. If the AI worker
+        does not support it yet, confidences are returned as None.
+
+    Returns
+    -------
+    (N, 2) array of detection centers in the pixel space of ``image``, or
+    (centers, confidences) if ``return_confidence``.
+    """
+    encoded = encode_image(image)
+    data = {
+        'image': encoded,
+        'kwargs': dict(
+            weights_circle=weights,
+            imgsz=imgsz,
+            conf_thres=conf_thres,
+            iou_thres=iou_thres,
+            scaling_factor=1,
+            class_mapping=None,
+            return_confidence=return_confidence,
+            **kwargs,
+        ),
+    }
+    queue, _ = get_queue()
+    result = app.send_task('SmartscopeAI.interfaces.celery.tasks.find_squares', args=[json.dumps(data)], queue=queue)
+    logger.info(f'dispatched junk detection (find_squares with {weights}) -> task_id={result.id}')
+    output = AsyncResult(result.id, app=app).get(interval=1, timeout=timeout)
+    coords, labels = output[0], output[1]
+    confs = output[2] if len(output) > 2 else None
+    if return_confidence and confs is None:
+        logger.warning('AI worker did not return detection confidences; is the SmartscopeAI service up to date?')
+    if classes is not None:
+        keep = {str(c) for c in classes}
+        n_total = len(coords)
+        idx = [i for i, l in enumerate(labels) if str(l) in keep]
+        coords = [coords[i] for i in idx]
+        if confs is not None:
+            confs = [confs[i] for i in idx]
+        logger.debug(f'Kept {len(coords)}/{n_total} detections with classes {sorted(keep)}')
+    if len(coords) == 0:
+        centers = np.empty((0, 2), dtype=np.float64)
+    else:
+        boxes = np.asarray(coords, dtype=np.float64)
+        centers = np.column_stack([(boxes[:, 0] + boxes[:, 2]) / 2.0, (boxes[:, 1] + boxes[:, 3]) / 2.0])
+    logger.debug(f'Junk detection found {len(centers)} objects')
+    if return_confidence:
+        return centers, (np.asarray(confs, dtype=np.float64) if confs is not None else None)
+    return centers
+
 def send_find_holes_from_montage(montage:Montage, class_map:Dict[str,BaseModel], success_threshold:int=10,  **kwargs):
     scaling_factor = montage.image.shape[0] / kwargs.get('imgsz', 1024)
     image= convert_to_png(montage.image, height=kwargs.get('imgsz', 1024), normalization=auto_contrast_sigma, binning_method=fourier_crop)
