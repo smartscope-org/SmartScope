@@ -1061,8 +1061,8 @@ class HighMagModel(Target, ExtraPropertyMixin):
         self.hole_id = parent
     # endaliases
     
-    def svg(self, *args, **kwargs):
-        return drawHighMag(self)
+    def svg(self, href=None, *args, **kwargs):
+        return drawHighMag(self, href=href)
     
     @property
     def power_spectrum(self):

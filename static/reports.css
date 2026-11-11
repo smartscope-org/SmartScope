@@ -737,3 +737,12 @@
     background-color: rgba(76, 175, 80, 0.15); /* #4CAF50 diluted */
     transition: background-color 0.15s ease;
 }
+/* High-mag images load lazily; show a neutral backdrop until they arrive */
+#Hole .holeCard .card-img-top svg,
+#Hole .holeCard .card-img-top img {
+    background-color: #e9ecef;
+}
+#Hole .holeCard .card-img-top img {
+    aspect-ratio: 1 / 1;
+    object-fit: contain;
+}

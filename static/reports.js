@@ -1,7 +1,9 @@
 
 const csrftoken = document.querySelector('[name=csrfmiddlewaretoken]').value
-let lastSelectedHoleShapeId = null
-
+let lastClickedHoleShapeId = null
+let mmHolePlaceholder = null
+let loadedSquareId = null
+let hmImageObserver = null
 
 function escapeRegExp(string) {
     return string.match(/(\d+)$/g); // $& means the whole matched string
@@ -238,6 +240,10 @@ async function loadSquare(full_id, metaonly = false, display_type = null, method
     console.log('Loading Square:', full_id)
     if ($(`#${full_id}`).attr('status') != 'completed')
         return
+    if (full_id !== loadedSquareId) {
+        resetHolePanels()
+        loadedSquareId = full_id
+    }
 
     var url = `/api/squares/${full_id}/load/?format=json&display_type=${display_type}&method=${method}&metaonly=${metaonly}`
     console.log('URL:', url)
@@ -251,14 +257,45 @@ async function loadSquare(full_id, metaonly = false, display_type = null, method
 
 };
 
+function resetHolePanels() {
+    if (hmImageObserver) hmImageObserver.disconnect()
+    if (mmHolePlaceholder !== null) $('#mmHole').html(mmHolePlaceholder)
+    $('#Hole').empty()            // removes every high-mag card
+    $('#Hole_div').scrollLeft(0)  // only resets the tray's scroll position
+    lastClickedHoleShapeId = null
+}
+
 async function loadHole(id, metaonly = false) {
     let data = await fetchAsync(`/api/holes/${id}/load`, message=`Loading Hole ${id}`)
     $("#mmHole").html(data.card)
     hm_data = await fetchAsync(`/api/holes/${id}/highmag/?squareMethod=${currentState['squareMethod']}`, message=`Loading high mag data.`)
     $('#Hole').html(hm_data)
     lastClickedHoleShapeId = null
+    observeHighMagImages()
     grabCuration()
 };
+
+// High-mag micrographs are rendered as <image data-href=...>; only fetch them once their card nears the visible tray.
+function observeHighMagImages() {
+    if (hmImageObserver) hmImageObserver.disconnect()
+    const images = document.querySelectorAll('#Hole image.lazyHm[data-href]')
+    const load = (img) => {
+        img.setAttribute('href', img.getAttribute('data-href'))
+        img.removeAttribute('data-href')
+    }
+    if (!('IntersectionObserver' in window)) {
+        images.forEach(load)
+        return
+    }
+    hmImageObserver = new IntersectionObserver((entries, observer) => {
+        for (const entry of entries) {
+            if (!entry.isIntersecting) continue
+            load(entry.target)
+            observer.unobserve(entry.target)
+        }
+    }, { root: document.getElementById('Hole_div'), rootMargin: '0px 100% 0px 100%' })
+    images.forEach(img => hmImageObserver.observe(img))
+}
 
 function grabCuration() {
     $('#Hole_div .holeCard').each(function () {
@@ -737,6 +774,7 @@ async function reportMain() {
     hmSelection = null
     targetsSelection = []
     zoomedContentCln = document.getElementById('zoomedContent').cloneNode(true)
+    if (mmHolePlaceholder === null) mmHolePlaceholder = $('#mmHole').html()
     fullmeta = await loadMeta()
     populateReportHead()
     // renderCounts()
@@ -959,6 +997,7 @@ function clickSquare(elem) {
             return
         }
         currentState.square = elem.id;
+        delete currentState.hole
         clearSelection('hole')
         clearTargetsSelection()
         loadSquare(elem.id);
@@ -1038,6 +1077,11 @@ $("#main").on('mousedown', '.zoomBtn', function () {
         closeCardZoom($(this))
     })
 
+    card.find('image.lazyHm[data-href]').each(function () {
+        this.setAttribute('href', this.getAttribute('data-href'))
+        this.removeAttribute('data-href')
+        if (hmImageObserver) hmImageObserver.unobserve(this)
+    })
     card.addClass('popupFull')
     card.find('.zoomIcon').removeClass("bi-zoom-in").addClass("bi-zoom-out")
 })

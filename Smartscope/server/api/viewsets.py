@@ -140,6 +140,22 @@ class ExtraActionsMixin:
         response = FileResponse(img, content_type='image/*', as_attachment=True, filename=name)
         return response
 
+    @ action(detail=True, methods=['get'])
+    def image(self, request, **kwargs):
+        """Serve a target's png/webp or CTF image inline so cards can load it lazily by URL."""
+        kind = request.query_params.get('kind', 'png')
+        instance = self.get_object()
+        getters = {'png': lambda: instance.png, 'ctf': lambda: instance.ctf_img}
+        if kind not in getters:
+            return Response(dict(detail=f'Unknown image kind {kind}'), status=rest_status.HTTP_400_BAD_REQUEST)
+        path = str(getters[kind]())
+        if not os.path.isfile(path):
+            return Response(dict(detail='Image not found'), status=rest_status.HTTP_404_NOT_FOUND)
+        content_type = 'image/webp' if path.lower().endswith('.webp') else 'image/png'
+        response = FileResponse(open(path, 'rb'), content_type=content_type)
+        response['Cache-Control'] = 'private, max-age=86400'
+        return response
+
 
 
 
@@ -803,11 +819,12 @@ class HoleModelViewSet(viewsets.ModelViewSet, GeneralActionsMixin, ExtraActionsM
         obj = self.get_object()
         self.renderer_classes = [TemplateHTMLRenderer]
 
+        base_qs = HighMagModel.objects.select_related('hole_id', 'grid_id__session_id')
         if obj.bis_group is None:
-            queryset = list(HighMagModel.objects.filter(hole_id=kwargs['pk'], status='completed'))
+            queryset = list(base_qs.filter(hole_id=kwargs['pk'], status='completed'))
         else:
-            queryset = list(HighMagModel.objects.filter(grid_id=obj.grid_id,
-                                                        hole_id__bis_group=obj.bis_group, status='completed').order_by('hole_id__number','number'))
+            queryset = list(base_qs.filter(grid_id=obj.grid_id,
+                                           hole_id__bis_group=obj.bis_group, status='completed').order_by('hole_id__number','number'))
         context = {}
         classifier = get_request_param(request, 'squareMethod', 'Micrographs curation')
         logger.info(f'Loading HighMag cards with \'{classifier}\' classifier')
@@ -815,7 +832,9 @@ class HoleModelViewSet(viewsets.ModelViewSet, GeneralActionsMixin, ExtraActionsM
         response_context= dict(cards=[])
         for hole in queryset:
             context['hole']=hole
-            context['svg'] = hole.svg().as_svg()
+            # images are referenced by URL and lazy-loaded by the browser instead of base64-embedded
+            context['svg'] = hole.svg(href=hole.image_url('png')).as_svg()
+            context['ctf_url'] = hole.image_url('ctf')
             response_context['cards'].append(render_to_string('holecard.html',context))
         resp = SimpleTemplateResponse(context=response_context, content_type='text/html', template='holecards.html')
         logger.debug(resp)
