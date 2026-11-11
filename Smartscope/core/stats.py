@@ -31,7 +31,7 @@ def get_hole_count(grid:AutoloaderGrid, hole_list=None):
         queued = len(hole_list)
     else:
         queued = HoleModel.display.filter(grid_id=grid.grid_id,status='queued').count()
-        queued_exposures = queued
+    queued_exposures = queued
     if grid.params_id.multishot_per_hole:
         mutlishot_file = Path(grid.directory,'multishot.json')
         multishot = RunHole.load_multishot_from_file(mutlishot_file)
@@ -44,15 +44,18 @@ def get_hole_count(grid:AutoloaderGrid, hole_list=None):
     last_hour = 0
     elapsed = 0
     remaining = 0
-    if grid.start_time is not None:
+    if grid.start_time is not None and grid.end_time is not None:
         elapsed = grid.time_spent
-        holes_per_hour = round(num_completed / (elapsed.total_seconds() / 3600), 1)
+        elapsed_hours = elapsed.total_seconds() / 3600
+        if elapsed_hours > 0:
+            holes_per_hour = round(num_completed / elapsed_hours, 1)
         last_hour_date_time = grid.end_time - timedelta(hours=1)
         last_hour = completed.filter(completion_time__gte=last_hour_date_time).count()
-        if grid.params_id.max_exposures_for_grid > 0:
-            remaining = timedelta(hours=(grid.params_id.max_exposures_for_grid - num_completed)/last_hour)
-        else:    
-            remaining = timedelta(hours=queued_exposures/last_hour)
+        if last_hour > 0:
+            if grid.params_id.max_exposures_for_grid > 0:
+                remaining = timedelta(hours=max(grid.params_id.max_exposures_for_grid - num_completed, 0)/last_hour)
+            else:
+                remaining = timedelta(hours=queued_exposures/last_hour)
         
     logger.debug(f'{num_completed} completed holes, {queued} queued holes, {holes_per_hour} holes per hour, {last_hour} holes in the last hour')
 

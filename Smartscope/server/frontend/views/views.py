@@ -617,7 +617,7 @@ class CollectionStatsView(TemplateView):
 
     def ctfGraph(self,grid_id):
         ### NEED TO MOVE THE GRAPHING LOGIC OUTSIDE OF HERE
-        all_data = list(HighMagModel.objects.filter(status='completed', grid_id=grid_id).order_by('completion_time').values_list('ctffit', flat=True)) # replace with your own data source
+        all_data = list(HighMagModel.objects.filter(status='completed', grid_id=grid_id, ctffit__isnull=False).order_by('completion_time').values_list('ctffit', flat=True)) # replace with your own data source
         graph = plot_histogram(
             all_data,
             15,
