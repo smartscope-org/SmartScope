@@ -152,9 +152,10 @@ def send_find_junk(image: np.ndarray, weights: str = 'junk_detection/junk_medium
     return centers
 
 def send_find_holes_from_montage(montage:Montage, class_map:Dict[str,BaseModel], success_threshold:int=10,  **kwargs):
-    scaling_factor = montage.image.shape[0] / kwargs.get('imgsz', 1024)
     image= convert_to_png(montage.image, height=kwargs.get('imgsz', 1024), normalization=auto_contrast_sigma, binning_method=fourier_crop)
-
+    scaling_factor = montage.image.shape[0] / image.shape[0]
+    logger.info(f"Original image of size {montage.image.shape} was scaled to {image.shape} with scaling factor {scaling_factor}")
+    
     encoded = encode_image(image)
 
     data = { 'image': encoded }
@@ -172,8 +173,10 @@ def send_find_holes_from_montage(montage:Montage, class_map:Dict[str,BaseModel],
     return final_result, True, dict()
 
 def send_find_holes_from_square(montage:Montage, class_map:Dict[str,BaseModel], success_threshold:int=10,  **kwargs):
-    scaling_factor = montage.image.shape[0] / kwargs.get('imgsz', 1024)
     image= convert_to_png(montage.image, height=kwargs.get('imgsz', 1024), normalization=auto_contrast, binning_method=fourier_crop)
+    scaling_factor = montage.image.shape[0] / image.shape[0]
+    logger.info(f"Original image of size {montage.image.shape} was scaled to {image.shape} with scaling factor {scaling_factor}")
+
     image = mask_square(image)
 
     encoded = encode_image(image)
