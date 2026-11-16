@@ -45,6 +45,13 @@ def install_watcher(scope_path: str, windows_path: str, list_directories: List[s
     """
     directory = watcher_directory(scope_path)
     directory.mkdir(parents=True, exist_ok=True)
+    # The watcher runs on the SerialEM computer, usually as a different user than
+    # this server, and must create live/ and its log here; mkdir's mode is cut by
+    # the umask, so open the folder up explicitly.
+    try:
+        directory.chmod(0o777)
+    except OSError as err:
+        logger.warning(f'Could not make {directory} writable for the SerialEM computer: {err}')
     for source in sorted(WATCHER_FILES.iterdir()):
         (directory / source.name).write_bytes(source.read_bytes())
     sources = list(dict.fromkeys(d for d in list_directories if d))
