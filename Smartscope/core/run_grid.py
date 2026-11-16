@@ -417,15 +417,43 @@ def _reregister_pairs_search_mag(scope, grid, squares):
     return old_positions, new_positions
 
 
-def _reregister_pairs_medium_mag(scope, grid, squares, command:str, content:dict):
+def _square_stage_xy(square) -> np.ndarray:
+    finder = square.finders.first()
+    return np.array([finder.stage_x, finder.stage_y], dtype=float)
+
+
+def _reregister_pairs_medium_mag(scope, grid, selected, others, command:str, content:dict):
     """Runs a medium mag re-registration command (reregisterMediumMagFiducial or
-    reregisterMediumMagJunkXcorr) on squares in order until content['n_anchors'] (default 3)
-    reliable pairs are collected. Squares without anchors or with unreliable matches are skipped."""
+    reregisterMediumMagJunkXcorr) until content['n_anchors'] (default 3) reliable pairs are
+    collected: first on the selected squares, then on replacements from others. Squares without
+    anchors or with unreliable matches are skipped.
+
+    Each replacement is the square farthest from those already registered, so the pairs stay
+    spread out; nearby pairs leave the rotation of the fit poorly determined."""
     old_positions, new_positions = [], []
     n_anchors = content.get('n_anchors', 3)
-    for square in squares:
-        if len(old_positions) >= n_anchors:
+    registered = []  # stage positions of the squares that gave a pair
+    tried = []
+    selected = list(selected)
+    remaining = list(others)
+
+    def next_square():
+        if selected:
+            return selected.pop(0)
+        if not remaining:
+            return None
+        reference = registered or tried
+        if not reference:
+            return remaining.pop(0)
+        spread = [min(np.linalg.norm(_square_stage_xy(sq) - p) for p in reference) for sq in remaining]
+        return remaining.pop(int(np.argmax(spread)))
+
+    while len(old_positions) < n_anchors:
+        square = next_square()
+        if square is None:
             break
+        position = _square_stage_xy(square)
+        tried.append(position)
         try:
             pair = PROTOCOL_COMMANDS_FACTORY[command](scope, grid.params_id, square, content)
         except Exception as err:
@@ -434,6 +462,7 @@ def _reregister_pairs_medium_mag(scope, grid, squares, command:str, content:dict
         if pair is not None:
             old_positions.append(pair[0])
             new_positions.append(pair[1])
+            registered.append(position)
     scope.zero_image_shift()
     return old_positions, new_positions
 
@@ -503,8 +532,8 @@ def reregister_grid(scope, grid, protocol, rotation:bool=True, method:str='searc
     if method in medium_mag_methods:
         command, description = medium_mag_methods[method]
         logger.info(f'Re-registering using {description}')
-        ordered = selected + [sq for sq in completed_squares if sq not in selected]
-        old_positions, new_positions = _reregister_pairs_medium_mag(scope, grid, ordered, command, content)
+        others = [sq for sq in completed_squares if sq not in selected]
+        old_positions, new_positions = _reregister_pairs_medium_mag(scope, grid, selected, others, command, content)
         if len(old_positions) < 2:
             logger.warning(f'{method} re-registration produced {len(old_positions)} reliable pair(s), falling back to search mag re-registration.')
             method = 'search_mag'

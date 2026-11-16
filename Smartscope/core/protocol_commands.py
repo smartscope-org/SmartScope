@@ -575,11 +575,11 @@ def find_square_junk_anchors(square, content:Dict=None, square_montage=None):
        crop of the illuminated part of the square, which gives the model more pixels on small or
        partially covered squares. Detections are always mapped back to full resolution,
        uncropped square image pixels before converting to stage coordinates.
-       Detections below ``min_anchor_conf`` (default 0.2) are discarded. Ranking: confidence,
-       then isolation from other detections.
+       Detections below ``min_anchor_conf`` (default 0.2) are discarded.
     2. If no YOLO anchor is usable and ``content['structure_fallback']`` (default True), up to
        ``n_structure_anchors`` (default 3) model-free candidates are added: places with the
        strongest non-periodic structure after hole suppression (see ``find_structure_anchors``).
+    Anchors are ranked by distance from the square edge, most centered first.
 
     Returns a list of dicts sorted best first, each with:
         square_px  : (x, y) full resolution square image pixel (uncropped)
@@ -589,6 +589,7 @@ def find_square_junk_anchors(square, content:Dict=None, square_montage=None):
                      return it)
         score      : structure score (structure anchors only)
         isolation_pitches : distance to the nearest other YOLO detection, in hole pitches
+        edge_um    : distance to the square edge, in microns
     """
     from Smartscope.lib.image.montage import Montage
     from Smartscope.lib.image.target import Target
@@ -641,6 +642,20 @@ def find_square_junk_anchors(square, content:Dict=None, square_montage=None):
         t.convert_image_coords_to_stage(square_montage)
         return (float(t.stage_x), float(t.stage_y), float(square_montage.stage_z))
 
+    # Near the square edge the medium mag field of view takes in the grid bar, and the straight
+    # edge then dominates the correlation: it matches anywhere along its length. Anchors are
+    # therefore tried most centered first, measured as in distance_from_center_selector; none are
+    # dropped, since a square may have no other.
+    from scipy.ndimage import distance_transform_edt
+    from Smartscope.lib.Finders.basic_finders import create_square_mask
+    edge_distance = distance_transform_edt(create_square_mask(image))
+    um_per_px = square_montage.pixel_size / 1e4
+
+    def edge_um(p):
+        x = int(np.clip(round(p[0]), 0, w - 1))
+        y = int(np.clip(round(p[1]), 0, h - 1))
+        return float(edge_distance[y, x]) * um_per_px
+
     anchors = []
     for i, p in enumerate(detections):
         conf = float(confidences[i]) if confidences is not None else None
@@ -653,9 +668,8 @@ def find_square_junk_anchors(square, content:Dict=None, square_montage=None):
         others = np.delete(detections, i, axis=0)
         isolation = np.min(np.linalg.norm(others - p, axis=1)) / pitch_px if len(others) else np.inf
         anchors.append(dict(square_px=np.asarray(p, dtype=float), source='yolo', confidence=conf,
-                            score=None, isolation_pitches=float(isolation), stage_xyz=to_stage(p)))
-    anchors.sort(key=lambda a: (-(a['confidence'] if a['confidence'] is not None else 0.0),
-                                -min(a['isolation_pitches'], 3.0)))
+                            score=None, isolation_pitches=float(isolation), stage_xyz=to_stage(p),
+                            edge_um=edge_um(p)))
 
     if not anchors and content.get('structure_fallback', True):
         candidates = find_structure_anchors(
@@ -664,14 +678,18 @@ def find_square_junk_anchors(square, content:Dict=None, square_montage=None):
         logger.info(f'No usable YOLO anchor on {square}; using {len(candidates)} structure-based anchor(s).')
         for x, y, sc in candidates:
             anchors.append(dict(square_px=np.array([x, y]), source='structure', confidence=None,
-                                score=sc, isolation_pitches=float('inf'), stage_xyz=to_stage((x, y))))
+                                score=sc, isolation_pitches=float('inf'), stage_xyz=to_stage((x, y)),
+                                edge_um=edge_um((x, y))))
+    anchors.sort(key=lambda a: -a['edge_um'])
 
     def describe(a):
         quality = f"conf={a['confidence']:.2f}" if a['confidence'] is not None else (
             f"score={a['score']:.1f}" if a['score'] is not None else 'conf=n/a')
-        return f"{a['source']} px={np.round(a['square_px'], 1)} {quality} stage={np.round(a['stage_xyz'][:2], 2)}"
+        return (f"{a['source']} px={np.round(a['square_px'], 1)} {quality} {a['edge_um']:.1f} um from edge "
+                f"stage={np.round(a['stage_xyz'][:2], 2)}")
     if anchors:
-        logger.info(f'Found {len(anchors)} anchor(s) on {square}: ' + ', '.join(describe(a) for a in anchors))
+        logger.info(f'Found {len(anchors)} anchor(s) on {square}, most centered first: '
+                    + ', '.join(describe(a) for a in anchors[:5]))
     else:
         logger.info(f'No anchor found on {square}.')
     return anchors
@@ -727,7 +745,9 @@ def register_medium_to_square_xcorr(square, medium_montage, expected_px, old_sta
             medium_montage.image, medium_montage.pixel_size, medium_montage.rotation_angle,
             square_montage.image, square_montage.pixel_size, square_montage.rotation_angle,
             expected_px=expected_px, pitch_um=pitch_um, max_shift_um=max_shift_um,
-            min_ncc=content.get('min_ncc', 0.3), min_margin=content.get('min_margin', 0.05),
+            # 0.05 let through a slide along a square edge (peak 0.50 vs 0.45); good matches
+            # clear 0.18 or more.
+            min_ncc=content.get('min_ncc', 0.3), min_margin=content.get('min_margin', 0.1),
             suppress=content.get('suppress_holes', True), dilate_px=content.get('dilate_px', 1),
             lowpass_pitch=content.get('lowpass_pitch', 0.1),
             medium_center_px=getattr(medium_montage, 'center_px', None),
@@ -787,21 +807,30 @@ def _reregister_square_at_anchor(scope:MicroscopeInterface, square, content:Dict
     square_montage = Montage(square.name, working_dir=square.working_dir)
     square_montage.load_or_process()
 
-    anchor = content.get('anchor')
-    if anchor is None:
+    if content.get('anchor') is not None:
+        anchors = [content['anchor']]
+    else:
         anchors = find_square_junk_anchors(square, content, square_montage=square_montage)
         if not anchors:
             return None
-        anchor = anchors[0]
-    name = f'{prefix}_{square.pk}'
+    # A rejected match costs one more medium mag image to try the next anchor here, which keeps
+    # the square, rather than moving to another square that may spread the pairs less well.
+    tries = anchors[:max(1, content.get('anchors_per_square', 2))]
     # The field of view must cover the expected reload shift around the anchor
     acq_content = {**content, 'n_pitches': content.get('n_pitches', 8)}
-    medium_montage = _acquire_medium_mag_at(scope, grid, anchor['stage_xyz'], name=name, content=acq_content)
-    return register_fn(
-        square, medium_montage, expected_px=anchor['square_px'], old_stage=anchor['stage_xyz'],
-        content=content, diagnostics_dir=Path(grid.directory, 'reregistration'), name=name,
-        square_montage=square_montage,
-    )
+    for i, anchor in enumerate(tries):
+        name = f'{prefix}_{square.pk}' + (f'_anchor{i + 1}' if i else '')
+        if i:
+            logger.info(f'Trying anchor {i + 1} of {len(tries)} on {square}')
+        medium_montage = _acquire_medium_mag_at(scope, grid, anchor['stage_xyz'], name=name, content=acq_content)
+        pair = register_fn(
+            square, medium_montage, expected_px=anchor['square_px'], old_stage=anchor['stage_xyz'],
+            content=content, diagnostics_dir=Path(grid.directory, 'reregistration'), name=name,
+            square_montage=square_montage,
+        )
+        if pair is not None:
+            return pair
+    return None
 
 
 def reregisterMediumMagFiducial(scope:MicroscopeInterface,params,instance, content:Dict, *args, **kwargs):
