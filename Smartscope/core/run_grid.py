@@ -91,19 +91,30 @@ def run_grid(
 
     # scope
     if not skip_loading:
+        # Set by interfaces that can tell whether loading moved the grid; None (unknown)
+        # keeps the old behaviour of counting every start as a load.
+        scope.cartridge_loaded = None
         runScopeProtocolSteps(
             scope,
             protocol.preImaging.steps,
             params,
             grid
         )
-        update(grid, loading_time=timezone.now())
+        if scope.cartridge_loaded is not False:
+            grid = update(grid, loading_time=timezone.now())
+        else:
+            logger.info('Grid was already loaded, keeping its loading time')
     check_stop_flag(session_id)
 
     needs_reregistations = grid.unloading_time is not None and grid.loading_time > grid.unloading_time
-    if needs_reregistations:
+    reregistration_record = Path(grid.directory, 'reregistration', 'last_reregistration.txt')
+    reregistered_at = _last_reregistration(reregistration_record)
+    if needs_reregistations and reregistered_at is not None and reregistered_at > grid.loading_time:
+        logger.info(f'Grid already re-registered at {reregistered_at:%Y-%m-%d %H:%M:%S} since it was last loaded, skipping')
+    elif needs_reregistations:
         logger.info('Re-registering grid after re-loading')
-        reregister_grid(scope, grid, protocol, method=os.getenv('REREGISTRATION_METHOD', 'search_mag'))
+        if reregister_grid(scope, grid, protocol, method=os.getenv('REREGISTRATION_METHOD', 'search_mag')):
+            _record_reregistration(reregistration_record)
 
     SELECTION_STRATEGY = TARGET_SELECTION_STRATEGIES['original']
     NAVIGATION_STRATEGY = NAVIGATION_STRATEGIES['original']
@@ -427,7 +438,21 @@ def _reregister_pairs_medium_mag(scope, grid, squares, command:str, content:dict
     return old_positions, new_positions
 
 
-def reregister_grid(scope, grid, protocol, rotation:bool=True, method:str='search_mag', content:Union[dict,None]=None):
+def _last_reregistration(record: Path):
+    """When the grid was last re-registered, as written to record, or None."""
+    from datetime import datetime
+    try:
+        return datetime.fromisoformat(record.read_text().strip())
+    except (OSError, ValueError):
+        return None
+
+
+def _record_reregistration(record: Path):
+    record.parent.mkdir(parents=True, exist_ok=True)
+    record.write_text(timezone.now().isoformat())
+
+
+def reregister_grid(scope, grid, protocol, rotation:bool=True, method:str='search_mag', content:Union[dict,None]=None) -> bool:
     """Re-registers all targets of a grid after reloading.
 
     method:
@@ -438,6 +463,9 @@ def reregister_grid(scope, grid, protocol, rotation:bool=True, method:str='searc
                 hole-suppressed cross-correlation (v2). Squares are tried in order (the 3 most
                 spread out first) until content['n_anchors'] (default 3) pairs are found.
         'yolo' and 'junk_xcorr' fall back to 'search_mag' if fewer than 2 reliable pairs are obtained.
+
+    Returns whether the grid is now registered, including when there was nothing to register;
+    False means it should be tried again.
     """
     from itertools import combinations
     from Smartscope.lib.mesh_operations import calculate_transformation_matrix, apply_transform
@@ -446,7 +474,7 @@ def reregister_grid(scope, grid, protocol, rotation:bool=True, method:str='searc
     completed_squares = list(grid.squaremodel_set.filter(status=status.COMPLETED))
     if len(completed_squares) < 2:
         logger.info('Not enough completed squares to re-register grid')
-        return
+        return True
     coords = []
     for square in completed_squares:
         finder = square.finders.first()
@@ -488,7 +516,7 @@ def reregister_grid(scope, grid, protocol, rotation:bool=True, method:str='searc
 
     if len(old_positions) == 0:
         logger.warning('Cannot re-register grid: no valid positions returned from re-imaging squares')
-        return
+        return False
 
     calculated_matrix = calculate_transformation_matrix(old_positions, new_positions, rotation=rotation)
     fig = plt.figure(figsize=(8, 8))
@@ -524,3 +552,4 @@ def reregister_grid(scope, grid, protocol, rotation:bool=True, method:str='searc
     with transaction.atomic():
         Finder.objects.bulk_create(finders_to_create)
         logger.info(f'Created {len(finders_to_create)} new finder entries for re-registered targets')
+    return True

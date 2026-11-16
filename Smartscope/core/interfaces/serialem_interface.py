@@ -649,6 +649,9 @@ class SerialemInterface(MicroscopeInterface):
             
             if slot_status == -1:
                 raise ValueError(f'SerialEM return an error when reading slot {position} of the autoloader.')
+            # Tells run_grid whether the grid actually moved, so a grid that was already
+            # on the stage is not re-registered again.
+            self.cartridge_loaded = slot_status == 1
             if slot_status == 1:
                 self.logger.info(f'Autoloader position is occupied')
                 self.logger.info(f'Loading grid {position}')
