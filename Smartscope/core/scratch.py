@@ -5,6 +5,14 @@ from pydantic import BaseModel, field_validator
 import shutil
 import json
 import time
+import logging
+from concurrent.futures import ThreadPoolExecutor
+
+logger = logging.getLogger(__name__)
+
+# Scratch is often a network share where each file costs a round trip; copying in
+# parallel overlaps them.
+COPY_THREADS = 16
 
 from Smartscope.core.settings.worker import SCRATCH_DIR
 
@@ -131,21 +139,51 @@ class Scratch(BaseModel):
         self.save_scratch_history(history)
             
     def copy_to_scratch(self, file_list:List[tuple[Path]], dataset_name:str) -> str:
-        print(file_list)
+        started = time.time()
         dataset_path = self.scratch / dataset_name
-        total_size_mb = self.check_size([file[0] for file in file_list], dataset_name)
-        if not self.is_enough_space(total_size_mb):
-            self.make_space(total_size_mb)
-        print(f'Scratch ready to copy {dataset_name} with size {total_size_mb:.2f} MB')
-        dataset_path.mkdir(parents=True, exist_ok=True)
+        sources = {}
         for file, dest in file_list:
             if not file.exists():
                 raise FileNotFoundError(f"File {file} does not exist.")
-            destination:Path = dataset_path / dest
-            if not destination.parent.exists():
-                destination.parent.mkdir(parents=True, exist_ok=True)
-            # print(f'Copying {file} to {dataset_path / dest}')
-            shutil.copyfile(file, destination)
+            sources[dataset_path / dest] = (file, file.stat())
+        total_size_mb = sum(st.st_size for _, st in sources.values()) / (1024**2)
+        if not self.is_enough_space(total_size_mb):
+            self.make_space(total_size_mb)
+
+        # Each run sends the whole grid, but most files are already on scratch from
+        # earlier runs. One listing per folder tells which, instead of a lookup per file.
+        on_scratch = {}
+        for folder in {destination.parent for destination in sources}:
+            try:
+                with os.scandir(folder) as entries:
+                    for entry in entries:
+                        on_scratch[Path(folder, entry.name)] = entry.stat()
+            except FileNotFoundError:
+                folder.mkdir(parents=True, exist_ok=True)
+
+        def is_current(destination: Path) -> bool:
+            copy = on_scratch.get(destination)
+            source = sources[destination][1]
+            # Copies carry their source's mtime (see copy below), so a rewritten source,
+            # such as a retrained checkpoint, no longer matches. Comparing stamps from the
+            # same server avoids clock differences between it and scratch; the tolerance
+            # covers filesystems that store times coarsely.
+            return (copy is not None and copy.st_size == source.st_size
+                    and abs(copy.st_mtime - source.st_mtime) < 2)
+
+        def copy(destination: Path):
+            source, stat = sources[destination]
+            shutil.copyfile(source, destination)
+            try:
+                os.utime(destination, (stat.st_atime, stat.st_mtime))
+            except OSError:
+                pass  # Only means this file is copied again next time.
+
+        to_copy = [destination for destination in sources if not is_current(destination)]
+        with ThreadPoolExecutor(COPY_THREADS) as pool:
+            list(pool.map(copy, to_copy))
+        logger.info(f'Copied {len(to_copy)} of {len(sources)} files for {dataset_name} to scratch '
+                    f'({total_size_mb:.2f} MB in all) in {time.time() - started:.1f}s')
 
         item = ScratchHistoryItem(
             timestamp=time.strftime("%Y-%m-%d %H:%M:%S"),
