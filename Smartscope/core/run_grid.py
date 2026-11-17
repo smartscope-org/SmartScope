@@ -2,8 +2,6 @@ import os
 import sys
 import time
 import logging
-import numpy as np
-from scipy.spatial.distance import cdist
 from typing import Union
 from pathlib import Path
 from django.utils import timezone
@@ -21,7 +19,7 @@ from .grid.run_io import get_file_and_process
 from .grid.run_hole import RunHole
 from .interfaces.microscope_interface import MicroscopeInterface
 from .selectors import selector_wrapper
-from .models import SquareModel, AutoloaderGrid, Finder, HoleModel
+from .models import SquareModel, AutoloaderGrid
 from .settings.worker import PROTOCOL_COMMANDS_FACTORY
 from .status import status
 from .protocols import get_or_set_protocol
@@ -30,6 +28,7 @@ from .db_manipulations import update, queue_atlas, add_targets
 from .selection.strategies import TARGET_SELECTION_STRATEGIES
 from .navigation import get_queue, get_target_priority, NAVIGATION_STRATEGIES, TargetPriority
 from .stats import count_completed
+from .reregistration.reregister import reregister_if_reloaded
 
 logger = logging.getLogger(__name__)
 
@@ -106,15 +105,7 @@ def run_grid(
             logger.info('Grid was already loaded, keeping its loading time')
     check_stop_flag(session_id)
 
-    needs_reregistations = grid.unloading_time is not None and grid.loading_time > grid.unloading_time
-    reregistration_record = Path(grid.directory, 'reregistration', 'last_reregistration.txt')
-    reregistered_at = _last_reregistration(reregistration_record)
-    if needs_reregistations and reregistered_at is not None and reregistered_at > grid.loading_time:
-        logger.info(f'Grid already re-registered at {reregistered_at:%Y-%m-%d %H:%M:%S} since it was last loaded, skipping')
-    elif needs_reregistations:
-        logger.info('Re-registering grid after re-loading')
-        if reregister_grid(scope, grid, protocol, method=os.getenv('REREGISTRATION_METHOD', 'search_mag')):
-            _record_reregistration(reregistration_record)
+    reregister_if_reloaded(scope, grid, protocol, method=os.getenv('REREGISTRATION_METHOD', 'search_mag'))
 
     SELECTION_STRATEGY = TARGET_SELECTION_STRATEGIES['original']
     NAVIGATION_STRATEGY = NAVIGATION_STRATEGIES['original']
@@ -406,179 +397,3 @@ def runScopeProtocolSteps(
         if output is not None:
             instance = output
     return output
-
-def _reregister_pairs_search_mag(scope, grid, squares):
-    old_positions, new_positions = [], []
-    for square in squares:
-        new_pos = PROTOCOL_COMMANDS_FACTORY['reregisterSearchMag'](scope, grid.params_id, square, {})
-        if new_pos is not None:
-            new_positions.append(new_pos)
-            old_positions.append(square.stage_coords)
-    return old_positions, new_positions
-
-
-def _square_stage_xy(square) -> np.ndarray:
-    finder = square.finders.first()
-    return np.array([finder.stage_x, finder.stage_y], dtype=float)
-
-
-def _reregister_pairs_medium_mag(scope, grid, selected, others, command:str, content:dict):
-    """Runs a medium mag re-registration command (reregisterMediumMagFiducial or
-    reregisterMediumMagJunkXcorr) until content['n_anchors'] (default 3) reliable pairs are
-    collected: first on the selected squares, then on replacements from others. Squares without
-    anchors or with unreliable matches are skipped.
-
-    Each replacement is the square farthest from those already registered, so the pairs stay
-    spread out; nearby pairs leave the rotation of the fit poorly determined."""
-    old_positions, new_positions = [], []
-    n_anchors = content.get('n_anchors', 3)
-    registered = []  # stage positions of the squares that gave a pair
-    tried = []
-    selected = list(selected)
-    remaining = list(others)
-
-    def next_square():
-        if selected:
-            return selected.pop(0)
-        if not remaining:
-            return None
-        reference = registered or tried
-        if not reference:
-            return remaining.pop(0)
-        spread = [min(np.linalg.norm(_square_stage_xy(sq) - p) for p in reference) for sq in remaining]
-        return remaining.pop(int(np.argmax(spread)))
-
-    while len(old_positions) < n_anchors:
-        square = next_square()
-        if square is None:
-            break
-        position = _square_stage_xy(square)
-        tried.append(position)
-        try:
-            pair = PROTOCOL_COMMANDS_FACTORY[command](scope, grid.params_id, square, content)
-        except Exception as err:
-            logger.exception(f'{command} re-registration failed on {square}: {err}')
-            continue
-        if pair is not None:
-            old_positions.append(pair[0])
-            new_positions.append(pair[1])
-            registered.append(position)
-    scope.zero_image_shift()
-    return old_positions, new_positions
-
-
-def _last_reregistration(record: Path):
-    """When the grid was last re-registered, as written to record, or None."""
-    from datetime import datetime
-    try:
-        return datetime.fromisoformat(record.read_text().strip())
-    except (OSError, ValueError):
-        return None
-
-
-def _record_reregistration(record: Path):
-    record.parent.mkdir(parents=True, exist_ok=True)
-    record.write_text(timezone.now().isoformat())
-
-
-def reregister_grid(scope, grid, protocol, rotation:bool=True, method:str='search_mag', content:Union[dict,None]=None) -> bool:
-    """Re-registers all targets of a grid after reloading.
-
-    method:
-        'search_mag': re-centers selected squares at Search mag (low mag).
-        'yolo' and 'junk_xcorr': find a junk anchor on each square image, acquire a medium mag
-                image at its pre-reload stage position and locate it in the square image,
-                'yolo' by matching YOLO junk detections on both images (v1) and 'junk_xcorr' by
-                hole-suppressed cross-correlation (v2). Squares are tried in order (the 3 most
-                spread out first) until content['n_anchors'] (default 3) pairs are found.
-        'yolo' and 'junk_xcorr' fall back to 'search_mag' if fewer than 2 reliable pairs are obtained.
-
-    Returns whether the grid is now registered, including when there was nothing to register;
-    False means it should be tried again.
-    """
-    from itertools import combinations
-    from Smartscope.lib.mesh_operations import calculate_transformation_matrix, apply_transform
-    import matplotlib.pyplot as plt
-    logger.info('Re-registering grid')
-    completed_squares = list(grid.squaremodel_set.filter(status=status.COMPLETED))
-    if len(completed_squares) < 2:
-        logger.info('Not enough completed squares to re-register grid')
-        return True
-    coords = []
-    for square in completed_squares:
-        finder = square.finders.first()
-        coords.append((finder.stage_x, finder.stage_y))
-
-    coords_np = np.asarray(coords, dtype=float)
-    D = cdist(coords_np, coords_np, metric='euclidean')
-
-    if len(completed_squares) >= 3:
-        best = max(
-            combinations(range(len(completed_squares)), 3),
-            key=lambda idx: D[idx[0], idx[1]] + D[idx[0], idx[2]] + D[idx[1], idx[2]]
-        )
-        selected = [completed_squares[k] for k in best]
-        logger.info(f'Using 3 squares for re-registration: {selected}')
-    else:
-        selected = completed_squares
-
-
-    content = content or {}
-    old_positions, new_positions = [], []
-    medium_mag_methods = {
-        'yolo': ('reregisterMediumMagFiducial', 'square junk anchors and YOLO keypoint matching'),
-        'junk_xcorr': ('reregisterMediumMagJunkXcorr', 'square junk anchors and medium mag cross-correlation'),
-    }
-    if method in medium_mag_methods:
-        command, description = medium_mag_methods[method]
-        logger.info(f'Re-registering using {description}')
-        others = [sq for sq in completed_squares if sq not in selected]
-        old_positions, new_positions = _reregister_pairs_medium_mag(scope, grid, selected, others, command, content)
-        if len(old_positions) < 2:
-            logger.warning(f'{method} re-registration produced {len(old_positions)} reliable pair(s), falling back to search mag re-registration.')
-            method = 'search_mag'
-    elif method != 'search_mag':
-        logger.warning(f'Unknown re-registration method {method}, using search_mag.')
-        method = 'search_mag'
-    if method == 'search_mag':
-        old_positions, new_positions = _reregister_pairs_search_mag(scope, grid, selected)
-
-    if len(old_positions) == 0:
-        logger.warning('Cannot re-register grid: no valid positions returned from re-imaging squares')
-        return False
-
-    calculated_matrix = calculate_transformation_matrix(old_positions, new_positions, rotation=rotation)
-    fig = plt.figure(figsize=(8, 8))
-    ax = fig.add_subplot(111)
-    ax.scatter(*zip(*old_positions), color='blue', label='Old Points')
-    ax.scatter(*zip(*new_positions), color='red', label='New Points')
-    transformed_points=  apply_transform(calculated_matrix, old_positions)
-    ax.scatter(*zip(*transformed_points), color='green', label='Transformed Points', marker='x')
-    ax.legend()
-    fig.savefig(Path(grid.directory, 'reregistration_plot.png'))
-    logger.info(f'Re-registration transformation matrix:\n{calculated_matrix}')
-    squares = list(SquareModel.display.filter(grid_id=grid))
-    holes = list(HoleModel.display.filter(grid_id=grid))
-    targets_to_update = squares + holes
-
-    finders_to_create = []
-    for target in targets_to_update:
-        existing_finder = target.finders.order_by('-created_at').first()
-        old_pos = np.array([existing_finder.stage_x, existing_finder.stage_y])
-        new_pos = apply_transform(calculated_matrix, old_pos)
-        finders_to_create.append(
-            Finder(
-                content_object=target,
-                method_name='Registration',
-                x=existing_finder.x,
-                y=existing_finder.y,
-                stage_x=float(new_pos[0]),
-                stage_y=float(new_pos[1]),
-                stage_z=existing_finder.stage_z,
-            )
-        )
-
-    with transaction.atomic():
-        Finder.objects.bulk_create(finders_to_create)
-        logger.info(f'Created {len(finders_to_create)} new finder entries for re-registered targets')
-    return True

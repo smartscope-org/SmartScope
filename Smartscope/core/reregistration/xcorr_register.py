@@ -315,7 +315,9 @@ def register_xcorr(medium_img: np.ndarray, medium_px: float, medium_rot: float,
                    suppress: bool = True, dilate_px: int = 1,
                    lowpass_pitch: float = 0.1, medium_center_px=None,
                    refine: bool = False, refine_radius_pitch: float = 0.4,
-                   refine_lowpass_pitch: float = 0.02, local_threshold: bool = False) -> dict:
+                   refine_lowpass_pitch: float = 0.02, local_threshold: bool = False,
+                   lattice_subtract: bool = False, highpass_pitch: float = 1.0,
+                   lattice_notch_px: float = 2.0) -> dict:
     """Finds where the center of ``medium_img`` lies in ``square_img``.
 
     Parameters
@@ -362,14 +364,19 @@ def register_xcorr(medium_img: np.ndarray, medium_px: float, medium_rot: float,
     window, M = extract_rotated_window(square_img, expected_px, (win_w, win_h), delta,
                                        center_uv=center_t + max_shift_px)
 
-    if suppress:
+    if lattice_subtract:
+        template_p = bandpass(remove_lattice(template, pitch_px, notch_px=lattice_notch_px), pitch_px,
+                              lowpass_pitch, highpass_pitch)
+        window_p = bandpass(remove_lattice(window, pitch_px, notch_px=lattice_notch_px), pitch_px,
+                            lowpass_pitch, highpass_pitch)
+    elif suppress:
         template_p = suppress_holes(template, pitch_px, dilate_px=dilate_px, lowpass_pitch=lowpass_pitch,
                                     local_threshold=local_threshold)
         window_p = suppress_holes(window, pitch_px, dilate_px=dilate_px, lowpass_pitch=lowpass_pitch,
                                   local_threshold=local_threshold)
     else:
-        template_p = bandpass(template, pitch_px, lowpass_pitch)
-        window_p = bandpass(window, pitch_px, lowpass_pitch)
+        template_p = bandpass(template, pitch_px, lowpass_pitch, highpass_pitch)
+        window_p = bandpass(window, pitch_px, lowpass_pitch, highpass_pitch)
 
     ncc = cv2.matchTemplate(window_p.astype(np.float32), template_p.astype(np.float32), cv2.TM_CCOEFF_NORMED)
     ncc = np.nan_to_num(ncc)
@@ -391,7 +398,10 @@ def register_xcorr(medium_img: np.ndarray, medium_px: float, medium_rot: float,
     center_uv = np.array([sx, sy]) + center_t
     found_px = window_to_square(M, center_uv)
     margin = peak - second
-    accepted = bool(peak >= min_ncc and margin >= min_margin)
+    # A maximum on the border of the NCC map is not a match: the true position is outside the
+    # search window (or there is none). Those are never accepted nor used as candidates.
+    on_boundary = bool(ix <= 1 or iy <= 1 or ix >= ncc.shape[1] - 2 or iy >= ncc.shape[0] - 2)
+    accepted = bool(peak >= min_ncc and margin >= min_margin and not on_boundary)
 
     refinement = None
     if refine:
@@ -435,6 +445,7 @@ def register_xcorr(medium_img: np.ndarray, medium_px: float, medium_rot: float,
         'second_peak': second,
         'margin': margin,
         'accepted': accepted,
+        'on_boundary': on_boundary,
         'peak_loc': (int(ix), int(iy)),
         'second_loc': second_loc,
         'pitch_px': pitch_px,
@@ -448,6 +459,45 @@ def register_xcorr(medium_img: np.ndarray, medium_px: float, medium_rot: float,
         'center_t': center_t,
         'mode': 'full',
     }
+
+
+def remove_lattice(img: np.ndarray, pitch_px: float, notch_px: float = 2.0, min_freq_frac: float = 0.6,
+                   threshold: float = 1.5) -> np.ndarray:
+    """Subtracts the periodic hole lattice, keeping what differs from hole to hole.
+
+    The lattice is a set of sharp peaks in the Fourier transform (fundamentals at 1/pitch and
+    their harmonics). They are found as local maxima of the log power spectrum standing
+    ``threshold`` (natural log) above its smoothed background, at frequencies at least
+    ``min_freq_frac`` of the fundamental, and zeroed over a disc of ``notch_px`` Fourier pixels.
+    A narrow notch removes only what repeats across the whole image (the average unit cell); hole
+    to hole variations (ice, broken holes, contamination) spread around the peaks and stay.
+    """
+    from scipy import ndimage
+    a = img.astype(np.float32)
+    a = a - float(a.mean())
+    h, w = a.shape
+    # Peaks are detected on a tapered copy (the image borders would add streaks along the axes),
+    # the notch is applied to the untapered image.
+    taper = np.outer(np.hanning(h), np.hanning(w)).astype(np.float32)
+    P = np.log(np.abs(np.fft.fft2(a * taper)) + 1e-6)
+    P = np.fft.fftshift(P)
+    bg = ndimage.uniform_filter(ndimage.median_filter(P, size=9), size=9)
+    excess = P - bg
+    local_max = excess == ndimage.maximum_filter(excess, size=5)
+    yy, xx = np.mgrid[0:h, 0:w]
+    fy, fx = (yy - h // 2) / h, (xx - w // 2) / w
+    freq = np.hypot(fx, fy)
+    peaks = local_max & (excess > threshold) & (freq >= min_freq_frac / pitch_px)
+    mask = ndimage.binary_dilation(peaks, structure=_disc(notch_px))
+    F = np.fft.fftshift(np.fft.fft2(a))
+    F[mask] = 0
+    return np.real(np.fft.ifft2(np.fft.ifftshift(F))).astype(np.float32)
+
+
+def _disc(r: float) -> np.ndarray:
+    n = int(np.ceil(r))
+    yy, xx = np.mgrid[-n:n + 1, -n:n + 1]
+    return xx ** 2 + yy ** 2 <= r ** 2
 
 
 def bandpass(img: np.ndarray, pitch_px: float, lowpass_pitch: float = 0.1, highpass_pitch: float = 1.0) -> np.ndarray:

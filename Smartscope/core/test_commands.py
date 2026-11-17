@@ -405,7 +405,7 @@ def _simulate_anchor_reregistration(hole_id, register_fn, describe, output_dir='
     import numpy as np
     from Smartscope.core.models import HoleModel
     from Smartscope.lib.image.montage import Montage
-    from Smartscope.core.protocol_commands import find_square_junk_anchors
+    from Smartscope.core.reregistration.reregister import find_square_junk_anchors
     from Smartscope.core.reregistration.xcorr_register import rotation_matrix, medium_to_square_rotation
 
     content = json.loads(content) if isinstance(content, str) else (content or {})
@@ -507,7 +507,7 @@ def test_reregister_yolo(hole_id, output_dir='.', offsets='0,0', content=None,
                          anchor_x=None, anchor_y=None, fov_pitches=8):
     """Offline test of the v1 'yolo' re-registration (YOLO keypoint matching at a junk anchor).
     See _simulate_anchor_reregistration. Requires the SmartscopeAI celery worker."""
-    from Smartscope.core.protocol_commands import register_medium_to_square
+    from Smartscope.core.reregistration.reregister import register_medium_to_square
     _simulate_anchor_reregistration(
         hole_id, register_medium_to_square,
         lambda r: (f'{r["quality"]} ({r["transform_used"]}) det {r["n_detections_h"]}/{r["n_detections_sq"]} '
@@ -519,7 +519,7 @@ def test_reregister_xcorr(hole_id, output_dir='.', offsets='0,0', content=None,
                           anchor_x=None, anchor_y=None, fov_pitches=8):
     """Offline test of the v2 'junk_xcorr' re-registration (cross-correlation at a junk anchor).
     See _simulate_anchor_reregistration. Requires the SmartscopeAI celery worker for anchors."""
-    from Smartscope.core.protocol_commands import register_medium_to_square_xcorr
+    from Smartscope.core.reregistration.reregister import register_medium_to_square_xcorr
     _simulate_anchor_reregistration(
         hole_id, register_medium_to_square_xcorr,
         lambda r: f'peak {r["peak"]:.3f} margin {r["margin"]:.3f}',
