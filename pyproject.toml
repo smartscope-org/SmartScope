@@ -60,6 +60,7 @@ dependencies = [
     "pyjwt>=2.10.1",
     "globus-sdk>=4.4.1",
     "globus-compute-sdk>=4.8.0",
+    "starfile>=0.5.13",
 ]
 
 

@@ -148,7 +148,7 @@ def run_grid(
             montage = Montage(name=atlas.name)
             montage.load_or_process()
         selector_wrapper(protocol.atlas.targets.selectors, atlas, montage=montage)
-        SimSiamEmbedding().run(mag_level='square', grid_id=grid.grid_id)
+        # SimSiamEmbedding().run(mag_level='square', grid_id=grid.grid_id)
         selection_strategy = SELECTION_STRATEGY(n_targets=params.squares_num)
         selected = selection_strategy.select(atlas)
         print(f'Selected {len(selected)} targets from atlas')
