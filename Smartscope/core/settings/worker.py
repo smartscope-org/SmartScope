@@ -44,6 +44,9 @@ PROTOCOL_COMMANDS_FACTORY = get_protocol_commands(EXTERNAL_PLUGINS_LIST)
 DEFAULT_PREPROCESSING_PIPELINE = [ SMARTSCOPE_CUSTOM_CONFIG / 'default_preprocessing.json', SMARTSCOPE_DEFAULT_CONFIG / 'default_preprocessing.json' ]
 NEXTPYP_PREPROCESSING_PIPELINE = [ SMARTSCOPE_CUSTOM_CONFIG / 'nextpyp_preprocessing.json', SMARTSCOPE_DEFAULT_CONFIG / 'nextpyp_preprocessing.json' ]
 
+NEXTPYP_HOST_ROOT = os.environ.get("NEXTPYP_HOST_ROOT", "/way/to/nextpyp/shared/sessions/")
+NEXTPYP_CONTAINER_ROOT = "/mnt/nextpyp_sessions/"
+
 FORCE_MDOC_TARGETING = eval(os.getenv('FORCE_MDOC_TARGETING','False'))
 SKIP_WEBSOCKET_DURING_DATACOLLECTION = eval(os.getenv('SKIP_WEBSOCKET_DURING_DATACOLLECTION','False'))
 

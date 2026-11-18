@@ -1,3 +1,4 @@
+from pathlib import Path
 from django.http import HttpResponse
 from django.conf import settings
 from django.contrib.auth.models import User, Group
@@ -18,6 +19,7 @@ from Smartscope.core.db_manipulations import update_target_selection, update_tar
 from Smartscope.core.main_commands import list_plugins, reload_plugins, list_protocols, reload_protocols
 from Smartscope.core.protocols import load_protocol
 from Smartscope.core.preprocessing_pipelines import load_preprocessing_pipeline
+from Smartscope.core.navigation import NAVIGATION_STRATEGIES, load_navigation_strategy
 from Smartscope.core.models import *
 from .serializers import *
 
@@ -295,6 +297,8 @@ class ReportPanel(APIView):
             context['protocol'] = protocol.name
             pipeline_data = load_preprocessing_pipeline(Path(grid.directory, 'preprocessing.json'))
             context['pipeline'] = PREPROCESSING_PIPELINE_FACTORY[pipeline_data.pipeline].verbose_name
+            strategy_name = load_navigation_strategy(Path(grid.directory, 'navigation.json'))
+            context['navigation_strategy'] = getattr(NAVIGATION_STRATEGIES[strategy_name], 'verbose_name', strategy_name)
             context['useMicroscope'] = settings.USE_MICROSCOPE
             try:
                 context['atlas_id'] = context['grid'].atlasmodel_set.all().first().atlas_id
