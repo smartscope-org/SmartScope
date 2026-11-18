@@ -1,6 +1,6 @@
 <select name="tag" id="tag"
     class="form-control"
-    hx-post="{% url 'addSampleTypeTag' grid_id=grid_id %}"  
+    hx-post="{% url post_url grid_id=grid_id %}"  
     hx-swap="innerHTML"
     hx-trigger="change"
     >

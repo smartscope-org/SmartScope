@@ -75,13 +75,16 @@ class SerialemInterface(MicroscopeInterface):
         sem.SetBinning('S', int(binning))
         self.logger.info(f'Eucentric heigh done, setting Search binning back to {binning}.')
     
-    def eucentric_height_after_distance(self, tilt_to:int=10, increments:int=-5, max_movement:int=200, distance_threshold:int=400):
+    def eucentric_height_after_distance(self, distance_threshold:int=400, method:str='eucentricHeight'):
         last_eucentric_height_distance = self.state.get_last_eucentric_distance()
         if last_eucentric_height_distance < distance_threshold:
             self.logger.info(f'Last eucentric height distance was {last_eucentric_height_distance} um (Threshold {distance_threshold} um), skipping eucentric height by tilt.')
             return
         self.logger.info(f'Last eucentric height distance was {last_eucentric_height_distance} um (Threshold {distance_threshold} um), running eucentric height by tilt.')
-        self.eucentricHeight(tilt_to, increments, max_movement)
+        methods = {'eucentricHeight': self.eucentricHeight, 
+                    'eucentricity_by_focus': self.eucentricity_by_focus, 
+                    'eucentricity_by_beam_tilt': self.eucentricity_by_beam_tilt}
+        methods[method]()
 
     def eucentricity_by_beam_tilt(self, max_movement:int=200, beam_tilt_angle:int=2):
         binning = sem.ReportBinning('V')
@@ -205,6 +208,10 @@ class SerialemInterface(MicroscopeInterface):
         self.logger.info(f'Resetting stage to center.')
         sem.TiltTo(0)
         sem.MoveStageTo(0,0,0)
+        
+    def delay(self, delay:int=1, units:str='s'):
+        self.logger.info(f'Delaying for {delay} {units}')
+        sem.Delay(delay, units)
 
     def remove_slit(self):
         if not self.detector.energyFilter:
@@ -544,9 +551,44 @@ class SerialemInterface(MicroscopeInterface):
             """
         )
         sem.ConnectToSEM(self.microscope.port, self.microscope.ip)
+        self.start_live_view()
         sem.SetDirectory(self.microscope.directory)
         sem.ClearPersistentVars()
         sem.AllowFileOverwrite(1)
+
+    def start_live_view(self):
+        """Has SerialEM share each new image and start the watcher that publishes
+        them for the web UI. Set live_view to false in the microscope's settings
+        file to leave it off.
+
+        Never raises: the live view must not keep a session from starting.
+        """
+        try:
+            from Smartscope.core.live_view import install_watcher
+            settings = self.additional_settings or {}
+            enabled = settings.get('live_view', True) if isinstance(settings, dict) else getattr(settings, 'live_view', True)
+            if not enabled:
+                return
+            # Older versions answer an unknown property with a message box.
+            if not sem.IsVersionAtLeast('40300', '20260304'):
+                logger.info('Live view is off: it needs a SerialEM 4.3 beta built on or after 4 March 2026.')
+                return
+            # SerialEM writes its image list where it was started, which is only
+            # readable before SetDirectory and is usually where the settings file is.
+            started_in = [sem.ReportDirectory()]
+            try:
+                settings_file = sem.ReportSettingsFile()
+                if not isinstance(settings_file, str):
+                    settings_file = settings_file[0]
+                started_in.append(str(PureWindowsPath(settings_file).parent))
+            except Exception as err:
+                logger.debug(f'Could not read the SerialEM settings file location: {err}')
+            watcher = install_watcher(self.microscope.scopePath, self.microscope.directory, started_in)
+            sem.SetProperty('SaveNewImageToShrMem', 1)
+            sem.CreateProcess(watcher)
+            logger.info(f'Live view started with {watcher}')
+        except Exception as err:
+            logger.warning(f'Could not start the live view: {err}')
 
     def setup(self, saveframes:bool, frames_dir:str='', framesName=None):
         if saveframes:
@@ -607,6 +649,9 @@ class SerialemInterface(MicroscopeInterface):
             
             if slot_status == -1:
                 raise ValueError(f'SerialEM return an error when reading slot {position} of the autoloader.')
+            # Tells run_grid whether the grid actually moved, so a grid that was already
+            # on the stage is not re-registered again.
+            self.cartridge_loaded = slot_status == 1
             if slot_status == 1:
                 self.logger.info(f'Autoloader position is occupied')
                 self.logger.info(f'Loading grid {position}')
@@ -787,9 +832,9 @@ class SerialemInterface(MicroscopeInterface):
         y_size_um = y_size * pixel_size / 1000
         return x_size_um, y_size_um
     
-    def set_medium_mag_size_mini_montage(self, hole_pitch_um:float=2.5):
+    def set_medium_mag_size_mini_montage(self, hole_pitch_um:float=2.5, n_pitches:float=4):
         x_size_um, y_size_um = self.check_medium_mag_size(hole_pitch_um)
-        size_to_set_um = hole_pitch_um * 4
+        size_to_set_um = hole_pitch_um * n_pitches
         num_tiles_x = max(1, math.ceil(size_to_set_um / x_size_um))
         num_tiles_y = max(1, math.ceil(size_to_set_um / y_size_um))
         self.logger.info(f'Medium mag FoV is {x_size_um:.2f} x {y_size_um:.2f} um. Mini montage size: {num_tiles_x} x {num_tiles_y} tiles.')

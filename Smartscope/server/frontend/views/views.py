@@ -29,6 +29,9 @@ from Smartscope.core.grid.run_hole import RunHole
 from Smartscope.core.cache import save_json_from_cache
 from Smartscope.core.protocols import load_protocol, set_protocol
 from Smartscope.core.preprocessing_pipelines import PREPROCESSING_PIPELINE_FACTORY, load_preprocessing_pipeline
+from Smartscope.server.service.collection_params import update_collection_params, update_grid
+from Smartscope.core.settings.worker import COLLECTION_PARAMETERS
+from Smartscope.lib.Datatypes.base_collection_params import Property
 
 from Smartscope.core.models.grid import AutoloaderGrid
 from Smartscope.core.models.grid_collection_params import GridCollectionParams
@@ -62,6 +65,13 @@ class AutoScreenViewer(LoginRequiredMixin, TemplateView):
     template_name = "autoscreenViewer/auto_screen_viewer.html"
     login_url = '/login'
     redirect_field_name = 'redirect_to'
+    def get_context_data(self, **kwargs):
+          context = super().get_context_data(**kwargs)
+          from Smartscope.core.models.tags import SampleTypeTag, ProjectTag
+          context['sample_type_tags'] = SampleTypeTag.objects.all()
+          context['project_tags'] = ProjectTag.objects.filter(
+              group_name__in=self.request.user.groups.values_list('name', flat=True))
+          return context
 
 class AutoScreenSetup(LoginRequiredMixin, TemplateView):
     template_name = "smartscopeSetup/run_setup.html"
@@ -73,6 +83,8 @@ class AutoScreenSetup(LoginRequiredMixin, TemplateView):
         if not 'form_general' in kwargs.keys():
             form_general = ScreeningSessionForm()
             form_params = GridCollectionParamsForm()
+            extra_params, _ = COLLECTION_PARAMETERS.get_collection_params("")
+            form_params = form_auxiliary_update(form_params, extra_params)
             form_preprocess = PreprocessingPipelineIDForm()
         else:
             form_general = kwargs['form_general']
@@ -97,9 +109,9 @@ class AutoScreenSetup(LoginRequiredMixin, TemplateView):
         form_preprocess = PreprocessingPipelineIDForm(request.POST)
         if not is_viewer_only:
             num_grids = set([k.split('-')[0] for k in request.POST.keys() if k.split('-')[0].isnumeric()])
-
             if form_general.is_valid() and form_params.is_valid() and form_preprocess.is_valid():
                 mode = form_general.cleaned_data.pop('mode','screening')
+                preset = form_general.cleaned_data.pop('preset', '')
                 session, created = ScreeningSession.objects.get_or_create(
                     **form_general.cleaned_data,
                     date=datetime.today().strftime('%Y%m%d')
@@ -136,8 +148,7 @@ class AutoScreenSetup(LoginRequiredMixin, TemplateView):
 
                 return redirect(f'../session/{session.session_id}')
 
-        context = self.get_context_data(form_general=form_general, form_params=form_params)
-
+        context = self.get_context_data(form_general=form_general, form_params=form_params, form_preprocess=form_preprocess)
         return render(request, self.template_name, context)
 
 
@@ -304,21 +315,27 @@ class MultiShotView(TemplateView):
     login_url = '/login'
     redirect_field_name = 'redirect_to'
 
-    def get_context_data(self,grid_id,**kwargs):
+    def get_context_data(self, grid_id, initials={}, **kwargs):
         context = super().get_context_data(**kwargs)
-        context['form'] = SetMultiShotForm()
+        context['form'] = SetMultiShotForm(initial=initials)
         context['current'] = None
         if grid_id is not None:
             grid = AutoloaderGrid.objects.get(grid_id=grid_id)
             mutlishot_file = Path(grid.directory,'multishot.json')
             multishot = RunHole.load_multishot_from_file(mutlishot_file)
-            context['current'] = multishot
-            logger.debug(f'MultiShotViewGrid with {grid_id}')
+            if multishot:
+                context['current'] = multishot
+                context['form'] = SetMultiShotForm(initial=multishot.params.model_dump())
+                logger.debug(f'MultiShotViewGrid with {grid_id}')
         return context
     
-    def get(self,request, *args, grid_id=None, **kwargs):
-        context = self.get_context_data(grid_id=grid_id,**kwargs)
-
+    def get(self,request, *args, **kwargs):
+        grid_id = request.GET.get('grid_id')
+        initials = {}
+        if request.GET and grid_id is None:
+            initials = request.GET
+        context = self.get_context_data(grid_id=grid_id, initials=initials, **kwargs)
+        logger.debug(f"Multishot initials {initials}, request query params {request.GET}")
         return render(request,self.template_name, context)
     
     def post(self, request, *args, **kwargs):
@@ -345,8 +362,7 @@ class MultiShotView(TemplateView):
                     cache.set(shot.cache_id,shot.json(exclude={'cache_id'}),timeout=30*60)
                     results.append(shot) 
                 logger.debug(results)
-                context={'results':results}
-                      
+                context={'results':results} 
                 return render(request,template_name=self.results_template,context=context)  
             
             return HttpResponse("<div>INVALID!</div>")
@@ -365,6 +381,7 @@ class ProtocolView(TemplateView):
         context['protocol'] = protocol
         context['protocolDetails'] = yaml.dump(context['protocol'].dict())
         context['form'] = SelectProtocolForm(dict(protocol=protocol.name))
+        context['modal_title'] = "Protocol Details"
         return context
     
     def get(self,request, grid_id, *args, **kwargs):
@@ -381,7 +398,9 @@ class ProtocolView(TemplateView):
                 protocol = set_protocol(data['protocol'],context['grid'].protocol)
                 context = self.get_context_data(grid_id, **kwargs)
                 context['success'] = True
-                return render(request,self.template_name, context) 
+                response = render(request,self.template_name, context) 
+                response["HX-Trigger"] = json.dumps({'protocolSelected': {'label': context['protocol'].name},})
+                return response 
             return HttpResponse("<div>INVALID!</div>")
         except Exception as err:
             logger.exception(err)
@@ -389,7 +408,7 @@ class ProtocolView(TemplateView):
         
 class MicroscopeStatus(TemplateView):
     template_name= "autoscreenViewer/microscopes_status.html"
-    template_full_name="autoscreenViewer/auto_screen_viewer.html"
+    # template_full_name="autoscreenViewer/auto_screen_viewer.html"
 
     def get_context_data(self,*args, **kwargs):
         context = super().get_context_data(**kwargs)
@@ -399,13 +418,109 @@ class MicroscopeStatus(TemplateView):
     
     def get(self,request, *args, **kwargs):
         context = self.get_context_data(*args, **kwargs)
-        if request.headers.get('HX-Request'):
-            return render(request, self.template_name, context)
-        return render(request, self.template_full_name, {'initial_partial': self.template_name, **context})
+        # if request.headers.get('HX-Request'):
+        #     return render(request, self.template_name, context)
+        return render(request, self.template_name, context)
+    
+
+class CollectionParams(TemplateView):
+    template_name= "smartscopeSetup/collection_parameters.html"
+    template_form= "forms/formFieldsBase.html"
+    template_form_extended= "forms/expand_form.html"
+
+    def get_context_data(self, grid_id, **kwargs):
+        context = dict()
+        grid = AutoloaderGrid.objects.get(pk=grid_id)
+        context['grid'] = grid
+        context['gridform'] = AutoloaderGridReportForm(instance=grid)
+        collection_params_form = GridCollectionParamsForm(
+                                                            instance=grid.params_id, 
+                                                            grid_id=grid.grid_id, 
+                                                        )
+        extra_params, _ = COLLECTION_PARAMETERS.get_collection_params(
+                                                                        "", 
+                                                                        detector_id=grid.session_id.detector_id, 
+                                                                        mode=grid.collection_mode
+                                                                    )
+        # logger.debug(f"Collection parameters {extra_params}")
+        context['gridCollectionParamsForm'] = form_auxiliary_update(collection_params_form, extra_params)
+        context['values'] = json.dumps({'grid_id': grid_id})
+        context['modal_title'] = "Collection Parameters"
+        context['modal_size'] = "modal-xl"
+        return context
+    
+    def get(self, request, grid_id, **kwargs):
+        context = self.get_context_data(grid_id, **kwargs)
+        return render(request, self.template_name, context)
+    
+    def post(self, request, grid_id):
+        form_type = request.POST.get("form_type")
+        if form_type == 'grid':
+            form_params = AutoloaderGridReportForm(request.POST)
+            template = self.template_form
+            extra_context= {}
+            
+        elif form_type == 'collection_params':
+            grid = AutoloaderGrid.objects.get(pk=grid_id)
+            form_params = GridCollectionParamsForm(request.POST)
+            extra_params, _ = COLLECTION_PARAMETERS.get_collection_params(
+                                                                        "", 
+                                                                        detector_id=grid.session_id.detector_id, 
+                                                                        mode=grid.collection_mode
+                                                                    )
+            form_params = form_auxiliary_update(form_params, extra_params)
+            template = self.template_form_extended
+            extra_context = {
+                        'trigger': 'multishot_per_hole',
+                        'id': 'formParamsEdit',
+                        'url': reverse('setMultishot'),
+                        'values': json.dumps({'grid_id': grid_id})
+                    }
+            
+        context = {
+            'form': form_params,
+            'row': True,
+            'includeSubmitButton': True
+            }
+        if form_params.is_valid():
+            data = form_params.cleaned_data
+            result = self.update_params(request, data, grid_id, form_type)
+            context.update({'success': result['success'], **extra_context})
+        return render(request, template, context)
+    
+    def update_params(self, request, data, grid_id, form_type):
+        # here the custom logic can be applied. If we want to call external app, call it here, otherwise 
+        # use internal tool to make an update
+        grid = AutoloaderGrid.objects.get(pk=grid_id)
+        if form_type == 'collection_params':
+            result = update_collection_params(grid, data)
+        elif form_type == 'grid':
+            result = update_grid(grid, data)
+        return result
+
+        # uri = f'/api/grids/{grid_id}/'  -- form_type == 'grid'
+        # uri = f'/api/grids/{grid_id}/editcollectionparams/'  --  form_type == 'collection_params'
+        # url = request.build_absolute_uri(uri)
+        # data.pop('multishot_per_hole_id')
+        # logger.debug(data)
+        # response = requests.patch(
+        #                             url, 
+        #                             json=data, 
+        #                             headers={
+        #                                 'Content-Type': 'application/json',
+        #                                 'Accept': 'application/json',
+        #                                 'mode': 'same-origin',
+        #                                 'X-CSRFToken': request.COOKIES.get('csrftoken', ''),
+        #                             },
+        #                             cookies=request.COOKIES,
+        #                         )
+        # logger.debug(response.ok)
+        # return {'success': response.ok, 'data': response.json()}
 
     
 class PreprocessingPipeline(TemplateView):
     template_name= "smartscopeSetup/preprocessing/preprocessing_pipeline.html"
+    template_name_modal = "smartscopeSetup/preprocessing/preprocessing_pipeline_modal.html"
 
     def get(self,request, *args, **kwargs):
         context = self.get_context_data(**kwargs)
@@ -427,12 +542,13 @@ class PreprocessingPipeline(TemplateView):
         context['pipeline'] = pipeline_data.pipeline
         context['description'] = pipeline.description
         context['pipeline_data'] = pipeline_data
+        context['modal_title'] = "Preprocessing Pipeline"
         return context
 
-    def get_grid_pipeline(self, request, *args ,grid_id, **kwargs):
+    def get_grid_pipeline(self, request, grid_id, success=False, **kwargs):
         context = self.get_grid_context_data(grid_id)
-        return render(request,self.template_name, context)
-
+        context["success"] = success
+        return render(request,self.template_name_modal, context)
     
     def get_pipeline(self, request, *args, **kwargs,):
         try:
@@ -450,7 +566,7 @@ class PreprocessingPipeline(TemplateView):
             context['pipeline'] = pipeline
             context['description'] = pipeline_obj.description
             context['form'] = pipeline_obj.form()
-            # context['grid_id'] = None
+            context['grid_id'] = request.GET.get('grid_id', None)
             return TemplateResponse(request=request,template="smartscopeSetup/preprocessing/preprocessing_pipeline_form.html",context=context)
         except Exception as err:
             logger.exception(err)
@@ -467,34 +583,41 @@ class PreprocessingPipeline(TemplateView):
                     cache.set(pipeline_data.cache_id,pipeline_data.json(exclude={'cache_id'}),timeout=30*60)
                     logger.debug(pipeline_data)
                     return TemplateResponse(request=request,
-                                            template='forms/formFieldsBase.html',
-                                            context=dict(form=PreprocessingPipelineIDForm(data=dict(preprocessing_pipeline_id=pipeline_data.cache_id)), 
-                                                                                        row=True, 
-                                                                                        id='formPreprocess'))
+                                            template='forms/expand_form.html',
+                                            context=dict(form=PreprocessingPipelineIDForm(data=dict(preprocessing_pipeline=True, preprocessing_pipeline_id=pipeline_data.cache_id)), 
+                                                        row=True, 
+                                                        id='formPreprocess',
+                                                        trigger='preprocessing_pipeline',
+                                                        url=reverse('preprocessingPipeline')
+                                                        ))
                 context = self.get_grid_context_data(grid_id)
                 pipeline_data.process_pid = context['pipeline_data'].process_pid
                 Path(context['grid'].directory,'preprocessing.json').write_text(pipeline_data.json(exclude={'cache_id'}))
                 logger.info('Updated pipeline for existing grid')
-                return self.get_grid_pipeline(request, grid_id=grid_id)
+                response = self.get_grid_pipeline(request, grid_id=grid_id, success=True)
+                response["HX-Trigger"] = json.dumps({
+                                                    'pipelineSelected': {'label': PREPROCESSING_PIPELINE_FACTORY[pipeline].verbose_name},
+                                                })
+                return response
         except Exception as err:
             logger.exception(err)
 
     def start(self, request, grid_id, *args, **kwargs):
         context = self.get_grid_context_data(grid_id)
         context['pipeline_data'].start(context['grid'])
-        return self.get_grid_pipeline(request,grid_id=grid_id)
+        return self.get_grid_pipeline(request, grid_id=grid_id)
 
     def stop(self, request, grid_id, *args, **kwargs):
         context = self.get_grid_context_data(grid_id)
         context['pipeline_data'].stop(context['grid'])
-        return self.get_grid_pipeline(request,grid_id=grid_id)
+        return self.get_grid_pipeline(request, grid_id=grid_id)
 
 class CollectionStatsView(TemplateView):
     template_name = "autoscreenViewer/collection_stats.html"
 
     def ctfGraph(self,grid_id):
         ### NEED TO MOVE THE GRAPHING LOGIC OUTSIDE OF HERE
-        all_data = list(HighMagModel.objects.filter(status='completed', grid_id=grid_id).order_by('completion_time').values_list('ctffit', flat=True)) # replace with your own data source
+        all_data = list(HighMagModel.objects.filter(status='completed', grid_id=grid_id, ctffit__isnull=False).order_by('completion_time').values_list('ctffit', flat=True)) # replace with your own data source
         graph = plot_histogram(
             all_data,
             15,
@@ -531,7 +654,7 @@ def getUsersInGroup(request):
     if group is None:
         return HttpResponse('Group not specified')
     users = User.objects.filter(groups__name=group)
-    options = [{"value":u.username,"field":u.username} for u in users] 
+    options = [{"value": None, "field": "----------"}] + [{"value":u.username,"field":u.username} for u in users]
 
     return render(request, "general/options_fields.html", {"options": options})
 
@@ -543,13 +666,35 @@ def getMicroscopeDetectors(request):
     options = [{"value":d.pk,"field":d} for d in detectors]
     return render(request, "general/options_fields.html", {"options": options})
 
+def getSetsNames(request):
+    logger.debug(f"Request: {request.GET}")
+    group = request.GET.get('group', '')
+    detector_id = request.GET.get('detector_id', 'default')
+    mode = request.GET.get('mode', 'screening')
+    logger.debug(f"Parameters received: {group} {detector_id} {mode}")
+    preset_names = COLLECTION_PARAMETERS.get_presets(group, detector_id=detector_id, mode=mode)
+    options = [{"value":d,"field":d.capitalize()} for d in ['default'] + preset_names]
+    return render(request, "general/options_fields.html", {"options": options})
+
 def getCollectionParamsForm(request):
-    detector_id = request.GET.get('detector_id','')
-    mode = request.GET.get('mode','screening')
-    if detector_id == '':
-        return HttpResponse('Detector not specified')
-    form = GridCollectionParamsForm(initial={'detector': detector_id, 'mode': mode})
-    return TemplateResponse(request=request,template="forms/formFieldsBase.html",context=dict(form=form, row=True, id='formParams'))
+    group = request.GET.get('group', '')
+    detector = request.GET.get('detector_id', '')
+    mode = request.GET.get('mode', 'screening')
+    preset = request.GET.get('preset',' default')
+    extra_params, initials_values = COLLECTION_PARAMETERS.get_collection_params(group, detector_id=detector, mode=mode, name=preset)
+    logger.debug(f"Collection parameters {extra_params}")
+    form = GridCollectionParamsForm(initial=initials_values)
+    form_update = form_auxiliary_update(form, extra_params)
+    context = dict(form=form_update, row=True, id='formParams', trigger='multishot_per_hole', url=reverse('setMultishot'))
+    if initials_values.get("multishot_per_hole", False):
+        multishot_properties = extra_params.get("multishot_per_hole").bound_form_params
+        # multishot_properties['multishot_initials'] = True
+        context['values'] = json.dumps(multishot_properties)
+    return TemplateResponse(
+                            request=request, 
+                            template="forms/expand_form.html",
+                            context=context
+                            )
 
 
 def targetHistory(request, grid_id):
@@ -563,6 +708,62 @@ def targetHistory(request, grid_id):
     target_history.get_next_targets()
     return render(request, "autoscreenViewer/target_history.html", {"target_history": target_history})
 
+def _live_view_microscope(request, grid_id):
+    """The microscope a grid was collected on, for users allowed to see that grid."""
+    user = request.user
+    if not user.is_authenticated:
+        return None
+    grid = AutoloaderGrid.objects.select_related('session_id__microscope_id', 'session_id__group').filter(pk=grid_id).first()
+    if grid is None:
+        return None
+    if not user.is_staff and not user.groups.filter(pk=grid.session_id.group.pk).exists():
+        return None
+    return grid.session_id.microscope_id
+
+
+def microscopeLiveView(request, grid_id):
+    from Smartscope.core import live_view
+
+    microscope = _live_view_microscope(request, grid_id)
+    if microscope is None:
+        return HttpResponse(status=403)
+    live = live_view.read_frames(microscope.pk, microscope.scope_path)
+    frames = live['frames'] if live else []
+    latest = frames[-1] if frames else None
+    idle_minutes = int(live['age'] // 60) if live and live['age'] is not None else 0
+    stopped = live is not None and live['running'] is False
+    # The panel polls with what it is showing; leaving it alone avoids redrawing the same image.
+    shown = f"{latest['sequence'] if latest else ''}.{idle_minutes}.{int(stopped)}"
+    if request.GET.get('shown') == shown:
+        return HttpResponse(status=204)
+    context = dict(
+        grid_id=grid_id,
+        latest=latest,
+        previous=frames[-2:-8:-1],
+        idle_minutes=idle_minutes,
+        stopped=stopped,
+        shown=shown,
+        watcher_found=live is not None,
+    )
+    return render(request, "autoscreenViewer/microscope_live_view.html", context)
+
+
+def microscopeLiveFrame(request, grid_id, name):
+    from django.http import FileResponse
+    from Smartscope.core import live_view
+
+    microscope = _live_view_microscope(request, grid_id)
+    if microscope is None:
+        return HttpResponse(status=403)
+    frame = live_view.frame_file(microscope.scope_path, name)
+    if frame is None:
+        return HttpResponse(status=404)
+    response = FileResponse(open(frame, 'rb'), content_type='image/jpeg')
+    # Frame names are never reused.
+    response['Cache-Control'] = 'private, max-age=3600, immutable'
+    return response
+
+
 def deleteSquares(request, grid_id):
     if request.method != 'POST':
         return HttpResponse('Invalid request method')
@@ -572,3 +773,28 @@ def deleteSquares(request, grid_id):
         logger.debug('Some squares could not be deleted')
     logger.debug(f'Deleting squares: {squares}')
     squares.delete()
+
+
+def form_auxiliary_update(form, extra_params):
+    for field, data in extra_params.items():
+        if field not in form.fields:
+            continue
+        if "multishot" not in field:
+            form.fields[field].widget.attrs['data_advanced'] = 'true' if data.advanced else 'false'
+        print(f"Field: {field}, hidden: {data.hidden}")
+        if data.hidden:
+            form.fields[field].widget = forms.HiddenInput()
+            form.fields[field].widget.attrs['hidden'] = True
+        
+        form.fields[field].widget.attrs.update(data.css_attr)
+    
+    multishot = extra_params.get("multishot_per_hole", Property(initial=False))
+    form.fields["multishot_per_hole"].widget.attrs['data_advanced'] = 'true' if multishot.advanced else 'false'
+    form.fields["multishot_per_hole_id"].widget.attrs['data_advanced'] = 'true' if multishot.advanced else 'false'
+
+    form.order_fields(sorted(
+        form.fields.keys(),
+        key=lambda name: form.fields[name].widget.attrs.get('data_advanced') == 'true'
+    ))
+
+    return form

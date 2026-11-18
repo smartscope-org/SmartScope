@@ -1,0 +1,101 @@
+{% load static %}
+<nav id="sideNav" class="d-flex flex-column" style="width: 42px; flex-shrink: 0; position: relative; z-index: 9999;">
+    <div class="navbar-brand m-0 p-1">
+        <a class="" href="#"><img src="{% static 'images/icon256px.png' %}" height='40'></a>
+    </div>
+    <ul class="list-group px-0">
+        <li class="list-group-item p-1" data-bs-toggle="tooltip" title="Session Browser">
+            <a href="{% if request.resolver_match.url_name != 'browser' %}{% url 'browser' %}{% else %}#{% endif %}"  
+                id="sidebarCollapse"
+                class="btn btn-sm btn-outline-light {% if request.resolver_match.url_name == 'browser' %}active{% endif %}">
+                <!-- data-bs-toggle="collapse" data-bs-target="#sidebarNav" aria-expanded="true"> -->
+                <i class="bi bi-list-nested" ></i>
+            </a>
+        </li>
+        <li class="list-group-item p-1" data-bs-toggle="tooltip" title="View microscope(s) status and current sessions">
+            <a href="{% url 'microscopeStatus' %}" id="microscopeActivity"
+                class="btn btn-sm btn-outline-light {% if request.resolver_match.url_name == 'microscopeStatus' %}active{% endif %}">
+                <i class="bi bi-activity"></i>
+            </a>
+        </li>
+        {% if USE_MICROSCOPE %}
+        <li class="list-group-item p-1" data-bs-toggle="tooltip" title="Run Smartscope">
+            <a href="{% url 'run' %}" id="run"
+                class="btn btn-sm btn-outline-light {% if request.resolver_match.url_name == 'run' %}active{% endif %}">
+                <i class="bi bi-plus-lg"></i>
+            </a>
+        </li>
+        {% endif %}
+        <li class="list-group-item p-1" data-bs-toggle="tooltip" title="View all sesssions">
+            <a href="{% url 'sessionHistory' %}" id="sessionHistory"
+                class="btn btn-sm btn-outline-light d-flex align-items-center justify-content-center {% if request.resolver_match.url_name == 'sessionHistory' %}active{% endif %}"
+                style="width: 32px; height: 32px; padding: 0; font-weight: 600; font-size: 14px;">
+                <span style="font-size: 16px; font-weight: 200;">S</span>
+            </a>
+        </li>
+    </ul>
+    <ul class="list-group px-0 mt-auto">
+        <li class="list-group-item p-1 d-flex justify-content-center">
+            <div class="dropend">
+                <button class="btn btn-sm btn-outline-light" 
+                        data-bs-toggle="dropdown" 
+                        data-bs-auto-close="outside"
+                        aria-expanded="false"
+                        title="User">
+                    <i class="bi bi-person-gear"></i>
+                </button>
+                <ul class="dropdown-menu dropdown-menu-dark">
+                    <li>
+                        <span class="dropdown-item-text" style="font-size: 14px;  color: white">
+                            <i class="bi bi-person"></i> {{request.user}}
+                        </span>
+                    </li>
+                    {% if request.user.is_staff %}
+                    <li>
+                        <a class="dropdown-item" href="/admin">Admin</a>
+                    </li>
+                    {% endif %}
+                </ul>
+            </div>
+        </li>
+        <li class="list-group-item p-1 d-flex justify-content-center">
+            <div class="dropend">
+                <button class="btn btn-sm btn-outline-light" 
+                        data-bs-toggle="dropdown" 
+                        data-bs-auto-close="outside"
+                        aria-expanded="false"
+                        title="Docs">
+                    <i class="bi bi-info-circle"></i>
+                </button>
+                <ul class="dropdown-menu dropdown-menu-dark">
+                    <li>
+                        <span class="dropdown-item-text badge rounded-pill bg-info ms-2 fw-normal" style="font-size: 14px">
+                            v{{VERSION}}
+                        </span>
+                    </li>
+                    <li><hr class="dropdown-divider"></li>
+                    <li>
+                        <a class="dropdown-item" 
+                        href="https://github.com/smartscope-org/SmartScope/issues" 
+                        target="_blank">
+                            <i class="bi bi-bug me-2"></i>Report Issue
+                        </a>
+                    </li>
+                    <li>
+                        <a class="dropdown-item" href="https://docs.smartscope.org" target="_blank">
+                            <i class="bi bi-book me-2"></i>Documentation
+                        </a>
+                    </li>
+                </ul>
+            </div>
+        </li>
+        <li class="list-group-item p-1" data-bs-toggle="tooltip" title="Logout">
+            <form method="post" action="{% url 'logout' %}">
+                {% csrf_token %}
+                <button id="logout" type="submit" class="btn btn-sm btn-outline-danger">
+                    <i class="bi bi-box-arrow-left"></i>
+                </button>
+            </form>
+        </li>
+    </ul>
+</nav>

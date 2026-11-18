@@ -19,6 +19,24 @@ def generate_diagnostic_figure(image:np.array, coords_set, outputpath:Path):
     cv2.imwrite(str(outputpath), imutils.resize(image_color,512))
 
 
+def save_reregistration_diagnostics(directory, name:str, hole_img, square_img, result, hole_coords, det_hole, det_square):
+    """Writes the medium-mag and square images plus the reregister_yolo match visualization
+    for the YOLO-keypoint (v1) re-registration. Never raises."""
+    from Smartscope.core.reregistration.reregister_yolo import visualize
+    try:
+        directory = Path(directory)
+        directory.mkdir(parents=True, exist_ok=True)
+        hole_png = directory / f'{name}_reregister_medium.png'
+        square_png = directory / f'{name}_reregister_square.png'
+        cv2.imwrite(str(hole_png), hole_img)
+        cv2.imwrite(str(square_png), square_img)
+        visualize(str(hole_png), str(square_png), result, hole_coords,
+                  str(directory / f'{name}_reregistration.png'),
+                  detections_hole=det_hole, detections_square=det_square)
+    except Exception as err:
+        logger.warning(f'Could not save re-registration diagnostics for {name}: {err}')
+
+
 class Timer:
     description_text:str
 

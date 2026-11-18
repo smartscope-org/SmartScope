@@ -18,6 +18,14 @@ if isinstance(TRANSIENT_QUEUES, str):
 
 TRANSIENT_QUEUES_CACHE_TIMEOUT = 300  # seconds
 
+# SimSiam clustering is display-only and scales with the whole grid, so it is debounced:
+# each request (e.g. a completed square) re-arms the timer; MAX_WAIT bounds staleness.
+SIMSIAM_CLUSTER_DEBOUNCE_S = int(os.getenv('SIMSIAM_CLUSTER_DEBOUNCE_S', 180))
+SIMSIAM_CLUSTER_MAX_WAIT_S = int(os.getenv('SIMSIAM_CLUSTER_MAX_WAIT_S', 1800))
+# Per-grid lock serializing SimSiam inference (shared scratch dir + embeddings parquet).
+SIMSIAM_INFERENCE_LOCK_TTL_S = int(os.getenv('SIMSIAM_INFERENCE_LOCK_TTL_S', 900))
+SIMSIAM_INFERENCE_LOCK_WAIT_S = int(os.getenv('SIMSIAM_INFERENCE_LOCK_WAIT_S', 900))
+
 task_queues = (
     Queue("celery"),
     Queue("smartscope"),

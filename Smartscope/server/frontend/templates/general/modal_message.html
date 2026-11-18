@@ -14,24 +14,24 @@
         </div> -->
       </div>
     </div>
-  </div>
+</div>
 
-  <script>
-    htmx.on("htmx:afterSwap", (e) => {
-        $("#modal").detach().appendTo("body");
-        $('#modal').modal('show');
-    })
-        // let modal = new bootstrap.Modal(document.getElementById("modal"))
-        // modal.show()})
-  </script>
+<script>
+  htmx.on("htmx:afterSwap", (e) => {
+      $("#modal").detach().appendTo("body");
+      $('#modal').modal('show');
+  })
+      // let modal = new bootstrap.Modal(document.getElementById("modal"))
+      // modal.show()})
+</script>
 
-  <style>
-    /* .modal-backdrop {
-        z-index: 1031 !important;
-    } */
+<style>
+  /* .modal-backdrop {
+      z-index: 1031 !important;
+  } */
 
-    .modal {
-        z-index: 2000 !important;
-        top: 20vh
-    }
-  </style>
+  .modal {
+      z-index: 2000 !important;
+      top: 20vh
+  }
+</style>

@@ -358,9 +358,17 @@ def drawMediumMag(hole, targets, display_type, method, **kwargs) -> draw.Drawing
     d.append(add_legend(set(labels_list), d.width, d.height, hole.pixel_size))
     return d
 
-def drawHighMag(highmag) -> draw.Drawing:
+class LazyImage(draw.DrawingBasicElement):
+    """<image> with its URL in data-href; the frontend sets href once it scrolls into view."""
+    TAG_NAME = 'image'
+
+
+def drawHighMag(highmag, href=None) -> draw.Drawing:
     d = draw.Drawing(highmag.shape_y, highmag.shape_x, id=f'{highmag.name}-svg', displayInline=False, style_='height: 100%; width: 100%')
-    d.append(draw.Image(0, 0, d.width, d.height, path=highmag.png, embed= not highmag.is_aws))
+    if href is None:
+        d.append(draw.Image(0, 0, d.width, d.height, path=highmag.png, embed= not highmag.is_aws))
+    else:
+        d.append(LazyImage(x=0, y=0, width=d.width, height=d.height, data_href=href, class_='lazyHm'))
     d.append(add_scale_bar(highmag.pixel_size, d.width, d.height, id_type=highmag.name))
     return d
 

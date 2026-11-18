@@ -23,13 +23,13 @@ def targets_methods(instance):
         return default_output
     contenttype = ContentType.objects.get_for_model(instance.targets.first())
 
-    finders = list(Finder.objects.filter(content_type=contenttype, object_id__in=targets).values_list('method_name', flat=True).distinct())
+    finders = list(Finder.objects.filter(content_type=contenttype, object_id__in=targets).order_by().values_list('method_name', flat=True).distinct())
     classifiers = list(Classifier.objects.filter(content_type=contenttype,
-                                                 object_id__in=targets).values_list('method_name', flat=True).distinct())
+                                                 object_id__in=targets).order_by().values_list('method_name', flat=True).distinct())
     if instance.targets_prefix == 'hole' and len(classifiers) == 0:
         classifiers.append('Micrographs curation')
         classifiers.append("nextPYP Curation")
-    selectors = list(Selector.objects.filter(content_type=contenttype, object_id__in=targets).values_list('method_name', flat=True).distinct())
+    selectors = list(Selector.objects.filter(content_type=contenttype, object_id__in=targets).order_by().values_list('method_name', flat=True).distinct())
     logger.debug(f'Finders: {finders}, Classifiers: {classifiers}, Selectors: {selectors}')
     output = dict(finders=[PLUGINS_FACTORY.get_plugin(finder) for finder in finders],
                 classifiers=[PLUGINS_FACTORY.get_plugin(classifier) for classifier in classifiers],

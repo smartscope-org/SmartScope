@@ -1,5 +1,9 @@
 
 const csrftoken = document.querySelector('[name=csrfmiddlewaretoken]').value
+let lastClickedHoleShapeId = null
+let mmHolePlaceholder = null
+let loadedSquareId = null
+let hmImageObserver = null
 
 function escapeRegExp(string) {
     return string.match(/(\d+)$/g); // $& means the whole matched string
@@ -127,9 +131,27 @@ $('#main').on("mousedown", '.legend', function () {
 
 $('#main').on('mousedown', '.showLegend', function () {
     console.log($(this), $(this).closest('.mapCard'))
-    $(this).closest('.mapCard').find('#legend, #scaleBar').toggleClass('d-none')
+    $(this).closest('.mapCard').find('#legend, #scaleBar').toggleClass('d-none');
+    $(this).toggleClass('active');
 })
 
+$('#main').on('mousedown', '.toggleNumbers', function () {
+    const $btn = $(this);
+    const $card = $btn.closest('.mapCard');
+    const prefix = $card.data('prefix');
+    const willBeActive = !$btn.hasClass('active');
+    $(`#${prefix}Text`).attr('visibility', willBeActive ? 'visible' : 'hidden');
+    $btn.toggleClass('active');
+});
+
+$('#main').on('mousedown', '.toggleShapes', function () {
+    const $btn = $(this);
+    const $card = $btn.closest('.mapCard');
+    const prefix = $card.data('prefix');
+    const willBeActive = !$btn.hasClass('active');
+    $(`#${prefix}Text, #${prefix}Shapes`).attr('visibility', willBeActive ? 'visible' : 'hidden');
+    $btn.toggleClass('active');
+});
 // $("#main").find(".hasTooltip").tooltip();
 
 
@@ -218,6 +240,10 @@ async function loadSquare(full_id, metaonly = false, display_type = null, method
     console.log('Loading Square:', full_id)
     if ($(`#${full_id}`).attr('status') != 'completed')
         return
+    if (full_id !== loadedSquareId) {
+        resetHolePanels()
+        loadedSquareId = full_id
+    }
 
     var url = `/api/squares/${full_id}/load/?format=json&display_type=${display_type}&method=${method}&metaonly=${metaonly}`
     console.log('URL:', url)
@@ -231,13 +257,45 @@ async function loadSquare(full_id, metaonly = false, display_type = null, method
 
 };
 
+function resetHolePanels() {
+    if (hmImageObserver) hmImageObserver.disconnect()
+    if (mmHolePlaceholder !== null) $('#mmHole').html(mmHolePlaceholder)
+    $('#Hole').empty()            // removes every high-mag card
+    $('#Hole_div').scrollLeft(0)  // only resets the tray's scroll position
+    lastClickedHoleShapeId = null
+}
+
 async function loadHole(id, metaonly = false) {
     let data = await fetchAsync(`/api/holes/${id}/load`, message=`Loading Hole ${id}`)
     $("#mmHole").html(data.card)
     hm_data = await fetchAsync(`/api/holes/${id}/highmag/?squareMethod=${currentState['squareMethod']}`, message=`Loading high mag data.`)
     $('#Hole').html(hm_data)
+    lastClickedHoleShapeId = null
+    observeHighMagImages()
     grabCuration()
 };
+
+// High-mag micrographs are rendered as <image data-href=...>; only fetch them once their card nears the visible tray.
+function observeHighMagImages() {
+    if (hmImageObserver) hmImageObserver.disconnect()
+    const images = document.querySelectorAll('#Hole image.lazyHm[data-href]')
+    const load = (img) => {
+        img.setAttribute('href', img.getAttribute('data-href'))
+        img.removeAttribute('data-href')
+    }
+    if (!('IntersectionObserver' in window)) {
+        images.forEach(load)
+        return
+    }
+    hmImageObserver = new IntersectionObserver((entries, observer) => {
+        for (const entry of entries) {
+            if (!entry.isIntersecting) continue
+            load(entry.target)
+            observer.unobserve(entry.target)
+        }
+    }, { root: document.getElementById('Hole_div'), rootMargin: '0px 100% 0px 100%' })
+    images.forEach(img => hmImageObserver.observe(img))
+}
 
 function grabCuration() {
     $('#Hole_div .holeCard').each(function () {
@@ -301,24 +359,41 @@ function rateGrid(el, gridId, value) {
     }
 }
 
+// --- Tab visibility ---
+function updateSwitchers(activeTabId) {
+    document.querySelectorAll('.tab-switchers').forEach(switcher => {
+        switcher.classList.toggle('d-none', switcher.dataset.tab !== activeTabId);
+    });
+}
+
+document.querySelectorAll('[data-bs-toggle="tab"]').forEach(tab => {
+    tab.addEventListener('shown.bs.tab', e => {
+        const activeTab = e.target.getAttribute('data-bs-target').replace('#', '');
+        updateSwitchers(activeTab);
+    });
+});
+
+// Show correct switchers on page load
+const activeTab = document.querySelector('[data-bs-toggle="tab"].active');
+if (activeTab) updateSwitchers(activeTab.getAttribute('data-bs-target').replace('#', ''));
+
+
 function hideSVG(el) {
-    let final = 'visible'
-    if (el.classList.contains('active')) {
-        final = 'hidden'
-        el.classList.remove('active')
-    } else {
-        el.classList.add('active')
+    const visibility = el.checked ? 'visible' : 'hidden'
+
+    if (el.dataset.action == 'Numbers') {
+        $('#atlasText,#squareText,#holeText').attr('visibility', visibility);
     }
-    if (el.value == 'Numbers') {
-        $('#atlasText,#squareText,#holeText').attr('visibility', final);
-    }
-    if (el.value == 'Labels') {
-        $('#atlasText,#squareText,#holeText,#atlasShapes,#squareShapes,#holeShapes').attr('visibility', final);
-    }
-    if (el.value == 'Legends') {
-        $('.legend').attr('visibility', final);
+    if (el.dataset.action == 'Labels') {
+        $('#atlasText,#squareText,#holeText,#atlasShapes,#squareShapes,#holeShapes').attr('visibility', visibility);
     }
 }
+
+document.querySelectorAll('.form-check-input[data-action]').forEach(input => {
+    input.addEventListener('change', function() {
+        hideSVG(this);
+    });
+});
 
 function hideSVGlabel(el, parentid) {
     elements = document.getElementById(parentid).getElementsByClassName(el.value);
@@ -423,16 +498,27 @@ $('#main').on('keyup', '#editNotesForm', delay(function (e) {
 }, 500));
 
 
-$('#main').on('submit', '#editNotesForm, #editGridForm', function (e) {
+$('#main').on('submit', '#editNotesForm', function (e) {
     let data = grabFormData(e)
     var url = `/api/grids/${currentState.grid_id}/`
     apifetchAsync(url, data, "PATCH", message=`Edit grid notes`)
 });
 
-$('#main').on('submit', '#editCollectionParamsForm', function (e) {
-    let data = grabFormData(e)
-    var url = `/api/grids/${currentState.grid_id}/editcollectionparams/`
-    apifetchAsync(url, data, "PATCH", message=`Changing grid collection parameters`)
+// $('#main').on('submit', '#editCollectionParamsForm', function (e) {
+//     let data = grabFormData(e)
+//     var url = `/api/grids/${currentState.grid_id}/editcollectionparams/`
+//     apifetchAsync(url, data, "PATCH", message=`Changing grid collection parameters`)
+// });
+
+
+document.addEventListener("pipelineSelected", (e) => {
+    const label = e.detail?.label;
+    if (label) document.getElementById("gridPreprocessingLabel").textContent = label;
+});
+
+document.addEventListener("protocolSelected", (e) => {
+    const label = e.detail?.label;
+    if (label) document.getElementById("gridProtocolLabel").textContent = label;
 });
 
 // $('#main').on('click', '#gridParamBtn', function (e) {
@@ -647,6 +733,21 @@ function populateReportHead() {
     var date = new Date(fullmeta.last_update)
     $('#gridLastUpdate').html(date.toLocaleString('en-CA', { 'localeMatcher': 'lookup', 'hour12': false }))
     $('#gridStatus').html(`${fullmeta.status}`)
+
+    const colorMap = {
+        'complete':  '#28a745',
+        'started':   'var(--bs-primary)',
+        'skipped':   'var(--bs-secondary)',
+        'error':     '#dc3545',
+        'aborting':  'var(--bs-red)',
+        'paused':    'var(--bs-orange)',
+    };
+    const color = colorMap[fullmeta.status] || 'var(--bs-secondary)';
+
+    $('#gridStatus').css('color', color).css('text-transform', 'uppercase');
+    $('#gridStatusIcon').css('color', color);
+    $('#gridStatusIcon').closest('.badge-pill').css('border-color', color).css('--pill-color', color);
+
     if (fullmeta.status == 'complete') {
         $('#stop-button').prop("disabled", true)
         $('#restart-button').prop("disabled", false)
@@ -673,6 +774,7 @@ async function reportMain() {
     hmSelection = null
     targetsSelection = []
     zoomedContentCln = document.getElementById('zoomedContent').cloneNode(true)
+    if (mmHolePlaceholder === null) mmHolePlaceholder = $('#mmHole').html()
     fullmeta = await loadMeta()
     populateReportHead()
     // renderCounts()
@@ -716,6 +818,63 @@ $('#main').on('mouseenter', ".holeCard", function (e) {
     hovered = []
 }
 );
+
+// Square-level: circle id matches .holeCard's hole_id attribute
+$('#main').on('mouseenter', '#squareShapes circle', function () {
+    highlightAndCenterHighMag($(this).attr('id'), 'hole_id')
+}).on('mouseleave', '#squareShapes circle', function () {
+    clearHighMagHighlight()
+})
+
+// Medium-mag: click a circle to center/highlight the matching high-mag card (circle id matches .holeCard id)
+$('#main').on('click', '#holeShapes circle', function (e) {
+    e.stopPropagation()
+    let id = this.id
+    if (!id) return
+    if (id === lastClickedHoleShapeId) {   // clicking the same circle again toggles off
+        lastClickedHoleShapeId = null
+        clearHighMagHighlight()
+        return
+    }
+    lastClickedHoleShapeId = id
+    highlightAndCenterHighMag(id, 'id')
+})
+
+function highlightAndCenterHighMag(holeId, matchAttr) {
+    let cards = $('#Hole .holeCard')
+    let matched = matchAttr === 'id'
+        ? cards.filter(`#${holeId}`)
+        : cards.filter(`[hole_id="${holeId}"]`)
+
+    if (matched.length === 0) return
+
+    cards.not(matched).removeClass('highmag-linked')
+    matched.addClass('highmag-linked')
+
+    let target = matched.get(0)
+    let index = cards.index(target)
+
+    let container = document.getElementById('Hole_div')
+
+    // measure the outer column wrapper, not the card itself, to include px-1 spacing
+    let targetColumn = target.closest('.col-12, [class*="col-"]') || target.parentElement
+    let slotWidth = targetColumn.getBoundingClientRect().width
+
+    let visibleCount = Math.max(1, Math.round(container.clientWidth / slotWidth))
+    let centerSlot = Math.floor(visibleCount / 2)
+
+    let desiredScroll = (index - centerSlot) * slotWidth
+    desiredScroll = Math.max(0, desiredScroll)
+
+    let maxScroll = container.scrollWidth - container.clientWidth
+    desiredScroll = Math.min(desiredScroll, maxScroll)
+
+    $(container).stop(true).animate({ scrollLeft: desiredScroll }, 300)
+}
+
+function clearHighMagHighlight() {
+    $('#Hole .holeCard').removeClass('highmag-linked')
+}
 
 function clickHole(elem) {
     selectElement(elem, holeSelection);
@@ -807,6 +966,7 @@ async function submitExtendLatticeForm() {
 
 
 $('#main').on("mousedown", '#Square_div svg', function (event) {
+    if (isPanZoomActive(this.id)) return;
     if (event.shiftKey) {
         targetsSelection.push(SvgCoords(event))
         console.log(targetsSelection)
@@ -837,6 +997,7 @@ function clickSquare(elem) {
             return
         }
         currentState.square = elem.id;
+        delete currentState.hole
         clearSelection('hole')
         clearTargetsSelection()
         loadSquare(elem.id);
@@ -886,18 +1047,43 @@ function colorBISgroups() {
 
 }
 
+function closeCardZoom(card) {
+    let svg = card.find('svg')[0]
+    card.removeClass('popupFull')
+    card.find('.zoomIcon').removeClass("bi-zoom-out").addClass("bi-zoom-in")
+    if (svg) {
+        if (zoomState[svg.id]) {
+            resetZoomPan(svg.id)   // restore the actual viewBox before discarding state
+        }
+        delete zoomState[svg.id]
+        if (panZoomState.svgId === svg.id) {
+            panZoomState.enabled = false
+            panZoomState.svgId = null
+        }
+        card.find('.panZoomBtn').removeClass('active')
+        card.removeClass('panZoomActive')
+    }
+}
+
 $("#main").on('mousedown', '.zoomBtn', function () {
-    console.log('Click', $(this))
     let card = $(this).closest('.holeCard')
-    let icon = $(this).children('.zoomIcon')
-    console.log(card)
+
     if (card.hasClass('popupFull')) {
-        card.removeClass('popupFull')
-        icon.removeClass("bi-zoom-out").addClass("bi-zoom-in")
+        closeCardZoom(card)
         return
     }
+
+    $('.holeCard.popupFull').not(card).each(function () {
+        closeCardZoom($(this))
+    })
+
+    card.find('image.lazyHm[data-href]').each(function () {
+        this.setAttribute('href', this.getAttribute('data-href'))
+        this.removeAttribute('data-href')
+        if (hmImageObserver) hmImageObserver.unobserve(this)
+    })
     card.addClass('popupFull')
-    icon.removeClass("bi-zoom-in").addClass("bi-zoom-out")
+    card.find('.zoomIcon').removeClass("bi-zoom-in").addClass("bi-zoom-out")
 })
 
 function zoomOnOtherCard(elem, inc) {
@@ -1004,6 +1190,7 @@ $(document).on("click", "#angleMeasure", function () {
 
 // this code captures the starting coordinates on mouse down 
 $('#main').on("mousedown", '#Square_div svg', function (event) {
+    if (isPanZoomActive(this.id)) return;
     if (!isDrawingEnabled) return;
 
     let svg = event.target.closest("svg");

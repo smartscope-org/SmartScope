@@ -1,0 +1,27 @@
+from pydantic import BaseModel, Field
+from typing import List, Optional, Dict, Union
+from packaging.version import Version
+
+
+class Property(BaseModel):
+    initial: Union[int, float, bool]
+    readonly: bool = False
+    disabled: bool = False
+    advanced: bool = False
+    hidden: bool = False
+    bound_form_params: Optional[Dict[str, Union[int, float]]] = Field(default_factory=dict)
+
+    @property
+    def css_attr(self):
+        css_properties = ['readonly', 'disabled']
+        return {k:v for k, v in self.model_dump().items() if k in css_properties}
+    
+
+class DetectorParams(BaseModel):
+    screening: Dict[str, Property] = Field(default_factory=dict)
+    collection: Dict[str, Property] = Field(default_factory=dict)
+
+
+class CustomDetectorParams(BaseModel):
+    screening: Dict[str, Dict[str, Property]] = Field(default_factory=dict)
+    collection: Dict[str, Dict[str, Property]] = Field(default_factory=dict)

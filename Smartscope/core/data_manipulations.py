@@ -164,6 +164,8 @@ def prune_targets(targets, filtered, **extra_filters):
     return targets, filtered
 
 def select_n_areas(parent, n, is_bis=False):
+    if n == 0:
+        return []
     additional_filters = dict()
     if is_bis:
         additional_filters['bis_type'] = 'center'
@@ -182,7 +184,7 @@ def select_n_areas(parent, n, is_bis=False):
     targets,filtered = prune_targets(targets, filtered, **additional_filters)
     logger.debug(f'Filtered targets: {len(filtered)}, {filtered}')
     assert len(targets) == len(filtered), f'Length of targets {len(targets)} and filtered {len(filtered)} do not match.'
-    if n <=0:
+    if n < 0:
         return apply_filter(targets, filtered)
     return select_random_areas(targets, filtered, n)
 

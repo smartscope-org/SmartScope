@@ -22,6 +22,7 @@ AUTOSCREENDIR = Path(os.getenv('AUTOSCREENDIR')).resolve()
 print(f'Autoscreen directory: {AUTOSCREENDIR}')
 USE_CUSTOM_PATHS = eval(os.getenv('USE_CUSTOM_PATHS', 'False'))
 TEMPDIR = os.getenv('TEMPDIR','/tmp/')
+SESSION_BACKUP_DIR = Path(os.getenv('SESSION_BACKUP_DIR','/tmp/deleted_sessions/')).resolve()
 
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/3.0/howto/deployment/checklist/

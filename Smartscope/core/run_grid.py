@@ -2,8 +2,6 @@ import os
 import sys
 import time
 import logging
-import numpy as np
-from scipy.spatial.distance import cdist
 from typing import Union
 from pathlib import Path
 from django.utils import timezone
@@ -21,7 +19,7 @@ from .grid.run_io import get_file_and_process
 from .grid.run_hole import RunHole
 from .interfaces.microscope_interface import MicroscopeInterface
 from .selectors import selector_wrapper
-from .models import SquareModel, AutoloaderGrid, Finder, HoleModel
+from .models import SquareModel, AutoloaderGrid
 from .settings.worker import PROTOCOL_COMMANDS_FACTORY
 from .status import status
 from .protocols import get_or_set_protocol
@@ -30,6 +28,7 @@ from .db_manipulations import update, queue_atlas, add_targets
 from .selection.strategies import TARGET_SELECTION_STRATEGIES
 from .navigation import get_queue, get_target_priority, NAVIGATION_STRATEGIES, TargetPriority
 from .stats import count_completed
+from .reregistration.reregister import reregister_if_reloaded
 
 logger = logging.getLogger(__name__)
 
@@ -73,6 +72,15 @@ def run_grid(
     logger.info(f"Create and then enter into Grid directory={grid.directory}")
     os.chdir(grid.directory)
     params = grid.params_id
+    
+    if params.multishot_per_hole:
+        logger.debug('Multishot per hole enabled. Verifying multishot.json file exists.')
+        mutlishot_file = Path(grid.directory,'multishot.json')
+        multishot = RunHole.load_multishot_from_file(mutlishot_file)
+        if multishot is None:
+            logger.error('\n\n\tMultishot enabled but not configured.\n\tPlease configure multishot per hole in the Collection Parameters or disable it.\n\n')
+            update(grid, status=GridStatus.ERROR)
+            raise KeyboardInterrupt()
 
     protocol = get_or_set_protocol(grid)
     preprocessing = load_preprocessing_pipeline(Path('preprocessing.json'))
@@ -82,19 +90,22 @@ def run_grid(
 
     # scope
     if not skip_loading:
+        # Set by interfaces that can tell whether loading moved the grid; None (unknown)
+        # keeps the old behaviour of counting every start as a load.
+        scope.cartridge_loaded = None
         runScopeProtocolSteps(
             scope,
             protocol.preImaging.steps,
             params,
             grid
         )
-        update(grid, loading_time=timezone.now())
+        if scope.cartridge_loaded is not False:
+            grid = update(grid, loading_time=timezone.now())
+        else:
+            logger.info('Grid was already loaded, keeping its loading time')
     check_stop_flag(session_id)
 
-    needs_reregistations = grid.unloading_time is not None and grid.loading_time > grid.unloading_time
-    if needs_reregistations:
-        logger.info('Re-registering grid after re-loading')
-        reregister_grid(scope, grid, protocol)
+    reregister_if_reloaded(scope, grid, protocol, method=os.getenv('REREGISTRATION_METHOD', 'search_mag'))
 
     SELECTION_STRATEGY = TARGET_SELECTION_STRATEGIES['original']
     NAVIGATION_STRATEGY = NAVIGATION_STRATEGIES['original']
@@ -149,7 +160,10 @@ def run_grid(
             montage = Montage(name=atlas.name)
             montage.load_or_process()
         selector_wrapper(protocol.atlas.targets.selectors, atlas, montage=montage)
-        # SimSiamEmbedding().run(mag_level='square', grid_id=grid.grid_id)
+        try:  # once per grid, so run inference + clustering synchronously
+            SimSiamEmbedding().run_with_clustering(grid.grid_id, 'square')
+        except Exception:
+            logger.exception(f'SimSiam square inference/clustering failed for {grid}')
         selection_strategy = SELECTION_STRATEGY(n_targets=params.squares_num)
         selected = selection_strategy.select(atlas)
         print(f'Selected {len(selected)} targets from atlas')
@@ -174,9 +188,26 @@ def run_grid(
     # state from a previous interrupted run.
     for sq in grid.squaremodel_set.filter(status__in=[status.ACQUIRED,status.QUEUED_FOR_PROCESSING,status.PROCESSED]):
         logger.info(f'Re-dispatching processing task for previously acquired square {sq}')
-        process_square_image_task.delay(sq.square_id, grid.grid_id, microscope.microscope_id)
+        process_square_image_task.delay(sq.square_id, str(sq.working_dir), grid.grid_id, microscope.microscope_id)
         if sq.status != status.QUEUED_FOR_PROCESSING:
             update(sq, status=status.QUEUED_FOR_PROCESSING)
+
+    # Recovery: SimSiam clustering is debounced and async, so an interrupted run (or a failed
+    # clustering) can leave it behind the embeddings. Re-request it; display-only, never blocks the run.
+    try:
+        simsiam = SimSiamEmbedding()
+        if not simsiam.is_embedding_data(grid, 'square') or simsiam.is_clustering_stale(grid, 'square'):
+            logger.info(f'SimSiam square embeddings/clustering missing or stale for {grid}, running now')
+            simsiam.run_with_clustering(grid.grid_id, 'square')
+    except Exception:
+        logger.exception(f'SimSiam square inference/clustering failed for {grid}')
+    try:
+        simsiam = SimSiamEmbedding()
+        if simsiam.is_clustering_stale(grid, 'hole'):
+            logger.info(f'SimSiam hole clustering is stale for {grid}, requesting a refresh')
+            simsiam.request_clustering(grid.grid_id, 'hole', delay=0)
+    except Exception:
+        logger.exception(f'Could not check/request SimSiam clustering for {grid}')
 
     running = True
     is_done = False
@@ -258,7 +289,7 @@ def run_grid(
                     square
                 )
                 square = update(square, status=status.ACQUIRED, completion_time=timezone.now())
-            process_square_image_task.delay(square.square_id, grid.grid_id, microscope.microscope_id)
+            process_square_image_task.delay(square.square_id, str(square.working_dir), grid.grid_id, microscope.microscope_id)
             square = update(square, status=status.QUEUED_FOR_PROCESSING)
         elif is_done:
             microscope_id = microscope.pk
@@ -366,78 +397,3 @@ def runScopeProtocolSteps(
         if output is not None:
             instance = output
     return output
-
-def reregister_grid(scope, grid, protocol, rotation:bool=True):
-    from itertools import combinations
-    from Smartscope.lib.mesh_operations import calculate_transformation_matrix, apply_transform
-    import matplotlib.pyplot as plt
-    logger.info('Re-registering grid')
-    completed_squares = list(grid.squaremodel_set.filter(status=status.COMPLETED))
-    if len(completed_squares) < 2:
-        logger.info('Not enough completed squares to re-register grid')
-        return
-    coords = []
-    for square in completed_squares:
-        finder = square.finders.first()
-        coords.append((finder.stage_x, finder.stage_y))
-
-    coords_np = np.asarray(coords, dtype=float)
-    D = cdist(coords_np, coords_np, metric='euclidean')
-
-    if len(completed_squares) >= 3:
-        best = max(
-            combinations(range(len(completed_squares)), 3),
-            key=lambda idx: D[idx[0], idx[1]] + D[idx[0], idx[2]] + D[idx[1], idx[2]]
-        )
-        selected = [completed_squares[k] for k in best]
-        logger.info(f'Using 3 squares for re-registration: {selected}')
-    else:
-        selected = completed_squares
-
-
-    old_positions = []
-    new_positions = []
-    for square in selected:
-        new_pos = PROTOCOL_COMMANDS_FACTORY['reregisterSearchMag'](scope, grid.params_id, square,{})
-        if new_pos is not None:
-            new_positions.append(new_pos)
-            old_positions.append(square.stage_coords)
-
-    if len(old_positions) == 0:
-        logger.warning('Cannot re-register grid: no valid positions returned from re-imaging squares')
-        return
-
-    calculated_matrix = calculate_transformation_matrix(old_positions, new_positions, rotation=rotation)
-    fig = plt.figure(figsize=(8, 8))
-    ax = fig.add_subplot(111)
-    ax.scatter(*zip(*old_positions), color='blue', label='Old Points')
-    ax.scatter(*zip(*new_positions), color='red', label='New Points')
-    transformed_points=  apply_transform(calculated_matrix, old_positions)
-    ax.scatter(*zip(*transformed_points), color='green', label='Transformed Points', marker='x')
-    ax.legend()
-    fig.savefig(Path(grid.directory, 'reregistration_plot.png'))
-    logger.info(f'Re-registration transformation matrix:\n{calculated_matrix}')
-    squares = list(SquareModel.display.filter(grid_id=grid))
-    holes = list(HoleModel.display.filter(grid_id=grid))
-    targets_to_update = squares + holes
-
-    finders_to_create = []
-    for target in targets_to_update:
-        existing_finder = target.finders.order_by('-created_at').first()
-        old_pos = np.array([existing_finder.stage_x, existing_finder.stage_y])
-        new_pos = apply_transform(calculated_matrix, old_pos)
-        finders_to_create.append(
-            Finder(
-                content_object=target,
-                method_name='Registration',
-                x=existing_finder.x,
-                y=existing_finder.y,
-                stage_x=float(new_pos[0]),
-                stage_y=float(new_pos[1]),
-                stage_z=existing_finder.stage_z,
-            )
-        )
-
-    with transaction.atomic():
-        Finder.objects.bulk_create(finders_to_create)
-        logger.info(f'Created {len(finders_to_create)} new finder entries for re-registered targets')

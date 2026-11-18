@@ -14,7 +14,7 @@ class NextPYPPreprocessingCmdKwargs(BaseModel):
 
     # For accessing sessions
     url_base:str = ""
-    group_id:str = ""
+    group_id:str = ""  # group display name or ID; resolved to the ID at pipeline start
 
     # Remote file transfer settings (SCP)
     remote_user:str = ""

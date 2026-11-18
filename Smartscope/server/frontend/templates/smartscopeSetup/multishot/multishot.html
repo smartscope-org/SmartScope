@@ -1,33 +1,35 @@
-{% extends "general/right_sidebar.html" %}
-{% block title %}Multishot per hole setup{% endblock %}
-{% block sidebar_content %}
-    <hr class="mx-3 my-2">
-    <div class="col justify-content-center">
-    <form  method="post">
-        {% csrf_token %}
-        {% include "forms/formFieldsBase.html" with form=form row=false %}
-        <div class="d-flex flex-row align-content-center">
-            <button type="submit" class="btn btn-primary" hx-post="{% url 'setMultishot' %}" hx-indicator="#spinner" hx-target="#multishotResults">
-                Show options
-            </button>
-            <div id="spinner" class="my-indicator spinner-border text-primary" role="status">
-                <span class="sr-only"></span>
+
+<div class="row align-items-start m-0 gx-3">
+    <div class="col-3 ps-0 m-0">
+        <h4 class="mt-2 mb-0">Multishot per hole setup</h4>
+        <form  method="post">
+            {% csrf_token %}
+            {% include "forms/formFieldsBase.html" with form=form row=false col_width=12 %}
+            <div class="d-flex flex-row align-content-center">
+                <button type="submit" class="btn btn-sm btn-outline-primary" style="background-color: #dfeefc"
+                hx-post="{% url 'setMultishot' %}" hx-indicator="#spinner" 
+                hx-target="#multishotResults" hx-swap="innerHTML">
+                    Show options
+                </button>
+                <div id="spinner" class="my-indicator spinner-border text-primary" role="status">
+                    <span class="sr-only"></span>
+                </div>
             </div>
-        </div>
-    </form>
+        </form>
     </div>
-    <hr class="mx-3 my-2">
-    <div class="" id="multishotResults">
+    <div class="col-9 pt-1 py-0 ps-4" id="multishotResults">
         {% if current is not None %}
-        <div class="col-md-6 h-100">
+        <div class="col-4 h-100">
             {% include "./multishot_result_card.html" with result=current %}
         </div>
         {% endif %}
     </div>
 
-<script>
-    $("img[id$='_help']").tooltip();
-</script>
+    <script>
+        $("img[id$='_help']").tooltip();
+    </script>
 
-{% endblock %}
+</div>
+
+
 

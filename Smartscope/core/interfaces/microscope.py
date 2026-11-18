@@ -110,6 +110,7 @@ class Microscope(BaseModel):
     apertureControl:bool = Field(alias='aperture_control', default=False)
     temperatureControl:bool = Field(alias='temperature_control', default=True)
     coldFEG:bool = Field(alias='cold_FEG', default=False)
+    narrowGapPolepiece:bool = Field(alias='narrow_gap_polepiece', default=False)
 
     class Config:
         from_attributes=True

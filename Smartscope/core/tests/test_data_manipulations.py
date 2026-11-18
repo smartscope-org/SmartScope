@@ -76,6 +76,8 @@ def test_select_n_areas():
     selection = select_n_areas(parent,3,False)
     assert len(selection) == 3
     selection = select_n_areas(parent,0,False)
+    assert len(selection) == 0
+    selection = select_n_areas(parent,-1,False)
     assert len(selection) == 9
     selection = select_n_areas(parent,9,False)
     assert len(selection) == 9
@@ -85,7 +87,7 @@ def test_select_n_areas():
 
 def test_apply_filter():
     parent = SquareModel.objects.get(pk='grid_1_square40fjFQq2WYFchz4Ql')
-    selection = select_n_areas(parent,0,True)
+    selection = select_n_areas(parent,-1,True)
     assert len(selection) == 3
 
 

@@ -107,7 +107,15 @@ class Target:
         # print(montage.metadata.columns)
         if 'ImageToStageMatrix' in montage.metadata.iloc[-1].keys() and not force_legacy:
             # logger.debug(f'Montage shape_x: {montage.shape_x}, and shape_y: {montage.shape_y}.')
-            flipped_coords = self.flip_y(self.coords,montage.shape_x)
+            # PadOffset accounts for any padding build_montage() added around tiles
+            # placed via AlignedPieceCoords (which can be negative). ImageToStageMatrix
+            # is calibrated against the un-padded, origin-anchored frame, so both the
+            # coordinate and the height used to flip it need that padding removed.
+            pad_offset = np.array(montage.metadata.iloc[-1].PadOffset) \
+                if 'PadOffset' in montage.metadata.columns else np.array([0, 0])
+            corrected_coords = self.coords - pad_offset
+            unpadded_shape_x = montage.shape_x - pad_offset[1]
+            flipped_coords = self.flip_y(corrected_coords, unpadded_shape_x)
             self.stage_x, self.stage_y = ProcessImage.pixel_to_stage_from_vectors(
                 flipped_coords,
                 montage.metadata.iloc[-1].ImageToStageMatrix

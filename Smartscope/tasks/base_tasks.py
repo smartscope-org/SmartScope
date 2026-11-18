@@ -93,10 +93,69 @@ def send_find_squares_from_montage(montage, class_map:Dict[str,BaseModel], **kwa
     logger.debug(f'find_squares coords: {coords}, labels: {labels_converted}')
     return (coords,labels_converted), True, dict()
 
-def send_find_holes_from_montage(montage:Montage, class_map:Dict[str,BaseModel], success_threshold:int=10,  **kwargs):
-    scaling_factor = montage.image.shape[0] / kwargs.get('imgsz', 1024)
-    image= convert_to_png(montage.image, height=kwargs.get('imgsz', 1024), normalization=auto_contrast_sigma, binning_method=fourier_crop)
+def send_find_junk(image: np.ndarray, weights: str = 'junk_detection/junk_medium_mag.pt', imgsz: int = 1024,
+                   conf_thres: float = 0.25, iou_thres: float = 0.45, timeout: int = 120,
+                   classes: List[int] = None, return_confidence: bool = False, **kwargs):
+    """Runs the YOLO junk/contaminant detector on an already-binned 8-bit image.
 
+    Reuses the AI microservice ``find_squares`` task, which returns all detected boxes
+    regardless of class, with the junk detection weights.
+
+    classes: optional list of class indices to keep (e.g. [0] to drop the 'hole' class of
+        junk_medium_mag.pt). None keeps all classes.
+    return_confidence: also return the YOLO confidence of each detection. If the AI worker
+        does not support it yet, confidences are returned as None.
+
+    Returns
+    -------
+    (N, 2) array of detection centers in the pixel space of ``image``, or
+    (centers, confidences) if ``return_confidence``.
+    """
+    encoded = encode_image(image)
+    data = {
+        'image': encoded,
+        'kwargs': dict(
+            weights_circle=weights,
+            imgsz=imgsz,
+            conf_thres=conf_thres,
+            iou_thres=iou_thres,
+            scaling_factor=1,
+            class_mapping=None,
+            return_confidence=return_confidence,
+            **kwargs,
+        ),
+    }
+    queue, _ = get_queue()
+    result = app.send_task('SmartscopeAI.interfaces.celery.tasks.find_squares', args=[json.dumps(data)], queue=queue)
+    logger.info(f'dispatched junk detection (find_squares with {weights}) -> task_id={result.id}')
+    output = AsyncResult(result.id, app=app).get(interval=1, timeout=timeout)
+    coords, labels = output[0], output[1]
+    confs = output[2] if len(output) > 2 else None
+    if return_confidence and confs is None:
+        logger.warning('AI worker did not return detection confidences; is the SmartscopeAI service up to date?')
+    if classes is not None:
+        keep = {str(c) for c in classes}
+        n_total = len(coords)
+        idx = [i for i, l in enumerate(labels) if str(l) in keep]
+        coords = [coords[i] for i in idx]
+        if confs is not None:
+            confs = [confs[i] for i in idx]
+        logger.debug(f'Kept {len(coords)}/{n_total} detections with classes {sorted(keep)}')
+    if len(coords) == 0:
+        centers = np.empty((0, 2), dtype=np.float64)
+    else:
+        boxes = np.asarray(coords, dtype=np.float64)
+        centers = np.column_stack([(boxes[:, 0] + boxes[:, 2]) / 2.0, (boxes[:, 1] + boxes[:, 3]) / 2.0])
+    logger.debug(f'Junk detection found {len(centers)} objects')
+    if return_confidence:
+        return centers, (np.asarray(confs, dtype=np.float64) if confs is not None else None)
+    return centers
+
+def send_find_holes_from_montage(montage:Montage, class_map:Dict[str,BaseModel], success_threshold:int=10,  **kwargs):
+    image= convert_to_png(montage.image, height=kwargs.get('imgsz', 1024), normalization=auto_contrast_sigma, binning_method=fourier_crop)
+    scaling_factor = montage.image.shape[0] / image.shape[0]
+    logger.info(f"Original image of size {montage.image.shape} was scaled to {image.shape} with scaling factor {scaling_factor}")
+    
     encoded = encode_image(image)
 
     data = { 'image': encoded }
@@ -114,8 +173,10 @@ def send_find_holes_from_montage(montage:Montage, class_map:Dict[str,BaseModel],
     return final_result, True, dict()
 
 def send_find_holes_from_square(montage:Montage, class_map:Dict[str,BaseModel], success_threshold:int=10,  **kwargs):
-    scaling_factor = montage.image.shape[0] / kwargs.get('imgsz', 1024)
     image= convert_to_png(montage.image, height=kwargs.get('imgsz', 1024), normalization=auto_contrast, binning_method=fourier_crop)
+    scaling_factor = montage.image.shape[0] / image.shape[0]
+    logger.info(f"Original image of size {montage.image.shape} was scaled to {image.shape} with scaling factor {scaling_factor}")
+
     image = mask_square(image)
 
     encoded = encode_image(image)
@@ -179,8 +240,22 @@ def find_holes_with_lattice(montage, hole_spacing:float, hole_size:float, lattic
     return filtered_lattice_from_center, True, {'rotation': rotation, 'spacing': spacing}
 
 def sim_siam_inference(mag_level:Literal['square','hole'], grid_id:str, **kwargs):
-    # Example usage
+    """
+    Serialized per grid/mag_level: concurrent square tasks share the scratch dataset dir and the
+    embeddings parquet. Waiting is usually cheap, since the first run embeds every processed
+    square so later runs hit the microservice's 'already processed' early return.
+    """
+    from Smartscope.core.utils.cache_lock import cache_lock, CacheLockTimeout
+    from Smartscope.tasks.settings import SIMSIAM_INFERENCE_LOCK_TTL_S, SIMSIAM_INFERENCE_LOCK_WAIT_S
+    lock_key = f'simsiam_infer:{grid_id}:{mag_level}'
+    try:
+        with cache_lock(lock_key, ttl=SIMSIAM_INFERENCE_LOCK_TTL_S, wait=SIMSIAM_INFERENCE_LOCK_WAIT_S):
+            return _sim_siam_inference(mag_level, grid_id, **kwargs)
+    except CacheLockTimeout:
+        logger.warning(f'[grid={grid_id}] Timed out after {SIMSIAM_INFERENCE_LOCK_WAIT_S}s waiting for SimSiam {mag_level} inference lock; skipping this run.')
+        return None
 
+def _sim_siam_inference(mag_level:Literal['square','hole'], grid_id:str, **kwargs):
     """
     Sends a task to the Celery queue to process data for SimSiam training.
     Parameters:
@@ -236,6 +311,37 @@ def sim_siam_inference(mag_level:Literal['square','hole'], grid_id:str, **kwargs
     logger.debug(f'sim_siam inference result: {final_result}')
     
     sim_siam_copy_output_file_from_scratch(final_result, grid.directory, scratch_dir=scratch_dir)
+
+def sim_siam_clustering(mag_level:Literal['square','hole'], grid_id:str, timeout:int=1800, **kwargs):
+    """
+    Cluster + UMAP/PCA over all embeddings of a grid. Display-only, so it is run off the
+    acquisition critical path (see long_actions_tasks.sim_siam_cluster_debounced).
+    Writes sim_siam_clusters_{mag_level}.parquet.zip to the grid directory.
+    """
+    import shutil
+    if mag_level not in ['square','hole']:
+        raise ValueError(f"Invalid magnification level: {mag_level}. Must be 'square' or 'hole'.")
+    grid = AutoloaderGrid.objects.get(grid_id=grid_id)
+    embeddings_file = Path(grid.directory) / f'sim_siam_embeddings_{mag_level}.parquet.zip'
+    if not embeddings_file.is_file():
+        logger.warning(f'[grid={grid_id}] No SimSiam embeddings at {embeddings_file}, skipping clustering.')
+        return None
+
+    queue, scratch_dir = get_queue()
+    dataset_name = f'{grid_id}_{mag_level}'
+    # Snapshot the embeddings under a dedicated name so we never overwrite the file inference writes to.
+    scratch_root = Path(scratch_dir) if scratch_dir is not None else SCRATCH_DIR
+    cluster_input = scratch_root / dataset_name / 'output' / f'sim_siam_cluster_input_{mag_level}.parquet.zip'
+    cluster_input.parent.mkdir(parents=True, exist_ok=True)
+    shutil.copyfile(embeddings_file, cluster_input)
+
+    data = json.dumps(dict(dataset_name=dataset_name, mag_level=mag_level, checkpoint_path='None'))
+    result = app.send_task('SmartscopeAI.interfaces.celery.tasks.sim_siam_cluster', args=[data], queue=queue)
+    logger.info(f'[grid={grid_id}] dispatched sim_siam_cluster -> task_id={result.id}')
+    final_result = AsyncResult(result.id, app=app).get(interval=1, timeout=timeout)
+    sim_siam_copy_output_file_from_scratch(final_result, grid.directory, scratch_dir=scratch_dir)
+    logger.info(f'[grid={grid_id}] SimSiam clustering for {mag_level} written to {grid.directory}')
+    return final_result
 
 def sim_siam_training(mag_level:Literal['square','hole'], grid_id:str, related_grids:list = [], dataset_name=None,**kwargs):
     """

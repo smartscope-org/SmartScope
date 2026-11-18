@@ -2,6 +2,7 @@ import logging
 from django.shortcuts import render
 
 from django.contrib.contenttypes.models import ContentType
+from django.contrib.auth.models import Group
 
 from Smartscope.core.models.tags import SampleTypeTag, UserGroupTag, Tag, TagGrid, SampleTag, ProjectTag
 from Smartscope.core.models import AutoloaderGrid
@@ -66,6 +67,36 @@ def add_tag_to_grid(request, tag_type: Tag, grid_id:str):
 def add_sample_type_tag(request, grid_id):
     return add_tag_to_grid(request, SampleTypeTag, grid_id=grid_id)
 
+def add_project_tag(request, grid_id):
+      return add_tag_to_grid(request, ProjectTag, grid_id=grid_id)
+
+def create_project_tag(request, grid_id):
+    if request.method == 'POST':
+        name = request.POST.get('tag')
+        group_name = request.POST.get('group')
+        if name and group_name and (request.user.is_staff or request.user.groups.filter(name=group_name).exists()):
+            ProjectTag.objects.get_or_create(
+                name=name, group_name=Group.objects.get(name=group_name),
+                defaults={'user_id': request.user})
+    choices = ProjectTag.objects.filter(group_name__in=request.user.groups.all().values_list('name', flat=True))
+    applied_project_tags = get_grid_tags(grid_id, ContentType.objects.get_for_model(ProjectTag))
+    context = {'tags': choices, 'grid_id': grid_id, 'user_groups': request.user.groups.all(),
+                'applied_project_tags': applied_project_tags}
+    return render(request, 'tags/project_tags_choices.html', context=context)
+      
+def delete_project_tag(request, grid_id):
+    if request.method == 'POST':
+        pk = request.POST.get('pk')
+        tag = ProjectTag.objects.filter(pk=pk).first()
+        if tag and (request.user.is_staff or request.user.groups.filter(name=tag.group_name_id).exists()):
+            content_type = ContentType.objects.get_for_model(ProjectTag)
+            TagGrid.objects.filter(content_type=content_type, object_id=tag.pk).delete()
+            tag.delete()
+    choices = ProjectTag.objects.filter(group_name__in=request.user.groups.all().values_list('name', flat=True))
+    applied_project_tags = get_grid_tags(grid_id, ContentType.objects.get_for_model(ProjectTag))
+    context = {'tags': choices, 'grid_id': grid_id, 'user_groups': request.user.groups.all(),
+                'applied_project_tags': applied_project_tags}
+    return render(request, 'tags/project_tags_choices.html', context=context)
     
 def tag_manager(request, grid_id):
     context = { 'grid_id': grid_id }
@@ -75,7 +106,8 @@ def tag_manager(request, grid_id):
     context['sample_type_tags_choices'] = sample_type_tags_choices
     projects_tags = get_grid_tags(grid_id, ContentType.objects.get_for_model(ProjectTag))
     context['projects_tags'] = projects_tags
-    context['project_tags_choices'] = ProjectTag.objects.filter(group_name__in=request.user.groups.all().values_list('name', flat=True))
+    context['projects_tags_choices'] = ProjectTag.objects.filter(group_name__in=request.user.groups.all().values_list('name', flat=True))
+    context['user_groups'] = request.user.groups.all()
 
 
     return render(request, 'tags/tags_manager.html', context=context)

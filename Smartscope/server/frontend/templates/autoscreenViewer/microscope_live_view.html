@@ -1,0 +1,22 @@
+<div id="scopeLiveFrame" hx-get="{% url 'microscopeLiveView' grid_id=grid_id %}?shown={{ shown }}" hx-trigger="every 2s" hx-swap="outerHTML">
+    {% if latest %}
+    <img id="scopeLiveImage" class="scope-live-image" alt="Latest SerialEM image"
+        src="{% url 'microscopeLiveFrame' grid_id=grid_id name=latest.file %}">
+    <div class="scope-live-caption">
+        <span>{{ latest.source_width }} × {{ latest.source_height }}{% if latest.pixel_size_A %} · {{ latest.pixel_size_A|floatformat:2 }} Å/px · {{ latest.field_of_view_um|floatformat:2 }} µm wide{% endif %}</span>
+        <span>{% if stopped %}SerialEM is not running{% elif idle_minutes %}no new image for {{ idle_minutes }} min{% else %}<i class="bi bi-circle-fill scope-live-dot"></i> live{% endif %}</span>
+    </div>
+    {% if previous %}
+    <div class="scope-live-strip" title="Earlier images, newest first. Click one to enlarge it until the next image arrives.">
+        {% for frame in previous %}
+        <img alt="Earlier image" src="{% url 'microscopeLiveFrame' grid_id=grid_id name=frame.file %}"
+            onclick="document.getElementById('scopeLiveImage').src = this.src">
+        {% endfor %}
+    </div>
+    {% endif %}
+    {% elif watcher_found and not stopped %}
+    <div class="scope-live-empty">Waiting for SerialEM to take an image…</div>
+    {% else %}
+    <div class="scope-live-empty">No live images yet. They appear once a SmartScope session acquires an image.</div>
+    {% endif %}
+</div>

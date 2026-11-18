@@ -579,7 +579,7 @@ class AutoloaderGrid(BaseModel):
 
     @ property
     def collection_mode(self):
-        if self.params_id.holes_per_square <= 0:
+        if self.params_id.holes_per_square < 0:
             return 'collection'
         return 'screening'
 
@@ -1061,8 +1061,8 @@ class HighMagModel(Target, ExtraPropertyMixin):
         self.hole_id = parent
     # endaliases
     
-    def svg(self, *args, **kwargs):
-        return drawHighMag(self)
+    def svg(self, href=None, *args, **kwargs):
+        return drawHighMag(self, href=href)
     
     @property
     def power_spectrum(self):

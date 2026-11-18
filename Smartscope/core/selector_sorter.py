@@ -179,7 +179,7 @@ class SelectorSorter:
     def calculate_classes(self):
         # logger.debug(f'Getting classes from selector {self._selector.name}. Inputs {len(self._targets)} targets and {self._n_classes} with limits {self.limits}.')
         map_in_bounds = self.included_in_limits()
-        step = abs(self.limits[0] - self.limits[1]) / self._n_classes
+        step = abs(self.limits[1] - self.limits[0]) / self._n_classes
         
         # for value, in_bounds in zip(values, map_in_bounds):
         def get_class(value, in_bounds) -> int:
@@ -248,7 +248,15 @@ def initialize_selector_from_embeddings(grid: models.AutoloaderGrid, selector:st
         logger.warning(f'No embedding data found for selector {selector} on grid {grid.grid_id} at magnification level {mag_level}. Reverting to lagacy sorting.')
         return None
     values,n_classes = plugin.sorter_data(grid,mag_level,queryset)
+    if values is None:
+        logger.warning(f'No cluster data yet for selector {selector} on grid {grid.grid_id} at magnification level {mag_level}. Reverting to lagacy sorting.')
+        return None
     selector_sorter = SelectorSorter(selector_name=selector,fractional_limits=[0,1], n_classes=n_classes)
 
     selector_sorter.values = values
+    clustered = [v for v in values if v >= 0]
+    if len(clustered) < len(values):
+        # Targets embedded after the last clustering run carry a negative sentinel; pin limits to the
+        # clustered range so they fall outside it (class 0) instead of shifting every cluster's color.
+        selector_sorter.limits = [min(clustered), max(clustered)]
     return selector_sorter

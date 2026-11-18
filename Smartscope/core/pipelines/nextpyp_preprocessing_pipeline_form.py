@@ -21,7 +21,8 @@ class NextPYPPreprocessingPipelineForm(forms.Form):
 
     path_to_token = forms.CharField(
         label="Path to nextPYP token",
-        help_text="Path to the nextPYP token file inside the container, e.g. /root/.nextpyp_token"
+        help_text="Path to the nextPYP token file inside the container, e.g. /root/.nextpyp_token. "
+                  "To get a token, run: smartscope.py nextpyp_request_token <nextPYP URL> <nextPYP user ID>"
     )
 
     url_base = forms.CharField(
@@ -30,8 +31,8 @@ class NextPYPPreprocessingPipelineForm(forms.Form):
     )
 
     group_id = forms.CharField(
-        label="nextPYP Group ID",
-        help_text="ID of the nextPYP group to create sessions under"
+        label="nextPYP Group",
+        help_text="Name of the nextPYP group to create sessions under, as shown on the nextPYP website (the group ID also works)"
     )
 
     remote_user = forms.CharField(

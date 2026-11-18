@@ -31,10 +31,10 @@ from Smartscope.server.lib.worker_jobs import send_to_worker
 
 from Smartscope.core.models.models_actions import targets_methods
 from Smartscope.core.db_manipulations import viewer_only
-from Smartscope.core.cache import save_json_from_cache
 from Smartscope.core.models import *
 from Smartscope.core.settings.worker import PLUGINS_FACTORY
 from Smartscope.core.main_commands import check_pause
+from Smartscope.server.service.collection_params import update_collection_params
 
 logger = logging.getLogger(__name__)
 
@@ -138,6 +138,22 @@ class ExtraActionsMixin:
         }
         img,name = extension_factory[extension]()
         response = FileResponse(img, content_type='image/*', as_attachment=True, filename=name)
+        return response
+
+    @ action(detail=True, methods=['get'])
+    def image(self, request, **kwargs):
+        """Serve a target's png/webp or CTF image inline so cards can load it lazily by URL."""
+        kind = request.query_params.get('kind', 'png')
+        instance = self.get_object()
+        getters = {'png': lambda: instance.png, 'ctf': lambda: instance.ctf_img}
+        if kind not in getters:
+            return Response(dict(detail=f'Unknown image kind {kind}'), status=rest_status.HTTP_400_BAD_REQUEST)
+        path = str(getters[kind]())
+        if not os.path.isfile(path):
+            return Response(dict(detail='Image not found'), status=rest_status.HTTP_404_NOT_FOUND)
+        content_type = 'image/webp' if path.lower().endswith('.webp') else 'image/png'
+        response = FileResponse(open(path, 'rb'), content_type=content_type)
+        response['Cache-Control'] = 'private, max-age=86400'
         return response
 
 
@@ -357,10 +373,22 @@ class ScreeningSessionsViewSet(viewsets.ModelViewSet, GeneralActionsMixin,):
 
         if process is not None:
             if process.status == 'running':
-                return Response({'isRunning': True, 'pid': process.PID, 'status': process.status})
+                return Response({
+                            'isRunning': True, 
+                            'pid': process.PID, 
+                            'status': process.status, 
+                            'start': process.start_time, 
+                            'end': process.end_time
+                        })
             else:
-                return Response({'isRunning': False, 'pid': process.PID, 'status': process.status})
-        return Response({'isRunning': False, 'pid': None, 'status': None})
+                return Response({
+                            'isRunning': False, 
+                            'pid': process.PID, 
+                            'status': process.status,
+                            'start': process.start_time, 
+                            'end': process.end_time
+                        })
+        return Response({'isRunning': False, 'pid': None, 'status': None, 'start': None, 'end': None})
 
     @ action(detail=True, methods=['put'])
     def pause_between_grids(self, request, **kwargs):
@@ -401,8 +429,11 @@ class ScreeningSessionsViewSet(viewsets.ModelViewSet, GeneralActionsMixin,):
     @ action(detail=True, methods=['post'], )
     def force_kill(self, request, **kwargs):
         self.object = self.get_object()
+        process = self.object.process_set.first()
         logger.info('stopping')
         out, err = send_to_worker(self.object.microscope_id.worker_hostname, 'pkill', arguments=['-f', self.object.pk])
+        process.status = 'killed'
+        process.save()
         return Response(dict(out=out, err=err))
 
     @ action(detail=True, methods=['post'], )
@@ -547,28 +578,13 @@ class AutoloaderGridViewSet(viewsets.ModelViewSet, GeneralActionsMixin, ExtraAct
     @ action(detail=True, methods=['patch'])
     def editcollectionparams(self, request, **kwargs):
         obj = self.get_object()
-        data = request.data
+        data = request.data.copy()
         logger.debug(data)
-        try:
-            form_params = GridCollectionParamsForm(data)
-            if form_params.is_valid():
-                multishot_per_hole_id = form_params.cleaned_data.pop('multishot_per_hole_id')
-                # preprocessing_pipeline_id = form_params.cleaned_data.pop('preprocessing_pipeline_id')
-                if multishot_per_hole_id != "":
-                    save_json_from_cache(multishot_per_hole_id, obj.directory,'multishot')
-                # if preprocessing_pipeline_id != "":
-                #     save_json_from_cache(preprocessing_pipeline_id,obj.directory,'preprocessing')
-                params, created = GridCollectionParams.objects.get_or_create(**form_params.cleaned_data)
-                logger.debug(f'Params newly created: {created}')
-                obj.params_id = params
-                obj.save()
-                return Response(dict(success=True))
-            else:
-                logger.debug(f'Form invalid , {form_params}.')
-                return Response(dict(success=False))
-        except Exception as err:
-            logger.exception(f'Error while updating parameters, {err}.')
-            return Response(dict(success=False))
+        result = update_collection_params(obj, data)
+        if not result.get('success', False):
+            return Response(result, status=400)
+        return Response(result)
+
 
     @action(detail=True, methods=['post'])
     def write_grid_geometry(self, request, pk=None):
@@ -803,11 +819,12 @@ class HoleModelViewSet(viewsets.ModelViewSet, GeneralActionsMixin, ExtraActionsM
         obj = self.get_object()
         self.renderer_classes = [TemplateHTMLRenderer]
 
+        base_qs = HighMagModel.objects.select_related('hole_id', 'grid_id__session_id')
         if obj.bis_group is None:
-            queryset = list(HighMagModel.objects.filter(hole_id=kwargs['pk'], status='completed'))
+            queryset = list(base_qs.filter(hole_id=kwargs['pk'], status='completed'))
         else:
-            queryset = list(HighMagModel.objects.filter(grid_id=obj.grid_id,
-                                                        hole_id__bis_group=obj.bis_group, status='completed').order_by('hole_id__number','number'))
+            queryset = list(base_qs.filter(grid_id=obj.grid_id,
+                                           hole_id__bis_group=obj.bis_group, status='completed').order_by('hole_id__number','number'))
         context = {}
         classifier = get_request_param(request, 'squareMethod', 'Micrographs curation')
         logger.info(f'Loading HighMag cards with \'{classifier}\' classifier')
@@ -815,7 +832,9 @@ class HoleModelViewSet(viewsets.ModelViewSet, GeneralActionsMixin, ExtraActionsM
         response_context= dict(cards=[])
         for hole in queryset:
             context['hole']=hole
-            context['svg'] = hole.svg().as_svg()
+            # images are referenced by URL and lazy-loaded by the browser instead of base64-embedded
+            context['svg'] = hole.svg(href=hole.image_url('png')).as_svg()
+            context['ctf_url'] = hole.image_url('ctf')
             response_context['cards'].append(render_to_string('holecard.html',context))
         resp = SimpleTemplateResponse(context=response_context, content_type='text/html', template='holecards.html')
         logger.debug(resp)

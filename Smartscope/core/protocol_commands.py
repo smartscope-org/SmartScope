@@ -115,10 +115,16 @@ def eucentricSearch(scope:MicroscopeInterface,params,instance, content:Dict, *ar
     
     However, this is less precise than Eucentricty and should be avoided when using Falcon detectors or when setting up for data collection.
     """
+    if scope.microscope.narrowGapPolepiece:
+        logger.info('Narrow gap polepiece detected, using eucentricity by focus instead of stage tilt.')
+        scope.eucentricity_by_focus()
     scope.eucentricHeight()
 
 def eucentricMediumMag(scope:MicroscopeInterface,params,instance, content:Dict, *args, **kwargs) :
     """Calculates eucentricity using the View preset. Equivalent to Eucentric Rough."""
+    if scope.microscope.narrowGapPolepiece:
+        logger.info('Narrow gap polepiece detected, using eucentricity by focus instead of stage tilt.')
+        scope.eucentricity_by_focus()
     scope.eucentricity()
     instance.eucentricity_refined = True
     instance.save()
@@ -430,24 +436,32 @@ def reregisterMediumMag(scope:MicroscopeInterface,params,instance, content:Dict,
     return(new_stage_x, new_stage_y)
 
 def reregisterMediumMagFiducial(scope:MicroscopeInterface,params,instance, content:Dict, *args, **kwargs):
-    from Smartscope.core.grid.run_io import get_file_and_process
-    grid = instance.grid_id
-    pitch = grid.holeType.pitch
-    num_tiles_x, num_tiles_y = scope.set_medium_mag_size_mini_montage(hole_pitch_um=pitch)
-    im_file = f'raw/register_fiducial_{instance.pk}.mrc'
-    if max(num_tiles_x, num_tiles_y) == 1:
-        scope.acquire_medium_mag(file=im_file)
-    else:
-        scope.medium_mag_montage((num_tiles_x, num_tiles_y), file=im_file)
+    """[v1, method 'yolo'] Re-registers a square after grid reloading without going back to low mag.
 
-    microscope_id = grid.session_id.microscope_id
-    montage = get_file_and_process(
-        raw=im_file,
-        name=f'medium_mag_fiducial_{instance.pk}',
-        directory=microscope_id.scope_path,
-        force_reprocess=True
-    )
-    ###NEED TO CONTINUE HERE.
+    Images a junk anchor of the square at medium mag and registers the image onto the original
+    square image by matching YOLO junk detections on both images.
+    Returns an (old, new) stage coordinate pair or None.
+    """
+    from Smartscope.core.reregistration.reregister import reregister_square_at_anchor, register_medium_to_square
+    return reregister_square_at_anchor(scope, instance, content, 'reregister_fiducial', register_medium_to_square)
+
+
+def reregisterMediumMagJunkXcorr(scope:MicroscopeInterface,params,instance, content:Dict, *args, **kwargs):
+    """[v2, method 'junk_xcorr'] Re-registers a square after grid reloading without going back to low mag.
+
+    Images a junk anchor of the square at medium mag and locates the image in the original
+    square image by cross-correlation.
+    Returns an (old, new) stage coordinate pair or None.
+    """
+    from Smartscope.core.reregistration.reregister import reregister_square_at_anchor, register_medium_to_square_xcorr
+    return reregister_square_at_anchor(scope, instance, content, 'reregister_xcorr', register_medium_to_square_xcorr)
+
+
+def delay(scope:MicroscopeInterface,params,instance, content:Dict, *args, **kwargs):
+    delay = content.get('delay', 1)
+    units = content.get('units', 's')
+    logger.info(f'Delaying for {delay} {units}')
+    scope.delay(delay, units)
 
 
 def reregisterSearchMag(scope:MicroscopeInterface,params,instance, content:Dict, *args, **kwargs):
@@ -485,7 +499,11 @@ def refineEucentricityByFocus(scope:MicroscopeInterface,params,instance, content
 
 def eucentricSearchAfterDistance(scope:MicroscopeInterface,params,instance, content:Dict, *args, **kwargs):
     distance = content.get('distance', 300)
-    scope.eucentric_height_after_distance(distance_threshold=distance)
+    method = content.get('method', 'eucentricHeight')
+    if scope.microscope.narrowGapPolepiece:
+        logger.info('Narrow gap polepiece detected, using eucentricity by focus instead of stage tilt.')
+        method = 'eucentricity_by_focus'
+    scope.eucentric_height_after_distance(distance_threshold=distance, method=method)
 
 protocolCommandsFactory = dict(
     setAtlasOptics=setAtlasOptics,
@@ -538,6 +556,8 @@ protocolCommandsFactory = dict(
     resetState=resetState,
     reregisterMediumMag=reregisterMediumMag,
     reregisterSearchMag=reregisterSearchMag,
+    reregisterMediumMagFiducial=reregisterMediumMagFiducial,
+    reregisterMediumMagJunkXcorr=reregisterMediumMagJunkXcorr,
     openColumnValve=openColumnValve,   
     callOnModeChange=callOnModeChange, 
     setupSerialEM=setupSerialEM,

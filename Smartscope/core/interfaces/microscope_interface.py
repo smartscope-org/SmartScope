@@ -76,6 +76,10 @@ class MicroscopeInterface(ABC):
     @abstractmethod
     def eucentric_height_after_distance(self, tilt_to:int=10, increments:int=-5, max_movement:int=200, distance_threshold:int=400):
         pass
+    
+    @abstractmethod
+    def delay(self, delay:int=1, units:str='s'):
+        pass
 
     @abstractmethod
     def call(self, script):
@@ -209,6 +213,11 @@ class MicroscopeInterface(ABC):
     @abstractmethod
     def medium_mag_hole(self, file: str = ""):
         pass
+
+    def set_medium_mag_size_mini_montage(self, hole_pitch_um: float = 2.5, n_pitches: float = 4):
+        """Returns the number of medium mag tiles (x, y) needed to cover n_pitches * hole_pitch_um.
+        Default implementation for interfaces without camera area reporting: single tile."""
+        return 1, 1
 
     @abstractmethod
     def load_hole_ref(self):

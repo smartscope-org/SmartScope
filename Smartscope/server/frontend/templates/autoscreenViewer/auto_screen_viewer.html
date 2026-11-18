@@ -2,46 +2,6 @@
 {% load static %}
 {% block title %}Smartscope Browser{% endblock %}
 {% block content %}
-    <div id="sideNav" class="d-flex flex-column p-0 justify-content-between">
-        <ul class="list-group px-0">
-            <li class="list-group-item p-1" data-bs-toggle="tooltip" title="Toggle nagivation menu">
-                <button id="sidebarCollapse"
-                    class="btn btn-sm btn-outline-light"
-                    data-bs-toggle="collapse" data-bs-target="#sidebarNav" aria-expanded="true">
-                    <i class="bi bi-list-nested" ></i>
-                </button>
-            </li>
-            <li class="list-group-item p-1" data-bs-toggle="tooltip" title="View microscope(s) status and current sessions">
-                <button id="microscopeActivity"
-                    class="btn btn-sm btn-outline-light"
-                    hx-get="{% url 'microscopeStatus' %}"
-                    hx-target="#main"
-                    hx-push-url="true">
-                    <i class="bi bi-activity"></i>
-                </button>
-            </li>
-            <li class="list-group-item p-1" data-bs-toggle="tooltip" title="View all sesssions">
-                <button id="sessionHistory"
-                    class="btn btn-sm btn-outline-light"
-                    style="width: 32px; height: 32px; padding: 0; font-weight: 600; font-size: 14px;"
-                    hx-get="{% url 'sessionHistory' %}"
-                    hx-target="#main"
-                    hx-push-url="true">
-                    <span style="font-size: 16px; font-weight: 200;">S</span>
-                </button>
-            </li>
-        </ul>
-        <ul class="list-group px-0">
-            <li class="list-group-item p-1" data-bs-toggle="tooltip" title="Logout">
-                <form method="post" action="{% url 'logout' %}">
-                    {% csrf_token %}
-                    <button id="logout" type="submit" class="btn btn-sm btn-outline-danger">
-                        <i class="bi bi-box-arrow-left"></i>
-                    </button>
-                </form>
-            </li>
-        </ul>
-    </div>
     <div class='p-0 d-flex flex-row w-100'>
         <div id="sidebar-container" style="width: 200px; min-width: 100px; max-width: 500px;">
 
@@ -73,6 +33,29 @@
                             class="list-group-item sidebar-separator-title text-muted d-flex align-items-center menu-collapsed justify-content-between">
                             SESSIONS
                             <div class="d-flex align-items-center gap-2">
+                                <div class="dropdown">
+                                    <i class="bi bi-funnel text-muted" role="button" data-bs-toggle="dropdown"
+                                        data-bs-auto-close="outside" title="Filter by tags"></i>
+                                    <div class="dropdown-menu dropdown-menu-end p-2"
+                                        style="background:#2b2b2b;border-color:#555;min-width:200px;max-height:300px;overflow-y:auto;">
+                                        <div class="text-muted mb-1" style="font-size:.75rem;">Sample Types</div>
+                                        {% for t in sample_type_tags %}
+                                        <div class="form-check">
+                                            <input class="form-check-input filter-sample-type" type="checkbox" value="{{ t.pk }}" id="st{{ t.pk }}">
+                                            <label class="form-check-label text-light" style="font-size:.85rem;" for="st{{ t.pk }}">{{ t.name }}</label>
+                                        </div>
+                                        {% endfor %}
+                                        <div class="text-muted mt-2 mb-1" style="font-size:.75rem;">Projects</div>
+                                        {% for t in project_tags %}
+                                        <div class="form-check"> 
+                                            <input class="form-check-input filter-project" type="checkbox" value="{{ t.pk }}" id="pr{{ t.pk }}">
+                                            <label class="form-check-label text-light" style="font-size:.85rem;" for="pr{{ t.pk }}">{{ t.name }}</label>
+                                        </div>
+                                        {% endfor %}
+                                        <button type="button" class="btn btn-sm btn-primary w-100 mt-2" onclick="applyTagFilter()">Submit</button>
+                                    </div>
+                                </div>
+                                <i class="bi bi-x-circle text-muted" role="button" onclick="clearTagFilter()" title="Clear filters"></i>
                                 <label for="filterOwnSessions" class="text-muted mb-0" style="font-size: 0.75rem;">My sessions</label>
                                 <input type="checkbox" id="filterOwnSessions" class="form-check-input mt-0"
                                     data-bs-toggle="tooltip" data-bs-placement="right" title="Filter my sessions">
@@ -105,9 +88,10 @@
             </div>
         </div>
         <div id="sidebar-resizer" 
-            style="width: 4px; cursor: col-resize; background: #444; flex-shrink: 0;"></div>
-        <div id='main' class="d-flex flex-column" 
-            style="flex: 1; background-color: #f5f5f5; overflow-y: scroll;">
+            style="width: 4px; cursor: col-resize; background: #444; flex-shrink: 0;">
+        </div>
+        <div id='main' class="d-flex flex-column p-0" 
+            style="flex: 1; min-width: 0; overflow: hidden; background-color: #f5f5f5;">
             {% if initial_partial %}
                 {% include initial_partial %}
             {% endif %}
@@ -118,4 +102,6 @@
 
 {% block script %}
 <script src="{% static 'browser.js' %}"></script>
+<script src="{% static 'common_components.js' %}"></script>
+<script src="{% static 'image_interactions.js' %}"></script>
 {% endblock script %}

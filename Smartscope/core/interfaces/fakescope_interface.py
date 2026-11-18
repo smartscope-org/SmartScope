@@ -41,6 +41,9 @@ class FakeScopeInterface(MicroscopeInterface):
 
     def eucentricity_by_focus(self):
         pass
+    
+    def delay(self, delay:int=1, units:str='s'):
+        pass
 
     def call(self, script):
         self.logger.info(f'Calling {script}')
@@ -73,7 +76,7 @@ class FakeScopeInterface(MicroscopeInterface):
     def eucentricity(self):
         pass
 
-    def eucentric_height_after_distance(self, tilt_to:int=10, increments:int=-5, max_movement:int=200, distance_threshold:int=400):
+    def eucentric_height_after_distance(self, tilt_to:int=10, increments:int=-5, max_movement:int=200, distance_threshold:int=400, method:str='eucentricHeight'):
         pass
     
     def autofocus_by_z(self):
@@ -87,6 +90,10 @@ class FakeScopeInterface(MicroscopeInterface):
 
     def realign_to_square(self):
         return super().realign_to_square()
+
+    def find_square_center_microns(self):
+        # No real stage: the square is always where we left it, so re-registration sees zero shift.
+        return 0.0, 0.0
 
     def atlas(self, size, file=''):
         self.logger.info('Running atlas.')
@@ -242,9 +249,6 @@ class FakeScopeInterface(MicroscopeInterface):
         pass
 
     def set_focus_for_bis_tilt(self,isY,tiltAngle):
-        pass
-
-    def eucentric_height_after_distance(self, tilt_to:int=10, increments:int=-5, max_movement:int=200, distance_threshold:int=400):
         pass
 
     def save_AFIS_image_shift(self, afis:bool=False):

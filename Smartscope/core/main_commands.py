@@ -341,7 +341,7 @@ def export_grid(grid_id: str, export_to: str = ''):
 
 
 
-def export_session(session_id: str):
+def export_session(session_id: str, export_to: str = ''):
     """
     Exports all grids from a session by calling the export_grid function.
 
@@ -373,7 +373,7 @@ def export_session(session_id: str):
         # Call export_grid function for each grid
         for grid in grids:
             print(f"Exporting grid: {grid.id}")
-            export_grid(grid.id)
+            export_grid(grid.id, export_to)
 
     except ScreeningSession.DoesNotExist:
         print(f"Session ID: {session_id} does not exist.")

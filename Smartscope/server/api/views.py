@@ -4,6 +4,7 @@ from django.contrib.auth.models import User, Group
 from django.contrib.auth import login, logout
 from django.shortcuts import resolve_url
 from django.shortcuts import redirect
+from django.contrib.contenttypes.models import ContentType
 
 from rest_framework.views import APIView
 from rest_framework.response import Response
@@ -15,6 +16,8 @@ from Smartscope.server.frontend.forms import *
 from Smartscope.server.lib.worker_jobs import send_to_worker
 from Smartscope.core.db_manipulations import update_target_selection, update_target_label, update_target_status
 from Smartscope.core.main_commands import list_plugins, reload_plugins, list_protocols, reload_protocols
+from Smartscope.core.protocols import load_protocol
+from Smartscope.core.preprocessing_pipelines import load_preprocessing_pipeline
 from Smartscope.core.models import *
 from .serializers import *
 
@@ -53,6 +56,18 @@ logger = logging.getLogger(__name__)
 #     filter_backends = [DjangoFilterBackend]
 #     filterset_fields = ['grid_id', 'grid_id__meshMaterial', 'grid_id__holeType', 'grid_id__meshSize', 'grid_id__quality',
 #                         'atlas_id', 'quality', ]
+
+
+class SidepanelErrorItem:
+    """Placeholder item rendered when a group/session no longer exists."""
+    def __init__(self, message):
+        self.pk = ""
+        self.quality = None
+        self.message = message.upper()
+
+    def __str__(self):
+        return self.message
+    
 
 class AlternateLoginView(APIView):
     permission_classes = [permissions.AllowAny]
@@ -170,22 +185,64 @@ class SidePanel(APIView):
         field = None
 
         if group is not None and (user.is_staff or user.groups.filter(pk=group).exists()):
-            # if group is not None:
-            group_obj = Group.objects.get(pk=group)
+
+            try:
+                group_obj = Group.objects.get(pk=group)
+            except Group.DoesNotExist:
+                return Response(dict(
+                    items=[SidepanelErrorItem("Elements not found")],
+                    nextsection=None,
+                    field="error",
+                    jsfunction="noop",
+                ))
+            
             if own_flag:
-                own_sessions = ScreeningSession.objects.filter(user=user.username, group=group_obj).order_by('-creation_time')
-                items = list(own_sessions)
+                sessions = ScreeningSession.objects.filter(user=user.username, group=group_obj)
             else:
-                items = list(ScreeningSession.objects.filter(group=group_obj).order_by('-creation_time'))
-                items.sort(key=lambda x: x.creation_time, reverse=True)
+                sessions = ScreeningSession.objects.filter(group=group_obj)
+                  
+            st = request.query_params.getlist('sample_type_tag')
+            pr = request.query_params.getlist('project_tag')
+            ct_st = ContentType.objects.get_for_model(SampleTypeTag)
+            for pk in st:
+                sessions = sessions.filter(autoloadergrid__taggrid__content_type=ct_st, autoloadergrid__taggrid__object_id=pk)
+            ct_pr = ContentType.objects.get_for_model(ProjectTag)
+            for pk in pr:
+                sessions = sessions.filter(autoloadergrid__taggrid__content_type=ct_pr, autoloadergrid__taggrid__object_id=pk)
+            if st or pr:
+                sessions = sessions.distinct()
+                  
+            items = list(sessions.order_by('-creation_time'))
+            items.sort(key=lambda x: x.creation_time, reverse=True)
             nextsection = 'sidebarGrids'
             field = 'session_id'
 
         if session is not None:
 
-            session_obj = ScreeningSession.objects.get(pk=session)
+            try:
+                session_obj = ScreeningSession.objects.get(pk=session)
+            except ScreeningSession.DoesNotExist:
+                return Response(dict(
+                    items=[SidepanelErrorItem("Elements not found")],
+                    nextsection=None,
+                    field="error",
+                    jsfunction="noop",
+                ))
+            
             if user.is_staff or user.groups.filter(name=session_obj.group).exists():
-                items = list(AutoloaderGrid.objects.filter(session_id=session_obj).order_by('position'))
+                grids = AutoloaderGrid.objects.filter(session_id=session_obj)
+                st = request.query_params.getlist('sample_type_tag')
+                pr = request.query_params.getlist('project_tag')
+                ct_st = ContentType.objects.get_for_model(SampleTypeTag)
+                for pk in st:
+                    grids = grids.filter(taggrid__content_type=ct_st, taggrid__object_id=pk)
+                ct_pr = ContentType.objects.get_for_model(ProjectTag) 
+                for pk in pr:
+                    grids = grids.filter(taggrid__content_type=ct_pr, taggrid__object_id=pk)
+                if st or pr:
+                    grids = grids.distinct()
+                    
+                items = list(grids.order_by('position'))
                 nextsection = None
                 field = 'grid_id'
                 self.jsfunction = "loadReport"
@@ -213,23 +270,31 @@ class ReportPanel(APIView):
     def get(self, request):
         # smartscopeServerLog.info(request.query_params)
         grid_id = request.query_params.get('grid_id')
-        grid = AutoloaderGrid.objects.get(grid_id=grid_id)
+        try:
+            grid = AutoloaderGrid.objects.get(grid_id=grid_id)
+        except:
+            return Response(
+                {"not_found": True, "message": "This grid no longer exists."},
+                template_name='report_not_found.html',
+            )
         user = request.user
         user_groups = list(user.groups.values_list('pk', flat=True))
         group = grid.session_id.group
         logger.debug(f"Group={group.pk}, {user_groups}")
 
-        if user.is_staff or group.pk in user_groups:
+        if not os.path.isdir(grid.directory):
+            return Response(
+                            {"not_found": True, "message": "No data for this grid exists."},
+                            template_name='report_not_found.html',
+                        )
+        elif user.is_staff or group.pk in user_groups:
             context = dict()
             context['grid'] = grid
             context['tagsFeatureFlag'] = settings.TAGS_FEATURE_FLAG
-            context['gridform'] = AutoloaderGridReportForm(instance=context['grid'])
-            detector_id = grid.session_id.detector_id
-            context['gridCollectionParamsForm'] = GridCollectionParamsForm(instance=context['grid'].params_id, 
-                                                                           grid_id=context['grid'].grid_id, 
-                                                                           initial={'detector': str(detector_id.pk) if detector_id is not None else None, 
-                                                                                    'mode': grid.collection_mode}
-                                                                            )
+            protocol = load_protocol(file=grid.protocol)
+            context['protocol'] = protocol.name
+            pipeline_data = load_preprocessing_pipeline(Path(grid.directory, 'preprocessing.json'))
+            context['pipeline'] = PREPROCESSING_PIPELINE_FACTORY[pipeline_data.pipeline].verbose_name
             context['useMicroscope'] = settings.USE_MICROSCOPE
             try:
                 context['atlas_id'] = context['grid'].atlasmodel_set.all().first().atlas_id
@@ -239,7 +304,10 @@ class ReportPanel(APIView):
 
             return Response(context, content_type='html')
         else:
-            return HttpResponse(f'Sorry, {user} is not allowed to view this content.')
+            return Response(
+                            {"not_found": True, "message": f'Sorry, {user} is not allowed to view this content.'},
+                            template_name='report_not_found.html',
+                        )
 
 class PluginView(APIView):
     permission_classes = [permissions.IsAuthenticated]

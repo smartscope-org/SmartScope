@@ -71,8 +71,14 @@ class HighMagModel(Target, ExtraPropertyMixin):
         self.hole_id = parent
     # endaliases
     
-    def svg(self, *args, **kwargs):
-        return drawHighMag(self)
+    def svg(self, href=None, *args, **kwargs):
+        return drawHighMag(self, href=href)
+
+    def image_url(self, kind='png'):
+        """URL the browser can fetch the image from, instead of embedding it as base64."""
+        if self.is_aws:
+            return self.png if kind == 'png' else self.ctf_img
+        return f'/api/{self.api_viewset_name}/{self.pk}/image/?kind={kind}'
     
     @property
     def power_spectrum(self):
