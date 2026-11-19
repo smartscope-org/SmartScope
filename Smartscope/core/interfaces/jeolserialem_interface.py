@@ -81,21 +81,20 @@ class JEOLSerialemInterface(SerialemInterface):
     def set_atlas_optics(self):
         if self.state.current_mag == 'atlas':
             return
+        self.logger.info(f'Switching to Atlas optics state')
         sem.SetLowDoseMode(1)
         sem.GoToLowDoseArea('R')
         sem.Delay(3, 's')
-        #sem.SetLowDoseMode(0) #add by FM
-        #Need a round of square mag cycling here
-        sem.Delay(3, 's') #add byf FM
-        sem.GoToLowDoseArea('S')  #add by FM
-        sem.SetLowDoseMode(0) #add by FM
-        sem.Delay(3, 's') #add by FM
+        if self.state.current_mag == 'square': # Rado for lens relaxation
+            sem.Delay(10, 's')
+        sem.SetLowDoseMode(0)
         sem.SetMag(self.atlas_settings.mag)
-        # sem.Delay(3, 's')
+        sem.Delay(13, 's') # Rado - need 13 s for lens relaxation
         sem.SetSlitIn(0)
         sem.SetSpotSize(self.atlas_settings.spotSize)
         sem.SetPercentC2(self.atlas_settings.c2)
         sem.PluginString("JEOL", "SetStdFocus", "")
+
         self.load_lens_data(self.microscope.atlas_lens_file) ##Need to set this up
         sem.ResetDefocus()
         self.state.current_mag = 'atlas'
@@ -103,34 +102,54 @@ class JEOLSerialemInterface(SerialemInterface):
     def set_square_mag_optics(self):
         if self.state.current_mag == 'square':
             return
-        sem.SetLowDoseMode(0)
-        sem.SetMag(self.atlas_settings.mag)
-        sem.Delay(3, 's')
+        self.logger.info(f'Switching to Square optics state')
         sem.SetLowDoseMode(1)
         sem.GoToLowDoseArea('R')
         sem.Delay(3, 's')
+        if self.state.current_mag == 'atlas': # Rado for lens relaxation
+            sem.Delay(10, 's')
         sem.GoToLowDoseArea('S')
-        sem.PluginString("JEOL", "SetHexOM", "0000") #FOR ON-free Low Mag
-        # sem.ResetDefocus()
-        sem.PluginString("JEOL", "SetStdFocus")
-        sem.Delay(3, 's')
+        sem.Delay(13, 's') # Rado for lens relaxation
+        sem.PluginString("JEOL", "SetHexOM", "0000") #FOR OM-free Low Mag
+        sem.PluginString("JEOL", "SetStdFocus", "")
+
         self.load_lens_data(self.microscope.square_lens_file)
-        super().set_square_mag_optics()
+        sem.ResetDefocus()
+        self.state.current_mag = 'square' # Rado
     
     def set_medium_mag_optics(self):
         if self.state.current_mag == 'medium_mag':
             return
+        self.logger.info(f'Switching to Medium Mag optics state')        
+        if self.state.current_mag == 'atlas' or self.state.current_mag == 'square': # Rado
+            sem.SetLowDoseMode(1)
+            sem.GoToLowDoseArea('R')
+            sem.Delay(13, 's')
+        sem.SetEucentricFocus()
+        sem.ResetDefocus()
+        sem.GoToLowDoseArea('V')
+        sem.Delay(3, 's')
+
+        self.load_lens_data(self.microscope.medium_mag_lens_file)
+        self.state.current_mag = 'medium_mag' # Rado
+
+
+    def set_high_mag_optics(self):
+        if self.state.current_mag == 'high_mag':
+            return
+        self.logger.info(f'Switching to High Mag optics state')        
+
         sem.SetLowDoseMode(1)
         sem.GoToLowDoseArea('R')
-        sem.SetEucentricFocus()
-        self.load_lens_data(self.microscope.high_mag_lens_file) #add by FM
-        super().set_medium_mag_optics()
-        
-    def set_high_mag_optics(self):
-        super().set_high_mag_optics()
+        sem.Delay(3, 's')
+        if self.state.current_mag == 'atlas' or self.state.current_mag == 'square': # Rado
+            sem.Delay(10, 's')
+
         self.load_lens_data(self.microscope.high_mag_lens_file)
         sem.SetEucentricFocus()
         sem.ResetDefocus()
+        self.state.current_mag = 'high_mag'
+
     
     def setup_apertures(self):
         self.apertures = self._apertures_setter()
