@@ -322,8 +322,8 @@ def run_grid(
     else:
         update(grid, status=GridStatus.COMPLETED)
         logger.info('Grid finished')
-        scope.unload_grid()
-        update(grid, unloading_time=timezone.now())
+        #scope.unload_grid() # Rado - for testing, do not unload the grid after finishing it
+        #update(grid, unloading_time=timezone.now()) # Rado
         return 'finished'
 
 # class TargetPriority(Enum):

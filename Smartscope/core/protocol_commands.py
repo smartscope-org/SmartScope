@@ -302,7 +302,7 @@ def alignToHoleNoTemplate(scope,params,instance, content:Dict, *args, **kwargs):
     while iteration < 2:
         scope.acquire_medium_mag()
         pixel_size = scope.get_image_settings()
-        image, _, _, _, _, pixel_size = scope.buffer_to_numpy()
+        image, _, _, binning, _, pixel_size = scope.buffer_to_numpy() # Rado
         print(f'Pixel size is {pixel_size:.3f}')
         montage = BaseImage('recentering')
         montage.image = image
@@ -318,7 +318,7 @@ def alignToHoleNoTemplate(scope,params,instance, content:Dict, *args, **kwargs):
             break
         iteration += 1
         print(f'Aligning to hole and retrying.')
-        scope.align_to_coord(coords_from_center[closest_index])
+        scope.align_to_coord(binning*coords_from_center[closest_index]) # Rado multiply the coordinates by the binning
 
 def findHoleGeometry(scope,params,instance, content:Dict, *args, **kwargs):
     from Smartscope.core.grid.finders import find_targets

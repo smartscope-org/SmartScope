@@ -284,9 +284,11 @@ class SerialemInterface(MicroscopeInterface):
         
 
     def square(self, file=''):
-        # self.set_square_mag_optics()
+        self.set_square_mag_optics() # Rado
         self.checkDewars()
         self.checkPump()
+        sem.Search() # Rado - to prevent image blur - the first image is always blurred for some reason
+        sem.Delay(2, 's') # Rado
         sem.Search()
         self.save_image(file)
         self.logger.info('Square acquisition finished')
@@ -334,12 +336,12 @@ class SerialemInterface(MicroscopeInterface):
     def find_square_center_microns(self):
         sem.Search()
         sem.Delay(0.2, 's')
-        square, shape_x, shape_y, _, _, _ = self.buffer_to_numpy()
+        square, shape_x, shape_y, binning, _, _ = self.buffer_to_numpy() # Rado
         _, square_center, _ = find_square(square)
         im_center = (square.shape[1] // 2, square.shape[0] // 2)
         diff = square_center - np.array(im_center)
         self.logger.info(f'Found square center: {square_center}. Image-shifting by {diff} pixels')
-        sem.ImageShiftByPixels(int(diff[0]), -int(diff[1]))
+        sem.ImageShiftByPixels(int(binning*diff[0]), -int(binning*diff[1])) # Rado - ImageShiftByPixels shifts in unbinned pixels!
         shift = sem.ReportImageShift()[-2:]
         return shift
 
@@ -350,12 +352,12 @@ class SerialemInterface(MicroscopeInterface):
             self.logger.info('Running square realignment')
             sem.Search()
             sem.Delay(0.2, 's')
-            square, shape_x, shape_y, _, _, _ = self.buffer_to_numpy()
+            square, shape_x, shape_y, binning, _, _ = self.buffer_to_numpy() # Rado
             _, square_center, _ = find_square(square)
             im_center = (square.shape[1] // 2, square.shape[0] // 2)
             diff = square_center - np.array(im_center)
             self.logger.info(f'Found square center: {square_center}. Image-shifting by {diff} pixels')
-            sem.ImageShiftByPixels(int(diff[0]), -int(diff[1]))
+            sem.ImageShiftByPixels(int(binning*diff[0]), -int(binning*diff[1])) # Rado - ImageShiftByPixels shifts in unbinned pixels!
             sem.ResetImageShift()
             if max(diff) < max(square.shape) // 4:
                 self.logger.info('Done.')
@@ -406,12 +408,12 @@ class SerialemInterface(MicroscopeInterface):
         while True:
             sem.View()
             self.logger.info('Running square realignment')
-            square, shape_x, shape_y, _, _, _ = self.buffer_to_numpy()
+            square, shape_x, shape_y, binning, _, _ = self.buffer_to_numpy() # Rado
             _, square_center, _ = find_square(square)
             im_center = (square.shape[1] // 2, square.shape[0] // 2)
             diff = (square_center - np.array(im_center))*2
             self.logger.info(f'Found square center: {square_center}. Image-shifting by {diff} pixels')
-            sem.ImageShiftByPixels(int(diff[0]), -int(diff[1]))
+            sem.ImageShiftByPixels(int(binning*diff[0]), -int(binning*diff[1])) #  Rado - ImageShiftByPixels shifts in unbinned pixels!
             sem.ResetImageShift()
             shift_lenght_in_pixels = np.linalg.norm(diff)
             max_image_size = np.max(square.shape)
@@ -436,7 +438,7 @@ class SerialemInterface(MicroscopeInterface):
         return sem.ReportAlignShift()
     
     def align_to_coord(self, coord):
-        sem.ImageShiftByPixels(coord[0], -coord[1])
+        sem.ImageShiftByPixels(coord[0], -coord[1])  # Rado - the binning has to be multiplied in protocol_commands.py
         sem.ResetImageShift()
         return sem.ReportStageXYZ()
     
